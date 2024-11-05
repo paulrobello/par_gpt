@@ -97,7 +97,7 @@ def main(
     ai_provider: Annotated[
         LlmProvider,
         typer.Option("--ai-provider", "-a", help="AI provider to use for processing"),
-    ] = LlmProvider(os.environ.get("PARGPT_AI_PROVIDER", LlmProvider.GITHUB.value)),
+    ] = LlmProvider(os.environ.get(f"{ENV_VAR_PREFIX}_AI_PROVIDER", LlmProvider.GITHUB.value)),
     model: Annotated[
         str | None,
         typer.Option(
@@ -105,7 +105,7 @@ def main(
             "-m",
             help="AI model to use for processing. If not specified, a default model will be used.",
         ),
-    ] = os.environ.get("PARGPT_MODEL"),
+    ] = os.environ.get(f"{ENV_VAR_PREFIX}_MODEL"),
     light_model: Annotated[
         bool,
         typer.Option(
@@ -113,7 +113,7 @@ def main(
             "-l",
             help="Use a light model for processing. If not specified, a default model will be used.",
         ),
-    ] = bool(os.environ.get("PARGPT_LIGHT_MODEL", False)),
+    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_LIGHT_MODEL", False)),
     ai_base_url: Annotated[
         str | None,
         typer.Option(
@@ -121,7 +121,7 @@ def main(
             "-b",
             help="Override the base URL for the AI provider.",
         ),
-    ] = os.environ.get("PARGPT_AI_BASE_URL"),
+    ] = os.environ.get(f"{ENV_VAR_PREFIX}_AI_BASE_URL"),
     temperature: Annotated[
         float,
         typer.Option(
@@ -129,7 +129,7 @@ def main(
             "-t",
             help="Temperature to use for processing. If not specified, a default temperature will be used.",
         ),
-    ] = float(os.environ.get("PARGPT_TEMPERATURE", 0.5)),
+    ] = float(os.environ.get(f"{ENV_VAR_PREFIX}_TEMPERATURE", 0.5)),
     pricing: Annotated[
         bool,
         typer.Option("--pricing", "-p", help="Enable pricing summary display"),
@@ -181,7 +181,7 @@ def main(
             "-g",
             help="Enable agent mode.",
         ),
-    ] = bool(os.environ.get("PARGPT_AGENT_MODE", False)),
+    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_AGENT_MODE", False)),
     max_iterations: Annotated[
         int,
         typer.Option(
@@ -189,7 +189,7 @@ def main(
             "-i",
             help="Maximum number of iterations to run when in agent mode.",
         ),
-    ] = int(os.environ.get("PARGPT_MAX_ITERATIONS", 5)),
+    ] = int(os.environ.get(f"{ENV_VAR_PREFIX}_MAX_ITERATIONS", 5)),
     debug: Annotated[
         bool,
         typer.Option(
@@ -203,7 +203,7 @@ def main(
             "--show-config",
             help="Show config",
         ),
-    ] = bool(os.environ.get("PARGPT_SHOW_CONFIG", False)),
+    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_SHOW_CONFIG", False)),
     yes_to_all: Annotated[
         bool,
         typer.Option(
@@ -211,7 +211,7 @@ def main(
             "-y",
             help="Yes to all prompts",
         ),
-    ] = bool(os.environ.get("PARGPT_YES_TO_ALL", False)),
+    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_YES_TO_ALL", False)),
     version: Annotated[
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
