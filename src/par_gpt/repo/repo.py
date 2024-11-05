@@ -69,7 +69,7 @@ class GitRepo:
         subtree_only: bool = False,
         llm_config: LlmConfig | None = None,
     ):
-        self.io = console or Console(stderr=True)
+        self.console = console or Console(stderr=True)
 
         self.normalized_path = {}
         self.tree_files = {}
@@ -112,7 +112,7 @@ class GitRepo:
         if num_repos == 0:
             raise FileNotFoundError
         if num_repos > 1:
-            self.io.print("[bold red]Files are in different git repos.")
+            self.console.print("[bold red]Files are in different git repos.")
             raise FileNotFoundError
 
         self.repo = git.Repo(repo_paths.pop(), odbt=git.GitCmdObjectDB)
@@ -154,7 +154,7 @@ class GitRepo:
                 try:
                     self.repo.git.add(fname)
                 except ANY_GIT_ERROR as err:
-                    self.io.print(f"[bold red]Unable to add {fname}: {err}")
+                    self.console.print(f"[bold red]Unable to add {fname}: {err}")
             cmd += ["--"] + fnames
         else:
             cmd += ["-a"]
@@ -175,10 +175,10 @@ class GitRepo:
         try:
             self.repo.git.commit(cmd)
             commit_hash = self.get_head_commit_sha(short=True)
-            self.io.print(f"[bold]Commit {commit_hash} {commit_message}")
+            self.console.print(f"[bold]Commit {commit_hash} {commit_message}")
             return commit_hash, commit_message
         except ANY_GIT_ERROR as err:
-            self.io.print(f"[bold red]Unable to commit: {err}")
+            self.console.print(f"[bold red]Unable to commit: {err}")
         finally:
             # Restore the env
 
@@ -202,7 +202,7 @@ class GitRepo:
 
     def get_commit_message(self, diffs: str | None, context: str | None = None) -> str:
         if not diffs:
-            self.io.print("[bold yellow]Nothing to commit!")
+            self.console.print("[bold yellow]Nothing to commit!")
             return ""
 
         diffs = "# Diffs:\n" + diffs
@@ -225,7 +225,7 @@ class GitRepo:
             commit_message = ""
 
         if not commit_message:
-            self.io.print("[bold red]Failed to generate commit message!")
+            self.console.print("[bold red]Failed to generate commit message!")
             return commit_message
 
         commit_message = commit_message.strip()
@@ -298,7 +298,7 @@ class GitRepo:
 
             return diffs
         except ANY_GIT_ERROR as err:
-            self.io.print(f"[bold red]Unable to diff: {err}")
+            self.console.print(f"[bold red]Unable to diff: {err}")
 
     def diff_commits(self, pretty: bool, from_commit: str, to_commit: str) -> list[str]:
         args = []
@@ -322,8 +322,8 @@ class GitRepo:
             commit = None
         except ANY_GIT_ERROR as err:
             self.git_repo_error = err
-            self.io.print(f"[bold red]Unable to list files in git repo: {err}")
-            self.io.print("Is your git repo corrupted?")
+            self.console.print(f"[bold red]Unable to list files in git repo: {err}")
+            self.console.print("Is your git repo corrupted?")
             return []
 
         files = set()
@@ -337,8 +337,8 @@ class GitRepo:
                             files.add(blob.path)
                 except ANY_GIT_ERROR as err:
                     self.git_repo_error = err
-                    self.io.print(f"[bold red]Unable to list files in git repo: {err}")
-                    self.io.print("Is your git repo corrupted?")
+                    self.console.print(f"[bold red]Unable to list files in git repo: {err}")
+                    self.console.print("Is your git repo corrupted?")
                     return []
                 files = set(self.normalize_path(path) for path in files)
                 self.tree_files[commit] = set(files)

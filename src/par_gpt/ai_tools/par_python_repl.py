@@ -1,4 +1,4 @@
-"""Python REPL tool."""
+"""Python REPL tool. Adapted from Langchain."""
 
 import ast
 import re
@@ -14,6 +14,12 @@ from langchain.callbacks.manager import (
     CallbackManagerForToolRun,
 )
 from langchain_core.runnables.config import run_in_executor
+from rich.console import Console
+from rich.prompt import Prompt
+
+
+class AbortedByUserError(Exception):
+    """Raised when user aborts."""
 
 
 def sanitize_input(query: str) -> str:
@@ -55,8 +61,9 @@ class ParPythonAstREPLTool(BaseTool):
     globals: dict | None = Field(default_factory=dict)
     locals: dict | None = Field(default_factory=dict)
     sanitize_input: bool = True
-    args_schema: type[BaseModel] = PythonInputs
     prompt_before_exec: bool = True
+    console: Console | None = None
+    args_schema: type[BaseModel] = PythonInputs
 
     def _run(
         self,
@@ -64,14 +71,19 @@ class ParPythonAstREPLTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Use the tool."""
+        if not self.console:
+            self.console = Console(stderr=True)
         try:
             if self.sanitize_input:
                 query = sanitize_input(query)
             if self.prompt_before_exec:
-                print(f"Execute>>>\n{query}\n<<<[Y/n] ?", end="")
-                ans = input()
+                ans = Prompt.ask(
+                    f"Execute>>>\n[yellow]{query}[/yellow]\n<<<[[green]Y[/green]/[red]n[/red]] ? ",
+                    default="y",
+                    console=self.console,
+                )
                 if ans.lower() not in ["y", "yes", ""]:
-                    return "Aborted by user. DO NOT CONTINUE."
+                    raise (AbortedByUserError("Tool aborted by user."))
             tree = ast.parse(query)
             module = ast.Module(tree.body[:-1], type_ignores=[])
             exec(ast.unparse(module), self.globals, self.locals)  # type: ignore
