@@ -34,7 +34,7 @@ class ParAICallbackHandler(BaseCallbackHandler):
         self.show_end = show_end
 
     def __repr__(self) -> str:
-        return (self.usage_metadata).__repr__()
+        return self.usage_metadata.__repr__()
 
     @property
     def always_verbose(self) -> bool:
