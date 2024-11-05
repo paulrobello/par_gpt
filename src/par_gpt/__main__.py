@@ -68,6 +68,8 @@ from . import __application_title__, __version__, __application_binary__
 app = typer.Typer()
 console = Console(stderr=True)
 
+ENV_VAR_PREFIX = "PARGPT"
+
 load_dotenv()
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
 
