@@ -202,6 +202,14 @@ def main(
             help="Show config",
         ),
     ] = False,
+    yes_to_all: Annotated[
+        bool,
+        typer.Option(
+            "--yes-to-all",
+            "-y",
+            help="Yes to all prompts",
+        ),
+    ] = False,
     version: Annotated[
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
@@ -381,7 +389,7 @@ def main(
                     ai_fetch_url,
                     git_commit_tool,
                     ai_display_image_in_terminal,
-                    ParPythonAstREPLTool(locals=local_modules),
+                    ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, locals=local_modules),
                 ]  # type: ignore
 
                 # use TavilySearchResults if API key is set with fallback to google search if its key is set

@@ -13,7 +13,7 @@ from rich.console import Console
 from rich.repr import rich_repr
 
 
-from par_gpt.lib.user_agents import get_random_user_agent
+from .user_agents import get_random_user_agent
 
 console = Console(stderr=True)
 

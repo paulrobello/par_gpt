@@ -12,7 +12,7 @@ customizable output formats.
 * Shows pricing info when requested
 * Support for multiple AI providers (OpenAI, Anthropic, Groq, Google, Ollama, Bedrock)
 * Support for custom output formats Markdown, CSV, etc.
-* Support for custom context sources stdin, file, or web search
+* Support for custom context sources stdin, file, url, and web search
 
 ## Technology
 
@@ -83,8 +83,9 @@ par_gpt [OPTIONS]
 --user-prompt         -u      TEXT                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
 --agent-mode          -g                                                            Enable agent mode.
 --max-iterations      -i      INTEGER                                               Maximum number of iterations to run when in agent mode. [default: 5]
---debug                                                                             Enable debug mode 
---show-config                                                                       Show config
+--debug                                                                             Enable debug mode [default: False]
+--show-config                                                                       Show config [default: False]
+--yes-to-all          -y                                                            Yes to all prompts [default: False]
 --version             -v                                                                                                                                                                                                    │
 --help                                                                              Show this message and exit.
 ```
@@ -127,6 +128,9 @@ LANGCHAIN_PROJECT=par_gpt
 * GOOGLE_CSE_ID and GOOGLE_CSE_API_KEY are required for Google search.
 * WEATHERAPI_KEY is required for weather. Get a free key from https://www.weatherapi.com/
 
+## Agent mode
+NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to write and execute code on your system.  
+If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
 
 ## Example Usage
 
@@ -188,7 +192,10 @@ par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-
 ```
 
 ## What's New
-
+- Version 0.2.0:
+    - Added confirmation prompt for agent mode REPL tool
+    - Added yes-to-all flag to skip confirmation prompts
+    - Updated pricing data
 - Version 0.1.0:
     - Initial release
 

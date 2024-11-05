@@ -14,8 +14,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from par_gpt.lib.llm_config import LlmConfig
-from par_gpt.lib.pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cost, show_llm_cost
+from .llm_config import LlmConfig
+from .pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cost, show_llm_cost
 
 console = Console(stderr=True)
 
