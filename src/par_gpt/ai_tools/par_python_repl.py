@@ -62,6 +62,7 @@ class ParPythonAstREPLTool(BaseTool):
     locals: dict | None = Field(default_factory=dict)
     sanitize_input: bool = True
     prompt_before_exec: bool = True
+    show_exec_code: bool = False
     console: Console | None = None
     args_schema: type[BaseModel] = PythonInputs
 
@@ -84,6 +85,9 @@ class ParPythonAstREPLTool(BaseTool):
                 )
                 if ans.lower() not in ["y", "yes", ""]:
                     raise (AbortedByUserError("Tool aborted by user."))
+            elif self.show_exec_code:
+                self.console.print(f"Executing>>>\n[yellow]{query}[/yellow]\n")
+
             tree = ast.parse(query)
             module = ast.Module(tree.body[:-1], type_ignores=[])
             exec(ast.unparse(module), self.globals, self.locals)  # type: ignore

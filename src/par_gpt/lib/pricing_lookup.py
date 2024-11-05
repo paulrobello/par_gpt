@@ -1,5 +1,7 @@
 """Pricing lookup table."""
 
+from enum import StrEnum
+
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.console import Console
@@ -7,8 +9,12 @@ from rich.console import Console
 from .llm_config import LlmConfig
 from .llm_providers import LlmProvider
 
-# Initialize rich console
-console = Console(stderr=True)
+
+class PricingDisplay(StrEnum):
+    NONE = "none"
+    PRICE = "price"
+    DETAILS = "details"
+
 
 pricing_lookup = {
     "chatgpt-4o-latest": {
@@ -227,15 +233,26 @@ def accumulate_cost(response: object | dict, usage_metadata: dict[str, int | flo
                 usage_metadata["reasoning"] += value.get("reasoning", 0)
 
 
-def show_llm_cost(llm_config: LlmConfig, usage_metadata: dict[str, int | float], io: Console | None = None) -> None:
+def show_llm_cost(
+    llm_config: LlmConfig,
+    usage_metadata: dict[str, int | float],
+    *,
+    show_pricing: PricingDisplay = PricingDisplay.PRICE,
+    console: Console | None = None,
+) -> None:
     """Show LLM cost"""
-    if not io:
-        io = console
+    if show_pricing == PricingDisplay.NONE:
+        return
+    if not console:
+        console = Console(stderr=True)
     cost = get_api_call_cost(llm_config, usage_metadata)
-    io.print(
-        Panel.fit(
-            Pretty(usage_metadata),
-            title=f"Cost ${cost:.4f}",
-            border_style="bold",
+    if show_pricing == PricingDisplay.DETAILS:
+        console.print(
+            Panel.fit(
+                Pretty(usage_metadata),
+                title=f"Cost ${cost:.4f}",
+                border_style="bold",
+            )
         )
-    )
+    else:
+        console.print(f"Cost ${cost:.4f}")

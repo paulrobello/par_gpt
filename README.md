@@ -86,6 +86,7 @@ par_gpt [OPTIONS]
 --debug                                                                             Enable debug mode [default: False]
 --show-config                                                                       Show config [default: False]
 --yes-to-all          -y                                                            Yes to all prompts [default: False]
+--no-repl                                                                           Disable use of REPL tool. [default: False]
 --version             -v                                                                                                                                                                                                    │
 --help                                                                              Show this message and exit.
 ```
@@ -125,6 +126,7 @@ PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
 PARGPT_YES_TO_ALL=false
 PARGPT_AGENT_MODE=false
+PARGPT_NO_REPL=false
 PARGPT_MAX_ITERATIONS=5
 PARGPT_YES_TO_ALL=false
 ```

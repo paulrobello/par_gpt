@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 
 from .llm_config import LlmConfig
-from .pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cost, show_llm_cost
+from .pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cost, show_llm_cost, PricingDisplay
 
 console = Console(stderr=True)
 
@@ -97,7 +97,11 @@ register_configure_hook(parai_callback_var, True)
 
 @contextmanager
 def get_parai_callback(
-    llm_config: LlmConfig, *, show_prompts: bool = False, show_end: bool = False, show_pricing: bool = False
+    llm_config: LlmConfig,
+    *,
+    show_prompts: bool = False,
+    show_end: bool = False,
+    show_pricing: PricingDisplay = PricingDisplay.NONE,
 ) -> Generator[ParAICallbackHandler, None, None]:
     """Get the llm callback handler in a context manager.
     which exposes token and cost information.
@@ -112,6 +116,5 @@ def get_parai_callback(
     cb = ParAICallbackHandler(llm_config, show_prompts=show_prompts, show_end=show_end)
     parai_callback_var.set(cb)
     yield cb
-    if show_pricing:
-        show_llm_cost(llm_config, cb.usage_metadata)
+    show_llm_cost(llm_config, cb.usage_metadata, show_pricing=show_pricing)
     parai_callback_var.set(None)

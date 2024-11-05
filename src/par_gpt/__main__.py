@@ -56,7 +56,7 @@ from .repo.repo import GitRepo
 from .lib.output_utils import DisplayOutputFormat, display_formatted_output, get_output_format_prompt
 from .lib.utils import has_stdin_content
 from .lib.llm_config import LlmConfig, LlmMode
-from .lib.pricing_lookup import show_llm_cost
+from .lib.pricing_lookup import show_llm_cost, PricingDisplay
 from .lib.llm_providers import (
     LlmProvider,
     provider_env_key_names,
@@ -137,9 +137,9 @@ def main(
         ),
     ] = 0.5,
     pricing: Annotated[
-        bool,
+        PricingDisplay,
         typer.Option("--pricing", "-p", envvar=f"{ENV_VAR_PREFIX}_PRICING", help="Enable pricing summary display"),
-    ] = False,
+    ] = PricingDisplay.NONE,
     display_format: Annotated[
         DisplayOutputFormat,
         typer.Option(
@@ -221,6 +221,14 @@ def main(
             "-y",
             envvar=f"{ENV_VAR_PREFIX}_YES_TO_ALL",
             help="Yes to all prompts",
+        ),
+    ] = False,
+    no_repl: Annotated[
+        bool,
+        typer.Option(
+            "--no-repl",
+            envvar=f"{ENV_VAR_PREFIX}_NO_REPL",
+            help="Disable REPL tool",
         ),
     ] = False,
     version: Annotated[
@@ -402,8 +410,13 @@ def main(
                     ai_fetch_url,
                     git_commit_tool,
                     ai_display_image_in_terminal,
-                    ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, locals=local_modules),
                 ]  # type: ignore
+                if not no_repl:
+                    ai_tools.append(
+                        ParPythonAstREPLTool(
+                            prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules
+                        ),
+                    )
 
                 # use TavilySearchResults if API key is set with fallback to google search if its key is set
                 if os.environ.get("TAVILY_API_KEY"):
@@ -465,9 +478,7 @@ def main(
         if debug:
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
-        if pricing:
-            show_llm_cost(llm_config, usage_metadata)
-        # console.print(Pretty(cb))
+        show_llm_cost(llm_config, usage_metadata, console=console, show_pricing=pricing)
 
         display_formatted_output(content, display_format, out_console=console)
 
