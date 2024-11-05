@@ -115,6 +115,18 @@ LANGCHAIN_TRACING_V2=false
 LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
 LANGCHAIN_API_KEY=
 LANGCHAIN_PROJECT=par_gpt
+
+# Application Options
+PARGPT_AI_PROVIDER=OpenAI
+PARGPT_MODEL=# if blank, strong model default will be used
+PARGPT_PRICING=true
+PARGPT_DISPLAY_OUTPUT=md
+PARGPT_DEBUG=false
+PARGPT_SHOW_CONFIG=false
+PARGPT_YES_TO_ALL=false
+PARGPT_AGENT_MODE=false
+PARGPT_MAX_ITERATIONS=5
+PARGPT_YES_TO_ALL=false
 ```
 
 * GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/

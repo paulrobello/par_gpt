@@ -96,49 +96,56 @@ def version_callback(value: bool) -> None:
 def main(
     ai_provider: Annotated[
         LlmProvider,
-        typer.Option("--ai-provider", "-a", help="AI provider to use for processing"),
-    ] = LlmProvider(os.environ.get(f"{ENV_VAR_PREFIX}_AI_PROVIDER", LlmProvider.GITHUB.value)),
+        typer.Option(
+            "--ai-provider", "-a", envvar=f"{ENV_VAR_PREFIX}_AI_PROVIDER", help="AI provider to use for processing"
+        ),
+    ] = LlmProvider.GITHUB,
     model: Annotated[
         str | None,
         typer.Option(
             "--model",
             "-m",
+            envvar=f"{ENV_VAR_PREFIX}_MODEL",
             help="AI model to use for processing. If not specified, a default model will be used.",
         ),
-    ] = os.environ.get(f"{ENV_VAR_PREFIX}_MODEL"),
+    ] = None,
     light_model: Annotated[
         bool,
         typer.Option(
             "--light-model",
             "-l",
+            envvar=f"{ENV_VAR_PREFIX}_LIGHT_MODEL",
             help="Use a light model for processing. If not specified, a default model will be used.",
         ),
-    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_LIGHT_MODEL", False)),
+    ] = False,
     ai_base_url: Annotated[
         str | None,
         typer.Option(
             "--ai-base-url",
             "-b",
+            envvar=f"{ENV_VAR_PREFIX}_AI_BASE_URL",
             help="Override the base URL for the AI provider.",
         ),
-    ] = os.environ.get(f"{ENV_VAR_PREFIX}_AI_BASE_URL"),
+    ] = None,
     temperature: Annotated[
         float,
         typer.Option(
             "--temperature",
             "-t",
+            envvar=f"{ENV_VAR_PREFIX}_TEMPERATURE",
             help="Temperature to use for processing. If not specified, a default temperature will be used.",
         ),
-    ] = float(os.environ.get(f"{ENV_VAR_PREFIX}_TEMPERATURE", 0.5)),
+    ] = 0.5,
     pricing: Annotated[
         bool,
-        typer.Option("--pricing", "-p", help="Enable pricing summary display"),
+        typer.Option("--pricing", "-p", envvar=f"{ENV_VAR_PREFIX}_PRICING", help="Enable pricing summary display"),
     ] = False,
     display_format: Annotated[
         DisplayOutputFormat,
         typer.Option(
             "--display-output",
             "-d",
+            envvar=f"{ENV_VAR_PREFIX}_DISPLAY_OUTPUT",
             help="Display output in terminal (none, plain, md, csv, or json)",
         ),
     ] = DisplayOutputFormat.MD,
@@ -179,17 +186,19 @@ def main(
         typer.Option(
             "--agent-mode",
             "-g",
+            envvar=f"{ENV_VAR_PREFIX}_AGENT_MODE",
             help="Enable agent mode.",
         ),
-    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_AGENT_MODE", False)),
+    ] = False,
     max_iterations: Annotated[
         int,
         typer.Option(
             "--max-iterations",
             "-i",
+            envvar=f"{ENV_VAR_PREFIX}_MAX_ITERATIONS",
             help="Maximum number of iterations to run when in agent mode.",
         ),
-    ] = int(os.environ.get(f"{ENV_VAR_PREFIX}_MAX_ITERATIONS", 5)),
+    ] = 5,
     debug: Annotated[
         bool,
         typer.Option(
@@ -201,17 +210,19 @@ def main(
         bool,
         typer.Option(
             "--show-config",
+            envvar=f"{ENV_VAR_PREFIX}_SHOW_CONFIG",
             help="Show config",
         ),
-    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_SHOW_CONFIG", False)),
+    ] = False,
     yes_to_all: Annotated[
         bool,
         typer.Option(
             "--yes-to-all",
             "-y",
+            envvar=f"{ENV_VAR_PREFIX}_YES_TO_ALL",
             help="Yes to all prompts",
         ),
-    ] = bool(os.environ.get(f"{ENV_VAR_PREFIX}_YES_TO_ALL", False)),
+    ] = False,
     version: Annotated[
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
