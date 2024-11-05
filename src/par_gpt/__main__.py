@@ -201,7 +201,7 @@ def main(
             "--show-config",
             help="Show config",
         ),
-    ] = False,
+    ] = bool(os.environ.get("PARGPT_SHOW_CONFIG", False)),
     yes_to_all: Annotated[
         bool,
         typer.Option(
@@ -209,7 +209,7 @@ def main(
             "-y",
             help="Yes to all prompts",
         ),
-    ] = False,
+    ] = bool(os.environ.get("PARGPT_YES_TO_ALL", False)),
     version: Annotated[
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
