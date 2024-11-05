@@ -18,7 +18,6 @@ from typing import Annotated, Any
 import typer
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from langchain_experimental.tools import PythonAstREPLTool
 from langchain_groq import ChatGroq
 
 from rich.console import Console
@@ -31,15 +30,16 @@ from rich.text import Text
 
 from langchain_community.tools.tavily_search import TavilySearchResults
 
-from par_gpt.lib.llm_image_utils import (
+from .ai_tools.par_python_repl import ParPythonAstREPLTool
+from .lib.llm_image_utils import (
     try_get_image_type,
     UnsupportedImageTypeError,
     image_to_base64,
     image_to_chat_message,
 )
-from par_gpt.lib.provider_cb_info import get_parai_callback
-from par_gpt.lib.web_tools import web_search, fetch_url_and_convert_to_markdown
-from par_gpt.utils import download_cache, show_image_in_terminal
+from .lib.provider_cb_info import get_parai_callback
+from .lib.web_tools import web_search, fetch_url_and_convert_to_markdown
+from .utils import download_cache, show_image_in_terminal
 from .agents import do_tool_agent
 
 
@@ -63,13 +63,13 @@ from .lib.llm_providers import (
     provider_default_models,
     provider_light_models,
 )
-from . import __application_title__, __version__
+from . import __application_title__, __version__, __application_binary__
 
 app = typer.Typer()
 console = Console(stderr=True)
 
 load_dotenv()
-load_dotenv(Path("~/.par_gpt.env").expanduser())
+load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
 
 
 # console.print(show_image_in_terminal("https://www.creativefabrica.com/wp-content/uploads/2021/03/31/weather-icon-illustration03-Graphics-10205167-1-1-580x375.jpg"))
@@ -224,11 +224,8 @@ def main(
             console.print("[bold red]Context source is file but no context file provided. Exiting...")
             raise typer.Exit(1)
 
-        if (
-            context_source == ContextSource.URL
-            and (not context_location
-            or not isinstance(context_location, str)
-            or not context_location.startswith("http"))
+        if context_source == ContextSource.URL and (
+            not context_location or not isinstance(context_location, str) or not context_location.startswith("http")
         ):
             console.print("[bold red]Context source is URL but no URL provided. Exiting...")
             raise typer.Exit(1)
@@ -384,7 +381,7 @@ def main(
                     ai_fetch_url,
                     git_commit_tool,
                     ai_display_image_in_terminal,
-                    PythonAstREPLTool(locals=local_modules),
+                    ParPythonAstREPLTool(locals=local_modules),
                 ]  # type: ignore
 
                 # use TavilySearchResults if API key is set with fallback to google search if its key is set
