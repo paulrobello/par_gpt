@@ -77,8 +77,7 @@ par_gpt [OPTIONS]
 --temperature         -t      FLOAT                                                 Temperature to use for processing. If not specified, a default temperature will be used. [default: 0.5]
 --pricing             -p                                                            Enable pricing summary display
 --display-output      -d      [none|plain|md|csv|json]                              Display output in terminal (none, plain, md, csv, or json) [default: md]
---context-source      -c      [none|stdin|file]                                     Source of context to use for processing. If not specified, a default context source will be used. [default: stdin]
---context-location    -f      TEXT                                                  Location of context to use for processing. Required if --context-source is set to 'file'. [default: None]
+--context-location    -f      TEXT                                                  Location of context to use for processing. [default: None]
 --system-prompt       -s      TEXT                                                  System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
 --user-prompt         -u      TEXT                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
 --agent-mode          -g                                                            Enable agent mode.
@@ -87,6 +86,8 @@ par_gpt [OPTIONS]
 --show-config                                                                       Show config [default: False]
 --yes-to-all          -y                                                            Yes to all prompts [default: False]
 --no-repl                                                                           Disable use of REPL tool. [default: False]
+--copy-to-clipboard                                                                 Copy output to clipboard
+--copy-from-clipboard                                                               Copy context or context location from clipboard
 --version             -v                                                                                                                                                                                                    │
 --help                                                                              Show this message and exit.
 ```
@@ -120,11 +121,10 @@ LANGCHAIN_PROJECT=par_gpt
 # Application Options
 PARGPT_AI_PROVIDER=OpenAI
 PARGPT_MODEL=# if blank, strong model default will be used
-PARGPT_PRICING=true
+PARGPT_PRICING=price
 PARGPT_DISPLAY_OUTPUT=md
 PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
-PARGPT_YES_TO_ALL=false
 PARGPT_AGENT_MODE=false
 PARGPT_NO_REPL=false
 PARGPT_MAX_ITERATIONS=5
@@ -196,7 +196,10 @@ par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" "t
 par_gpt --show-config --debug -p -a Github -m "gpt-4o" "tell me a joke"
 
 # Groq vision model
-par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -c file -f PATH_TO_IMAGE "describe this image"
+par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -f PATH_TO_IMAGE "describe this image"
+
+# get image from url and answer question
+par_gpt -f "https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg" "describe the image"
 
 # Get context from url and answer question about it. Note does not currently use RAG so can be token heavy
 par_gpt --pricing -c url -f 'https://console.groq.com/docs/vision' "what model ids support vision"
@@ -206,12 +209,16 @@ par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-
 ```
 
 ## What's New
+- Version 0.2.1:
+  - Removed --context-source cli option as it is now auto-detected
+  - When working with images and model is not specified a suitable vision model will be selected
+  - added options to copy context from clipboard and results to clipboard
 - Version 0.2.0:
-    - Added confirmation prompt for agent mode REPL tool
-    - Added yes-to-all flag to skip confirmation prompts
-    - Updated pricing data
+  - Added confirmation prompt for agent mode REPL tool
+  - Added yes-to-all flag to skip confirmation prompts
+  - Updated pricing data
 - Version 0.1.0:
-    - Initial release
+  - Initial release
 
 ## Contributing
 

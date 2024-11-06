@@ -1,4 +1,4 @@
-"""Python REPL tool. Adapted from Langchain."""
+"""Python REPL tool. Adapted from Langchain PythonAstREPLTool."""
 
 import ast
 import re
@@ -60,11 +60,18 @@ class ParPythonAstREPLTool(BaseTool):
     )
     globals: dict | None = Field(default_factory=dict)
     locals: dict | None = Field(default_factory=dict)
-    sanitize_input: bool = True
-    prompt_before_exec: bool = True
-    show_exec_code: bool = False
-    console: Console | None = None
     args_schema: type[BaseModel] = PythonInputs
+
+    sanitize_input: bool = True
+    """Sanitize input to the python REPL.
+        Remove whitespace, backtick & python (if llm mistakes python console as terminal)
+    """
+    prompt_before_exec: bool = True
+    """Prompt before executing."""
+    show_exec_code: bool = False
+    """Show code before executing."""
+    console: Console | None = None
+    """Rich console to use for output defaults to stderr."""
 
     def _run(
         self,

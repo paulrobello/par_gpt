@@ -15,6 +15,8 @@ from enum import StrEnum
 from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any
+
+import pyperclip
 import typer
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
@@ -45,12 +47,12 @@ from .agents import do_tool_agent
 
 from .ai_tools.ai_tools import (
     ai_fetch_url,
-    copy_to_clipboard,
     git_commit_tool,
     ai_open_url,
     ai_get_weather_current,
     ai_get_weather_forecast,
     ai_display_image_in_terminal,
+    ai_copy_to_clipboard,
 )
 from .repo.repo import GitRepo
 from .lib.output_utils import DisplayOutputFormat, display_formatted_output, get_output_format_prompt
@@ -62,6 +64,7 @@ from .lib.llm_providers import (
     provider_env_key_names,
     provider_default_models,
     provider_light_models,
+    provider_vision_models,
 )
 from . import __application_title__, __version__, __application_binary__
 
@@ -149,22 +152,14 @@ def main(
             help="Display output in terminal (none, plain, md, csv, or json)",
         ),
     ] = DisplayOutputFormat.MD,
-    context_source: Annotated[
-        ContextSource,
-        typer.Option(
-            "--context-source",
-            "-c",
-            help="Source of context to use for processing. If not specified, a default context source will be used.",
-        ),
-    ] = ContextSource.STDIN,
     context_location: Annotated[
-        str | None,
+        str,
         typer.Option(
             "--context-location",
             "-f",
-            help="Location of context to use for processing. Required if --context-source is set to 'file' or 'url'.",
+            help="Location of context to use for processing.",
         ),
-    ] = None,
+    ] = "",
     system_prompt: Annotated[
         str | None,
         typer.Option(
@@ -203,6 +198,7 @@ def main(
         bool,
         typer.Option(
             "--debug",
+            envvar=f"{ENV_VAR_PREFIX}_DEBUG",
             help="Enable debug mode",
         ),
     ] = False,
@@ -221,6 +217,20 @@ def main(
             "-y",
             envvar=f"{ENV_VAR_PREFIX}_YES_TO_ALL",
             help="Yes to all prompts",
+        ),
+    ] = False,
+    copy_to_clipboard: Annotated[
+        bool,
+        typer.Option(
+            "--copy-to-clipboard",
+            help="Copy output to clipboard",
+        ),
+    ] = False,
+    copy_from_clipboard: Annotated[
+        bool,
+        typer.Option(
+            "--copy-from-clipboard",
+            help="Copy context or context location from clipboard",
         ),
     ] = False,
     no_repl: Annotated[
@@ -248,53 +258,56 @@ def main(
             if not os.environ.get(key_name):
                 console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
                 raise typer.Exit(1)
-
-        if context_source == ContextSource.FILE and (not context_location or not Path(context_location).is_file()):
-            console.print("[bold red]Context source is file but no context file provided. Exiting...")
+        if copy_from_clipboard:
+            context_location = pyperclip.paste()
+        context_is_url: bool = context_location.startswith("http")
+        context_is_file: bool = not context_is_url and Path(context_location).is_file()
+        if context_location and not context_is_url and not context_is_file and not copy_from_clipboard:
+            console.print("[bold red]Context source not found. Exiting...")
             raise typer.Exit(1)
-
-        if context_source == ContextSource.URL and (
-            not context_location or not isinstance(context_location, str) or not context_location.startswith("http")
-        ):
-            console.print("[bold red]Context source is URL but no URL provided. Exiting...")
-            raise typer.Exit(1)
-
-        if not model:
-            if light_model:
-                model = provider_light_models[ai_provider]
-            else:
-                model = provider_default_models[ai_provider]
 
         context: str = ""
+        if copy_from_clipboard and not context_is_url and not context_is_file:
+            context = context_location
+            context_location = ""
+
         sio_all: StringIO = StringIO()
 
-        if context_source not in [ContextSource.NONE, ContextSource.FILE] and has_stdin_content():
+        if not context_location and not copy_from_clipboard and has_stdin_content():
             for line in sys.stdin:
                 sio_all.write(line)
 
             context = sio_all.getvalue().strip()
 
-        context_location = context_location or ""
         context_is_image = False
-        if context_source == ContextSource.URL:
-            try:
-                image_type = try_get_image_type(context_location)
-                image_path = download_cache.download(context_location)
-                context = image_to_base64(image_path.read_bytes(), image_type)
-                context_is_image = True
-                show_image_in_terminal(image_path)
-            except UnsupportedImageTypeError as _:
-                context = fetch_url_and_convert_to_markdown(str(context_location))[0].strip()
+        if context_location:
+            if context_is_url:
+                try:
+                    image_type = try_get_image_type(context_location)
+                    image_path = download_cache.download(context_location)
+                    context = image_to_base64(image_path.read_bytes(), image_type)
+                    context_is_image = True
+                    show_image_in_terminal(image_path)
+                except UnsupportedImageTypeError as _:
+                    context = fetch_url_and_convert_to_markdown(str(context_location))[0].strip()
+            else:
+                try:
+                    image_type = try_get_image_type(context_location)
+                    image_path = Path(context_location)
+                    context = image_to_base64(image_path.read_bytes(), image_type)
+                    context_is_image = True
+                    show_image_in_terminal(image_path)
+                except UnsupportedImageTypeError as _:
+                    context = Path(context_location).read_text().strip()
 
-        if context_source == ContextSource.FILE:
-            try:
-                image_type = try_get_image_type(context_location)
-                image_path = Path(context_location)
-                context = image_to_base64(image_path.read_bytes(), image_type)
-                context_is_image = True
-                show_image_in_terminal(image_path)
-            except UnsupportedImageTypeError as _:
-                context = Path(context_location).read_text().strip()
+        if not model:
+            if light_model:
+                model = provider_light_models[ai_provider]
+            else:
+                if context_is_image:
+                    model = provider_vision_models[ai_provider]
+                else:
+                    model = provider_default_models[ai_provider]
 
         if not user_prompt and len(unknown_args.args) > 0:
             user_prompt = unknown_args.args.pop(0)
@@ -360,9 +373,6 @@ def main(
                         "\n",
                         ("Display Format: ", "cyan"),
                         (f"{display_format or 'default'}", "green"),
-                        "\n",
-                        ("Context Source: ", "cyan"),
-                        (f"{context_source.value}", "green"),
                         "\n",
                         ("Context Location: ", "cyan"),
                         (f"{context_location or 'default'}", "green"),
@@ -441,7 +451,7 @@ def main(
                     ai_tools.append(web_search)  # type: ignore
 
                 if "clipboard" in question:
-                    ai_tools.append(copy_to_clipboard)
+                    ai_tools.append(ai_copy_to_clipboard)
 
                 if ("weather" in question or " wx " in question) and os.environ.get("WEATHERAPI_KEY"):
                     ai_tools.append(ai_get_weather_current)
@@ -474,6 +484,9 @@ def main(
 
         if not sys.stdout.isatty():
             print(content)
+
+        if copy_to_clipboard:
+            pyperclip.copy(content)
 
         if debug:
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))

@@ -44,7 +44,7 @@ def ai_web_search(query: str) -> list[GoogleSearchResult]:
 
 
 @tool(parse_docstring=True)
-def copy_to_clipboard(text: str) -> str:
+def ai_copy_to_clipboard(text: str) -> str:
     """Copies text to the clipboard.
 
     Args:
