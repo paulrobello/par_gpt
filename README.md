@@ -132,12 +132,13 @@ PARGPT_YES_TO_ALL=false
 ```
 
 * GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/
-* ANTHROPIC_API_KEY is required for Anthropic. Get a free key from https://console.anthropic.com/
-* OPENAI_API_KEY is required for OpenAI. Get a free key from https://platform.openai.com/account/api-keys
+* ANTHROPIC_API_KEY is required for Anthropic. Get a key from https://console.anthropic.com/
+* OPENAI_API_KEY is required for OpenAI. Get a key from https://platform.openai.com/account/api-keys
 * GITHUB_TOKEN is required for GitHub Models. Get a free key from https://github.com/marketplace/models
 * GOOGLE_API_KEY is required for Google Models. Get a free key from https://console.cloud.google.com
 * LANGCHAIN_API_KEY is required for Langchain Langsmith tracing. Get a free key from https://smith.langchain.com/settings
-* No key required to use with Ollama models
+* AWS_PROFILE is used for Bedrock authentication. The environment must already be authenticated with AWS.
+* No key required to use with Ollama models.
 * TAVILY_API_KEY is required for Tavily AI search. Get a free key from https://tavily.com/. Tavily is much better than google and is the recommended search provider.
 * GOOGLE_CSE_ID and GOOGLE_CSE_API_KEY are required for Google search.
 * WEATHERAPI_KEY is required for weather. Get a free key from https://www.weatherapi.com/
