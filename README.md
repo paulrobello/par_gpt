@@ -70,26 +70,27 @@ par_gpt [OPTIONS]
 ### CLI Options
 
 ```
---ai-provider         -a      [Ollama|OpenAI|Groq|Anthropic|Google|Bedrock|Github]  AI provider to use for processing [default: OpenAI]
---model               -m      TEXT                                                  AI model to use for processing. If not specified, a default model will be used. [default: None]
---light-model         -l                                                            Use a light model for processing. If not specified, a default model will be used.
---ai-base-url         -b      TEXT                                                  Override the base URL for the AI provider. [default: None]
---temperature         -t      FLOAT                                                 Temperature to use for processing. If not specified, a default temperature will be used. [default: 0.5]
---pricing             -p                                                            Enable pricing summary display
---display-output      -d      [none|plain|md|csv|json]                              Display output in terminal (none, plain, md, csv, or json) [default: md]
---context-location    -f      TEXT                                                  Location of context to use for processing. [default: None]
---system-prompt       -s      TEXT                                                  System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt         -u      TEXT                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---agent-mode          -g                                                            Enable agent mode.
---max-iterations      -i      INTEGER                                               Maximum number of iterations to run when in agent mode. [default: 5]
---debug                                                                             Enable debug mode [default: False]
---show-config                                                                       Show config [default: False]
---yes-to-all          -y                                                            Yes to all prompts [default: False]
---no-repl                                                                           Disable use of REPL tool. [default: False]
---copy-to-clipboard                                                                 Copy output to clipboard
---copy-from-clipboard                                                               Copy context or context location from clipboard
---version             -v                                                                                                                                                                                                    │
---help                                                                              Show this message and exit.
+--ai-provider          -a      [Ollama|OpenAI|Groq|Anthropic|Google|Bedrock|Github]  AI provider to use for processing [default: OpenAI]
+--model                -m      TEXT                                                  AI model to use for processing. If not specified, a default model will be used. [default: None]
+--light-model          -l                                                            Use a light model for processing. If not specified, a default model will be used.
+--ai-base-url          -b      TEXT                                                  Override the base URL for the AI provider. [default: None]
+--temperature          -t      FLOAT                                                 Temperature to use for processing. If not specified, a default temperature will be used. [default: 0.5]
+--user-agent-appid     -U      TEXT                                                  Extra data to include in the User-Agent header for the AI provider. [default: None]
+--pricing              -p                                                            Enable pricing summary display
+--display-output       -d      [none|plain|md|csv|json]                              Display output in terminal (none, plain, md, csv, or json) [default: md]
+--context-location     -f      TEXT                                                  Location of context to use for processing. [default: None]
+--system-prompt        -s      TEXT                                                  System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt          -u      TEXT                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--agent-mode           -g                                                            Enable agent mode.
+--max-iterations       -i      INTEGER                                               Maximum number of iterations to run when in agent mode. [default: 5]
+--debug                                                                              Enable debug mode [default: False]
+--show-config                                                                        Show config [default: False]
+--yes-to-all           -y                                                            Yes to all prompts [default: False]
+--no-repl                                                                            Disable use of REPL tool. [default: False]
+--copy-to-clipboard                                                                  Copy output to clipboard
+--copy-from-clipboard                                                                Copy context or context location from clipboard
+--version              -v
+--help                                                                               Show this message and exit.
 ```
 
 ## Environment Variables
