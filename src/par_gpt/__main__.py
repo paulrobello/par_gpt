@@ -139,6 +139,14 @@ def main(
             help="Temperature to use for processing. If not specified, a default temperature will be used.",
         ),
     ] = 0.5,
+    user_agent_appid: Annotated[
+        str | None,
+        typer.Option(
+            "--user-agent-appid",
+            "-U",
+            help="Extra data to include in the User-Agent header for the AI provider.",
+        ),
+    ] = None,
     pricing: Annotated[
         PricingDisplay,
         typer.Option("--pricing", "-p", envvar=f"{ENV_VAR_PREFIX}_PRICING", help="Enable pricing summary display"),
@@ -393,7 +401,7 @@ def main(
             )
 
         llm_config = LlmConfig(
-            provider=ai_provider, model_name=model, temperature=temperature, base_url=ai_base_url, streaming=False
+            provider=ai_provider, model_name=model, temperature=temperature, base_url=ai_base_url, streaming=False, user_agent_appid=user_agent_appid
         )
 
         chat_model = llm_config.build_chat_model()
