@@ -30,10 +30,19 @@ from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-console = Console()
+console = Console(stderr=True)
 
 DECIMAL_PRECESSION = 5
 
+def md(soup: BeautifulSoup, **options) -> str:
+    """
+    Convert BeautifulSoup object to Markdown.
+
+    :param soup: The BeautifulSoup object to convert.
+    :param options: Additional options to pass to the converter.
+    :return: The converted Markdown string.
+    """
+    return MarkdownConverter(**options).convert_soup(soup)
 
 def has_stdin_content():
     if os.name == "nt":  # Windows
@@ -389,7 +398,7 @@ def timer_block(label: str = "Timer") -> Generator[None, None, None]:
     finally:
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print(f"{label} took {elapsed_time:.4f} seconds.")
+        console.print(f"{label} took {elapsed_time:.4f} seconds.")
 
 
 def str_ellipsis(s: str, max_len: int, pad_char: str = " ") -> str:
@@ -471,7 +480,7 @@ def run_cmd(params: list[str]) -> str | None:
         # Get the last two lines
         return "\n".join(lines)
     except subprocess.CalledProcessError as e:
-        print(f"Error running command {e.stderr}")
+        console.print(f"Error running command {e.stderr}")
         return None
 
 
@@ -497,7 +506,7 @@ def read_env_file(filename: str) -> dict[str, str]:
                 key, value = line.split("=", 1)
                 env_vars[key.strip()] = value.strip()
             except Exception as e:
-                print(f"Error: {e} --- line {line}")
+                console.print(f"Error: {e} --- line {line}")
     return env_vars
 
 
