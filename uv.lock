@@ -2179,15 +2179,15 @@ wheels = [
 
 [[package]]
 name = "ollama"
-version = "0.4.3"
+version = "0.4.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/87/0f/c8141c044a618543a0a5928c9404866502d92ce41b9154d7c635b8dc4500/ollama-0.4.3.tar.gz", hash = "sha256:7b294051b2144be5d6ad4f0d033880f66b95a9377f4b40d8512e2974ca4001ef", size = 13078 }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/55/af1d77457cbd4b0de93a6a0c4367de327c057ecfdd4efd19a428516b56d4/ollama-0.4.4.tar.gz", hash = "sha256:e1db064273c739babc2dde9ea84029c4a43415354741b6c50939ddd3dd0f7ffb", size = 13065 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1e/a9/3af6f408b0851aca56c6badd86af5364aa5635dd2e397a72999d522297a8/ollama-0.4.3-py3-none-any.whl", hash = "sha256:4c06c6b4cd7df346a382e157f696ba53eb9ee2cc94db85a4f7d530b9acb9dba2", size = 13172 },
+    { url = "https://files.pythonhosted.org/packages/d3/01/815774a30d0047d464add27e2824a5b1d02ea4ad021c83590cd753e5f511/ollama-0.4.4-py3-none-any.whl", hash = "sha256:0f466e845e2205a1cbf5a2fef4640027b90beaa3b06c574426d8b6b17fd6e139", size = 13155 },
 ]
 
 [[package]]

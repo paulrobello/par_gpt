@@ -11,7 +11,6 @@ import platform
 import re
 import sys
 from datetime import datetime, UTC
-from enum import StrEnum
 from io import StringIO
 from pathlib import Path
 from typing import Annotated, Any
@@ -77,17 +76,6 @@ load_dotenv()
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
 
 
-# console.print(show_image_in_terminal("https://www.creativefabrica.com/wp-content/uploads/2021/03/31/weather-icon-illustration03-Graphics-10205167-1-1-580x375.jpg"))
-# exit()
-class ContextSource(StrEnum):
-    """Context source."""
-
-    NONE = "none"
-    STDIN = "stdin"
-    FILE = "file"
-    URL = "url"
-
-
 def version_callback(value: bool) -> None:
     """Print version and exit."""
     if value:
@@ -144,6 +132,7 @@ def main(
         typer.Option(
             "--user-agent-appid",
             "-U",
+            envvar=f"{ENV_VAR_PREFIX}_USER_AGENT_APPID",
             help="Extra data to include in the User-Agent header for the AI provider.",
         ),
     ] = None,
@@ -401,7 +390,12 @@ def main(
             )
 
         llm_config = LlmConfig(
-            provider=ai_provider, model_name=model, temperature=temperature, base_url=ai_base_url, streaming=False, user_agent_appid=user_agent_appid
+            provider=ai_provider,
+            model_name=model,
+            temperature=temperature,
+            base_url=ai_base_url,
+            streaming=False,
+            user_agent_appid=user_agent_appid,
         )
 
         chat_model = llm_config.build_chat_model()
