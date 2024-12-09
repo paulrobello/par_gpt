@@ -133,7 +133,7 @@ When creating and executing code you MUST follow these rules:
         handle_parsing_errors=True,
         verbose=verbose,
         max_iterations=max_iterations,
-        stream_runnable=False,
+        stream_runnable=False,  # type: ignore
         # early_stopping_method="generate",
     )
     if debug:
