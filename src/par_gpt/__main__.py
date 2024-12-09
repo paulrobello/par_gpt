@@ -29,7 +29,9 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.text import Text
 
-from langchain_community.tools.tavily_search import TavilySearchResults
+
+from langchain_community.tools import BraveSearch, TavilySearchResults
+
 
 from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .lib.llm_image_utils import (
@@ -451,7 +453,10 @@ def main(
                     )
                 elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
                     ai_tools.append(web_search)  # type: ignore
-
+                if os.environ.get("BRAVE_API_KEY"):
+                    ai_tools.append(
+                        BraveSearch.from_api_key(api_key=os.environ.get("BRAVE_API_KEY") or "", search_kwargs={"count": 3})
+                    )
                 if "clipboard" in question:
                     ai_tools.append(ai_copy_to_clipboard)
 
