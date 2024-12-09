@@ -385,7 +385,7 @@ class LlmConfig:
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
                 top_p=self.top_p,
-                endpoint_url=self.base_url, # type: ignore
+                endpoint_url=self.base_url,  # type: ignore
             )
         if self.mode == LlmMode.EMBEDDINGS:
             return BedrockEmbeddings(
