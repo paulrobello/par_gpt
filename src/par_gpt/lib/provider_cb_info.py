@@ -9,6 +9,7 @@ from collections.abc import Generator
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import ChatGeneration, LLMResult
 
+from langchain_core.load.serializable import Serializable
 from langchain_core.tracers.context import register_configure_hook
 from rich.console import Console
 from rich.panel import Panel
@@ -20,12 +21,15 @@ from .pricing_lookup import mk_usage_metadata, accumulate_cost, get_api_call_cos
 console = Console(stderr=True)
 
 
-class ParAICallbackHandler(BaseCallbackHandler):
+class ParAICallbackHandler(BaseCallbackHandler, Serializable):
     """Callback Handler that tracks OpenAI info."""
 
-    usage_metadata: dict[str, int | float] = {}
+    llm_config: LlmConfig | None = None
+    usage_metadata: dict[str, int | float] = mk_usage_metadata()
+    show_prompts: bool = False
+    show_end: bool = False
 
-    def __init__(self, llm_config: LlmConfig, *, show_prompts: bool = False, show_end: bool = False) -> None:
+    def __init__(self, *, llm_config: LlmConfig, show_prompts: bool = False, show_end: bool = False) -> None:
         super().__init__()
         self._lock = threading.Lock()
         self.usage_metadata = mk_usage_metadata()
@@ -40,6 +44,11 @@ class ParAICallbackHandler(BaseCallbackHandler):
     def always_verbose(self) -> bool:
         """Whether to call verbose callbacks even if verbose is False."""
         return True
+
+    @classmethod
+    def is_lc_serializable(cls) -> bool:
+        """Return whether this model can be serialized by Langchain."""
+        return False
 
     def on_llm_start(self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any) -> None:
         """Print out the prompts."""
@@ -77,9 +86,10 @@ class ParAICallbackHandler(BaseCallbackHandler):
                 accumulate_cost(response.llm_output, self.usage_metadata)
 
         # update shared state behind lock
-        with self._lock:
-            self.usage_metadata["total_cost"] += get_api_call_cost(self.llm_config, self.usage_metadata)
-            self.usage_metadata["successful_requests"] += 1
+        if self.llm_config:
+            with self._lock:
+                self.usage_metadata["total_cost"] += get_api_call_cost(self.llm_config, self.usage_metadata)
+                self.usage_metadata["successful_requests"] += 1
 
     def __copy__(self) -> "ParAICallbackHandler":
         """Return a copy of the callback handler."""
@@ -113,7 +123,7 @@ def get_parai_callback(
         >>> with get_parai_callback() as cb:
         ...     # Use the LLM callback handler
     """
-    cb = ParAICallbackHandler(llm_config, show_prompts=show_prompts, show_end=show_end)
+    cb = ParAICallbackHandler(llm_config=llm_config, show_prompts=show_prompts, show_end=show_end)
     parai_callback_var.set(cb)
     yield cb
     show_llm_cost(llm_config, cb.usage_metadata, show_pricing=show_pricing)
