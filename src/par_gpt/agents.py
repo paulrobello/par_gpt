@@ -99,32 +99,32 @@ def do_tool_agent(
 
     module_text = (
         "<available_modules>\n"
-        + ("\n".join([f"<module>{module}</module>" for module in modules]) + "\n")
+        + ("\n".join([f"    <module>{module}</module>" for module in modules]) + "\n")
         + "</available_modules>\n"
     )
-    default_system_prompt = (
-        """
+    default_system_prompt = """
 <role>You are a helpful assistant.</role>
 <instructions>
-Answer the users question, try to be concise and brief unless the user requests otherwise.
-Use tools and the "Extra Context" section to help answer the question.
-When doing a web search determine which of the results is best and only download content from that result.
-Think through all the steps needed to answer the question and make a plan before using tools.
-When creating and executing code you MUST follow repl_rules.
-<repl_rules>
-Assume python version is 3.11
-Do NOT install any packages.
-Ensure any web requests have a 10 second timeout.
-Ensure that encoding is set to "utf-8" for all file operations.
-NEVER execute code that could destroy data or otherwise harm the system or its data and files.
-The available_modules are already available and do not need to be imported.
-If an AbortedByUserError is raised by a tool, return its message to the user as the final answer.
-</repl_rules>
+    <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
+    <instruction>Use tools and the "Extra Context" section to help answer the question.</instruction>
+    <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
+    <instruction>Think through all the steps needed to answer the question and make a plan before using tools.</instruction>
+    <instruction>When creating and executing code you MUST follow the rules in the repl_rules section.</instruction>
+    <repl_rules>
+        <rule>Assume python version is 3.11</rule>
+        <rule>Do NOT install any packages.</rule>
+        <rule>Ensure any web requests have a 10 second timeout.</rule>
+        <rule>Ensure that encoding is set to "utf-8" for all file operations.</rule>
+        <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
+        <rule>The available_modules are already available and do not need to be imported.</rule>
+        <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
+    </repl_rules>
 </instructions>
-"""
-        + module_text
-        + env_info
-        + """
+
+{module_text}
+
+{env_info}
+
 <question>
 {question}
 </question>
@@ -133,7 +133,6 @@ If an AbortedByUserError is raised by a tool, return its message to the user as 
 {agent_scratchpad}
 </agent_scratchpad>
         """
-    )
     prompt_template = ChatPromptTemplate.from_template(system_prompt or default_system_prompt)
     agent = create_tool_calling_agent(chat_model, ai_tools, prompt_template)
     agent_executor = AgentExecutor(
@@ -145,9 +144,10 @@ If an AbortedByUserError is raised by a tool, return its message to the user as 
         stream_runnable=False,  # type: ignore
         # early_stopping_method="generate",
     )
+    args = {"question": question, "module_text": module_text, "env_info": env_info}
     if debug:
-        io.print(Panel.fit(default_system_prompt, title="GPT Prompt"))
-    result = agent_executor.invoke({"question": question})
+        io.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
+    result = agent_executor.invoke(args)
     # if debug:
     #     io.print(Panel.fit(Pretty(result), title="GPT Response))
     if isinstance(result["output"], str):

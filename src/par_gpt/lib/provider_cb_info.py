@@ -139,7 +139,7 @@ def get_parai_callback(
     show_prompts: bool = False,
     show_end: bool = False,
     show_pricing: PricingDisplay = PricingDisplay.NONE,
-    show_tool_calls: bool = False
+    show_tool_calls: bool = False,
 ) -> Generator[ParAICallbackHandler, None, None]:
     """Get the llm callback handler in a context manager which exposes token / cost and debug information.
 
@@ -157,7 +157,9 @@ def get_parai_callback(
         >>> with get_parai_callback() as cb:
         ...     # Use the LLM callback handler
     """
-    cb = ParAICallbackHandler(llm_config=llm_config, show_prompts=show_prompts, show_end=show_end, show_tool_calls=show_tool_calls)
+    cb = ParAICallbackHandler(
+        llm_config=llm_config, show_prompts=show_prompts, show_end=show_end, show_tool_calls=show_tool_calls
+    )
     parai_callback_var.set(cb)
     yield cb
     show_llm_cost(llm_config, cb.usage_metadata, show_pricing=show_pricing)
