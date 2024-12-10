@@ -2,24 +2,17 @@
 
 from __future__ import annotations
 
-import copy
-import getpass
 import importlib
-import orjson as json
 import os
-import platform
 import re
 import sys
-from datetime import datetime, UTC
 from io import StringIO
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import pyperclip
 import typer
-from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
-from langchain_groq import ChatGroq
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -38,13 +31,11 @@ from .lib.llm_image_utils import (
     try_get_image_type,
     UnsupportedImageTypeError,
     image_to_base64,
-    image_to_chat_message,
 )
 from .lib.provider_cb_info import get_parai_callback
 from .lib.web_tools import web_search, fetch_url_and_convert_to_markdown
-from .utils import download_cache, show_image_in_terminal
-from .agents import do_tool_agent
-
+from .utils import download_cache, show_image_in_terminal, mk_env_context
+from .agents import do_tool_agent, do_single_llm_call, do_code_review_agent, do_prompt_generation_agent
 
 from .ai_tools.ai_tools import (
     ai_fetch_url,
@@ -56,7 +47,7 @@ from .ai_tools.ai_tools import (
     ai_copy_to_clipboard,
 )
 from .repo.repo import GitRepo
-from .lib.output_utils import DisplayOutputFormat, display_formatted_output, get_output_format_prompt
+from .lib.output_utils import DisplayOutputFormat, display_formatted_output
 from .lib.utils import has_stdin_content
 from .lib.llm_config import LlmConfig, LlmMode
 from .lib.pricing_lookup import show_llm_cost, PricingDisplay
@@ -269,7 +260,9 @@ def main(
     unknown_args: typer.Context = typer.Option(None),
 ) -> None:
     """Main function."""
+    # console.print((Path(__file__).parent / "prompts" / "meta_prompt.xml").is_file())
     # console.print(typer.get_app_dir(__application_binary__))
+    # exit(0)
     # for unknown_arg in unknown_args.args:
     #     typer.echo(f"Got extra arg: {unknown_arg}")
     # return
@@ -281,8 +274,16 @@ def main(
                 raise typer.Exit(1)
         if copy_from_clipboard:
             context_location = pyperclip.paste()
+            console.print("[bold green]Context copied from clipboard")
+
         context_is_url: bool = context_location.startswith("http")
-        context_is_file: bool = not context_is_url and Path(context_location).is_file()
+        if context_is_url:
+            console.print("[bold green]Context is URL and will be downloaded")
+
+        context_is_file: bool = not context_is_url and "\n" not in context_location and Path(context_location).is_file()
+        if context_is_file:
+            console.print("[bold green]Context is file and will be read")
+
         if context_location and not context_is_url and not context_is_file and not copy_from_clipboard:
             console.print("[bold red]Context source not found. Exiting...")
             raise typer.Exit(1)
@@ -295,9 +296,9 @@ def main(
         sio_all: StringIO = StringIO()
 
         if not context_location and not copy_from_clipboard and has_stdin_content():
+            console.print("[bold green]Context is stdin and will be read")
             for line in sys.stdin:
                 sio_all.write(line)
-
             context = sio_all.getvalue().strip()
 
         context_is_image = False
@@ -319,7 +320,7 @@ def main(
                     context_is_image = True
                     show_image_in_terminal(image_path)
                 except UnsupportedImageTypeError as _:
-                    context = Path(context_location).read_text().strip()
+                    context = Path(context_location).read_text(encoding="utf-8").strip()
 
         if not model:
             if light_model:
@@ -329,6 +330,7 @@ def main(
                     model = provider_vision_models[ai_provider]
                 else:
                     model = provider_default_models[ai_provider]
+            console.print(f"[bold green]Auto selected model: {model}")
 
         if not user_prompt and len(unknown_args.args) > 0:
             user_prompt = unknown_args.args.pop(0)
@@ -428,7 +430,7 @@ def main(
 
         chat_model = llm_config.build_chat_model()
 
-        env_info = mk_env_context()
+        env_info = mk_env_context({}, console)
         with get_parai_callback(llm_config=llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
             if agent_mode:
                 module_names = [
@@ -451,6 +453,7 @@ def main(
                     git_commit_tool,
                     ai_display_image_in_terminal,
                 ]  # type: ignore
+
                 if not no_repl:
                     ai_tools.append(
                         ParPythonAstREPLTool(
@@ -497,7 +500,7 @@ def main(
                     ai_tools=ai_tools,
                     modules=module_names,
                     env_info=env_info,
-                    question=question,
+                    user_input=question,
                     image=context if context_is_image else None,
                     system_prompt=system_prompt,
                     max_iterations=max_iterations,
@@ -505,15 +508,35 @@ def main(
                     io=console,
                 )
             else:
-                content, result = do_single_llm_call(
-                    chat_model=chat_model,
-                    question=question,
-                    system_prompt=system_prompt,
-                    env_info=env_info,
-                    image=context if context_is_image else None,
-                    display_format=display_format,
-                    debug=debug,
-                )
+                if "code review" in question:
+                    content, result = do_code_review_agent(
+                        chat_model=chat_model,
+                        user_input=question,
+                        system_prompt=system_prompt,
+                        env_info=env_info,
+                        display_format=display_format,
+                        debug=debug,
+                        io=console,
+                    )
+                elif "generate prompt" in question:
+                    content, result = do_prompt_generation_agent(
+                        chat_model=chat_model,
+                        user_input=question,
+                        system_prompt=system_prompt,
+                        debug=debug,
+                        io=console,
+                    )
+                else:
+                    content, result = do_single_llm_call(
+                        chat_model=chat_model,
+                        user_input=question,
+                        system_prompt=system_prompt,
+                        env_info=env_info,
+                        image=context if context_is_image else None,
+                        display_format=display_format,
+                        debug=debug,
+                        io=console,
+                    )
 
             usage_metadata = cb.usage_metadata
 
@@ -522,6 +545,7 @@ def main(
 
         if copy_to_clipboard:
             pyperclip.copy(content)
+            console.print("[bold green]Copied to clipboard")
 
         if debug:
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
@@ -533,107 +557,6 @@ def main(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")
         raise typer.Exit(code=1)
-
-
-def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None) -> str:
-    """
-    Create environment context with optional extra context.
-
-    Args:
-        extra_context: Optional extra context to add to the context
-            Path will be read and parsed as JSON with fallback to plain text
-            Dictionary will append / overwrite existing context
-            String will be appended as-is
-
-    Returns:
-        str: The environment context as Markdown string
-    """
-    if extra_context is None:
-        extra_context = {}
-
-    extra_context_text = ""
-
-    if isinstance(extra_context, Path):
-        if not extra_context.is_file():
-            raise ValueError(f"Extra context file not found or is not a file: {extra_context}")
-        try:
-            extra_context = json.loads(extra_context.read_text(encoding="utf-8"))
-        except Exception as _:
-            extra_context = extra_context.read_text(encoding="utf-8").strip()
-
-    if isinstance(extra_context, dict):
-        for k, v in extra_context.items():
-            extra_context[k] = str(v)
-    elif isinstance(extra_context, (str | list)):
-        extra_context_text = str(extra_context)
-        extra_context = {}
-
-    extra_context_text = "\n" + extra_context_text.strip()
-
-    return (
-        (
-            "<extra_context>\n"
-            + "\n".join(
-                [
-                    f"<{k}>{v}</{k}>"
-                    for k, v in (
-                        {
-                            "username": getpass.getuser(),
-                            "home_directory": Path("~").expanduser().as_posix(),
-                            "current_directory": Path(os.getcwd()).expanduser().as_posix(),
-                            "current_date_and_time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                            "platform": platform.platform(aliased=True, terse=True),
-                            "shell": Path(os.environ.get("SHELL", "bash")).stem,
-                            "term": os.environ.get("TERM", "xterm-256color"),
-                            "console_dimensions": f"{console.width}x{console.height}",
-                        }
-                        | extra_context
-                    ).items()  # type: ignore
-                ]
-            )
-            + "\n"
-        )
-        + extra_context_text
-        + "\n</extra_context>\n"
-    )
-
-
-def do_single_llm_call(
-    *,
-    chat_model: BaseChatModel,
-    question: str,
-    image: str | None = None,
-    system_prompt: str | None,
-    env_info: str,
-    display_format: DisplayOutputFormat,
-    debug: bool,
-):
-    default_system_prompt = (
-        "<role>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise.</role>"
-    )
-
-    chat_history: list[tuple[str, str | list[dict[str, Any]]]] = [
-        ("system", (system_prompt or default_system_prompt).strip() + "\n" + get_output_format_prompt(display_format)),
-        ("user", env_info),
-    ]
-    # Groq does not support images if a system prompt is specified
-    if isinstance(chat_model, ChatGroq) and image:
-        chat_history.pop(0)
-
-    chat_history_debug = copy.deepcopy(chat_history)
-    if image:
-        chat_history.append(("user", [{"type": "text", "text": question}, image_to_chat_message(image)]))
-        chat_history_debug.append(("user", [{"type": "text", "text": question}, ({"IMAGE": "DATA"})]))
-    else:
-        chat_history.append(("user", question))
-        chat_history_debug.append(("user", question))
-
-    if debug:
-        console.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
-    result = chat_model.invoke(chat_history)  # type: ignore
-    content = str(result.content).replace("```markdown", "").replace("```", "").strip()
-    result.content = content
-    return content, result
 
 
 if __name__ == "__main__":
