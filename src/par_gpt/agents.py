@@ -286,10 +286,19 @@ def do_prompt_generation_agent(
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
     prompt_template = ChatPromptTemplate.from_template(prompt)
-    return do_single_llm_call(
-        chat_model=chat_model,
-        user_input=prompt_template.format(user_input=user_input),
-        no_system_prompt=True,
-        debug=debug,
-        io=io,
-    )
+    if chat_model.name.startswith("o1"):
+        return do_single_llm_call(
+            chat_model=chat_model,
+            user_input=prompt_template.format(user_input=user_input),
+            no_system_prompt=True,
+            debug=debug,
+            io=io,
+        )
+    else:
+        return do_single_llm_call(
+            chat_model=chat_model,
+            system_prompt=prompt_template.format(user_input=""),
+            user_input=user_input,
+            debug=debug,
+            io=io,
+        )
