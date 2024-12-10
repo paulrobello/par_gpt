@@ -416,6 +416,8 @@ class LlmConfig:
 
     def build_llm_model(self) -> BaseLanguageModel:
         """Build the LLM model."""
+        if self.model_name.startswith("o1"):
+            self.temperature = 1
         llm = self._build_llm()
         if isinstance(llm, BaseLanguageModel):
             return llm
@@ -423,6 +425,9 @@ class LlmConfig:
 
     def build_chat_model(self) -> BaseChatModel:
         """Build the chat model."""
+        if self.model_name.startswith("o1"):
+            self.temperature = 1
+
         llm = self._build_llm()
         if isinstance(llm, BaseChatModel):
             return llm
@@ -430,6 +435,9 @@ class LlmConfig:
 
     def build_embeddings(self) -> Embeddings:
         """Build the embeddings."""
+        if self.model_name.startswith("o1"):
+            self.temperature = 1
+
         llm = self._build_llm()
         if isinstance(llm, Embeddings):
             return llm
