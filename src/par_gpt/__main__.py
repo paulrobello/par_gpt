@@ -429,6 +429,7 @@ def main(
         )
 
         chat_model = llm_config.build_chat_model()
+        chat_model.name = llm_config.model_name
 
         env_info = mk_env_context({}, console)
         with get_parai_callback(llm_config=llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
