@@ -133,7 +133,10 @@ def do_tool_agent(
 {agent_scratchpad}
 </agent_scratchpad>
         """
-    prompt_template = ChatPromptTemplate.from_template(system_prompt or default_system_prompt)
+    prompt = system_prompt or default_system_prompt
+    if "agent_scratchpad" not in prompt:
+        prompt += "\n<agent_scratchpad>\n{agent_scratchpad}\n</agent_scratchpad>\n"
+    prompt_template = ChatPromptTemplate.from_template(prompt)
     agent = create_tool_calling_agent(chat_model, ai_tools, prompt_template)
     agent_executor = AgentExecutor(
         agent=agent,
