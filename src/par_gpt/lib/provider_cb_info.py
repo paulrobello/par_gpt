@@ -5,6 +5,7 @@ from typing import Any
 from contextlib import contextmanager
 from contextvars import ContextVar
 from collections.abc import Generator
+from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import ChatGeneration, LLMResult
@@ -28,14 +29,23 @@ class ParAICallbackHandler(BaseCallbackHandler, Serializable):
     usage_metadata: dict[str, int | float] = mk_usage_metadata()
     show_prompts: bool = False
     show_end: bool = False
+    show_tool_calls: bool = False
 
-    def __init__(self, *, llm_config: LlmConfig, show_prompts: bool = False, show_end: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        llm_config: LlmConfig,
+        show_prompts: bool = False,
+        show_end: bool = False,
+        show_tool_calls: bool = False,
+    ) -> None:
         super().__init__()
         self._lock = threading.Lock()
         self.usage_metadata = mk_usage_metadata()
         self.llm_config = llm_config
         self.show_prompts = show_prompts
         self.show_end = show_end
+        self.show_tool_calls = show_tool_calls
 
     def __repr__(self) -> str:
         return self.usage_metadata.__repr__()
@@ -91,6 +101,23 @@ class ParAICallbackHandler(BaseCallbackHandler, Serializable):
                 self.usage_metadata["total_cost"] += get_api_call_cost(self.llm_config, self.usage_metadata)
                 self.usage_metadata["successful_requests"] += 1
 
+    def on_tool_start(
+        self,
+        serialized: dict[str, Any],
+        input_str: str,
+        *,
+        run_id: UUID,
+        parent_run_id: UUID | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        inputs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run when the tool starts running."""
+        if not self.show_tool_calls:
+            return
+        console.print(Panel(Pretty(inputs), title=f"Tool Call: {serialized['name']}"))
+
     def __copy__(self) -> "ParAICallbackHandler":
         """Return a copy of the callback handler."""
         return self
@@ -112,9 +139,16 @@ def get_parai_callback(
     show_prompts: bool = False,
     show_end: bool = False,
     show_pricing: PricingDisplay = PricingDisplay.NONE,
+    show_tool_calls: bool = False
 ) -> Generator[ParAICallbackHandler, None, None]:
-    """Get the llm callback handler in a context manager.
-    which exposes token and cost information.
+    """Get the llm callback handler in a context manager which exposes token / cost and debug information.
+
+    Args:
+        llm_config (LlmConfig): The LLM config.
+        show_prompts (bool, optional): Whether to show prompts. Defaults to False.
+        show_end (bool, optional): Whether to show end. Defaults to False.
+        show_pricing (PricingDisplay, optional): Whether to show pricing. Defaults to PricingDisplay.NONE.
+        show_tool_calls (bool, optional): Whether to show tool calls. Defaults to False.
 
     Returns:
         ParAICallbackHandler: The LLM callback handler.
@@ -123,7 +157,7 @@ def get_parai_callback(
         >>> with get_parai_callback() as cb:
         ...     # Use the LLM callback handler
     """
-    cb = ParAICallbackHandler(llm_config=llm_config, show_prompts=show_prompts, show_end=show_end)
+    cb = ParAICallbackHandler(llm_config=llm_config, show_prompts=show_prompts, show_end=show_end, show_tool_calls=show_tool_calls)
     parai_callback_var.set(cb)
     yield cb
     show_llm_cost(llm_config, cb.usage_metadata, show_pricing=show_pricing)
