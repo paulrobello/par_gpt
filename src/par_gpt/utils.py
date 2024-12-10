@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import getpass
 import hashlib
 import os
+import platform
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import orjson as json
 import requests
 from rich_pixels import Pixels
 from rich.console import Console
@@ -43,14 +47,14 @@ class DownloadCache:
         """Get path"""
         return self.cache_dir / self.key_for_url(url)
 
-    def download(self, url: str, force: bool = False) -> Path:
+    def download(self, url: str, force: bool = False, timeout: int = 10) -> Path:
         """Return from cache or download"""
         path = self.get_path(url)
         if not force and path.exists():
             return path
         response = requests.get(
             url,
-            timeout=10,
+            timeout=timeout,
             allow_redirects=True,
             headers={"User-Agent": get_random_user_agent()},
         )
@@ -69,16 +73,16 @@ download_cache = DownloadCache()
 
 def safe_abs_path(res):
     """Gives an abs path, which safely returns a full (not 8.3) windows path"""
-    res = Path(res).resolve()
-    return str(res)
+    return str(Path(res).resolve())
 
 
-def get_weather_current(location: str) -> dict[str, Any]:
+def get_weather_current(location: str, timeout: int = 10) -> dict[str, Any]:
     """
     Get current weather
 
     Args:
         location (str): Location
+        timeout (int): Timeout
 
     Returns:
         str: Weather
@@ -88,18 +92,19 @@ def get_weather_current(location: str) -> dict[str, Any]:
 
     response = requests.get(
         f"https://api.weatherapi.com/v1/current.json?key={os.environ.get('WEATHERAPI_KEY')}&q={location}&aqi=no",
-        timeout=10,
+        timeout=timeout,
     )
     return response.json()
 
 
-def get_weather_forecast(location: str, num_days: int) -> dict[str, Any]:
+def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dict[str, Any]:
     """
     Get weather forecast for next days
 
     Args:
         location (str): Location
         num_days (int): Number of days
+        timeout (int): Timeout
 
     Returns:
         str: Weather
@@ -109,7 +114,7 @@ def get_weather_forecast(location: str, num_days: int) -> dict[str, Any]:
 
     response = requests.get(
         f"https://api.weatherapi.com/v1/forecast.json?key={os.environ.get('WEATHERAPI_KEY')}&q={location}&days={num_days}&aqi=no&alerts=no",
-        timeout=10,
+        timeout=timeout,
     )
     return response.json()
 
@@ -158,3 +163,69 @@ def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", io: 
         return "Image shown in terminal"
     except Exception as e:
         return f"Error: {str(e)}"
+
+
+def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None, console: Console | None = None) -> str:
+    """
+    Create environment context with optional extra context.
+
+    Args:
+        extra_context: Optional extra context to add to the context
+            Path will be read and parsed as JSON with fallback to plain text
+            Dictionary will append / overwrite existing context
+            String will be appended as-is
+
+    Returns:
+        str: The environment context as Markdown string
+    """
+    if extra_context is None:
+        extra_context = {}
+
+    extra_context_text = ""
+
+    if isinstance(extra_context, Path):
+        if not extra_context.is_file():
+            raise ValueError(f"Extra context file not found or is not a file: {extra_context}")
+        try:
+            extra_context = json.loads(extra_context.read_text(encoding="utf-8"))
+        except Exception as _:
+            extra_context = extra_context.read_text(encoding="utf-8").strip()
+
+    if isinstance(extra_context, dict):
+        for k, v in extra_context.items():
+            extra_context[k] = str(v)
+    elif isinstance(extra_context, (str | list)):
+        extra_context_text = str(extra_context)
+        extra_context = {}
+
+    extra_context_text = "\n" + extra_context_text.strip()
+
+    if not console:
+        console = Console(stderr=True)
+
+    return (
+        (
+            "<extra_context>\n"
+            + "\n".join(
+                [
+                    f"<{k}>{v}</{k}>"
+                    for k, v in (
+                        {
+                            "username": getpass.getuser(),
+                            "home_directory": Path("~").expanduser().as_posix(),
+                            "current_directory": Path(os.getcwd()).expanduser().as_posix(),
+                            "current_date_and_time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                            "platform": platform.platform(aliased=True, terse=True),
+                            "shell": Path(os.environ.get("SHELL", "bash")).stem,
+                            "term": os.environ.get("TERM", "xterm-256color"),
+                            "terminal_dimensions": f"{console.width}x{console.height}",
+                        }
+                        | extra_context
+                    ).items()  # type: ignore
+                ]
+            )
+            + "\n"
+        )
+        + extra_context_text
+        + "\n</extra_context>\n"
+    )
