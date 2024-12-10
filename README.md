@@ -8,6 +8,7 @@ customizable output formats.
 **NOTE: This is a very work in progress project and may break at any time.**
 
 ## Features
+
 * Can be run in basic LLM mode or agent mode that can use tools
 * Shows pricing info when requested
 * Support for multiple AI providers (OpenAI, Anthropic, Groq, Google, Ollama, Bedrock)
@@ -70,27 +71,29 @@ par_gpt [OPTIONS]
 ### CLI Options
 
 ```
---ai-provider          -a      [Ollama|OpenAI|Groq|Anthropic|Google|Bedrock|Github]  AI provider to use for processing [default: OpenAI]
---model                -m      TEXT                                                  AI model to use for processing. If not specified, a default model will be used. [default: None]
---light-model          -l                                                            Use a light model for processing. If not specified, a default model will be used.
---ai-base-url          -b      TEXT                                                  Override the base URL for the AI provider. [default: None]
---temperature          -t      FLOAT                                                 Temperature to use for processing. If not specified, a default temperature will be used. [default: 0.5]
---user-agent-appid     -U      TEXT                                                  Extra data to include in the User-Agent header for the AI provider. [default: None]
---pricing              -p                                                            Enable pricing summary display
---display-output       -d      [none|plain|md|csv|json]                              Display output in terminal (none, plain, md, csv, or json) [default: md]
---context-location     -f      TEXT                                                  Location of context to use for processing. [default: None]
---system-prompt        -s      TEXT                                                  System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt          -u      TEXT                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---agent-mode           -g                                                            Enable agent mode.
---max-iterations       -i      INTEGER                                               Maximum number of iterations to run when in agent mode. [default: 5]
---debug                                                                              Enable debug mode [default: False]
---show-config                                                                        Show config [default: False]
---yes-to-all           -y                                                            Yes to all prompts [default: False]
---no-repl                                                                            Disable use of REPL tool. [default: False]
---copy-to-clipboard                                                                  Copy output to clipboard
---copy-from-clipboard                                                                Copy context or context location from clipboard
+--ai-provider          -a      [Ollama|OpenAI|Groq|Anthropic|Google|Bedrock|Github|LlamaCpp]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
+--model                -m      TEXT                                                           AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--light-model          -l                                                                     Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
+--ai-base-url          -b      TEXT                                                           Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
+--temperature          -t      FLOAT                                                          Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
+--user-agent-appid     -U      TEXT                                                           Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
+--pricing              -p      [none|price|details]                                           Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
+--display-output       -d      [none|plain|md|csv|json]                                       Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
+--context-location     -f      TEXT                                                           Location of context to use for processing.
+--system-prompt        -s      TEXT                                                           System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt          -u      TEXT                                                           User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--agent-mode           -g                                                                     Enable agent mode. [env var: PARGPT_AGENT_MODE]
+--max-iterations       -i      INTEGER                                                        Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
+--max-context-size     -M      INTEGER                                                        Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
+--debug                -D                                                                     Enable debug mode [env var: PARGPT_DEBUG]
+--show-tool-calls      -T                                                                     Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
+--show-config          -S                                                                     Show config [env var: PARGPT_SHOW_CONFIG]
+--yes-to-all           -y                                                                     Yes to all prompts [env var: PARGPT_YES_TO_ALL]
+--copy-to-clipboard    -c                                                                     Copy output to clipboard
+--copy-from-clipboard  -C                                                                     Copy context or context location from clipboard
+--no-repl                                                                                     Disable REPL tool [env var: PARGPT_NO_REPL]                                                                                          
 --version              -v
---help                                                                               Show this message and exit.
+--help                                                                                        Show this message and exit.
 ```
 
 ## Environment Variables
@@ -109,6 +112,7 @@ GOOGLE_API_KEY=
 GOOGLE_CSE_ID=
 GOOGLE_CSE_API_KEY=
 TAVILY_API_KEY=
+BRAVE_API_KEY=
 
 # Weather
 WEATHERAPI_KEY=
@@ -126,10 +130,12 @@ PARGPT_PRICING=price
 PARGPT_DISPLAY_OUTPUT=md
 PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
-PARGPT_AGENT_MODE=false
-PARGPT_NO_REPL=false
-PARGPT_MAX_ITERATIONS=5
-PARGPT_YES_TO_ALL=false
+PARGPT_AGENT_MODE=false # if this is false par_gpt will only use basic LLM completion
+PARGPT_NO_REPL=true # set this to false and enable agent mode to allow agent to write and execute code 
+PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
+PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
+PARGPT_SHOW_TOOL_CALLS=true
+
 ```
 
 * GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/
@@ -137,16 +143,30 @@ PARGPT_YES_TO_ALL=false
 * OPENAI_API_KEY is required for OpenAI. Get a key from https://platform.openai.com/account/api-keys
 * GITHUB_TOKEN is required for GitHub Models. Get a free key from https://github.com/marketplace/models
 * GOOGLE_API_KEY is required for Google Models. Get a free key from https://console.cloud.google.com
-* LANGCHAIN_API_KEY is required for Langchain Langsmith tracing. Get a free key from https://smith.langchain.com/settings
+* LANGCHAIN_API_KEY is required for Langchain Langsmith tracing. Get a free key
+  from https://smith.langchain.com/settings
 * AWS_PROFILE is used for Bedrock authentication. The environment must already be authenticated with AWS.
 * No key required to use with Ollama models.
-* TAVILY_API_KEY is required for Tavily AI search. Get a free key from https://tavily.com/. Tavily is much better than google and is the recommended search provider.
+* TAVILY_API_KEY is required for Tavily AI search. Get a free key from https://tavily.com/. Tavily is much better than
+  google and is the recommended search provider.
+* BRAVE_API_KEY is required for Brave search. Get a free key from https://brave.com/search/api/
 * GOOGLE_CSE_ID and GOOGLE_CSE_API_KEY are required for Google search.
 * WEATHERAPI_KEY is required for weather. Get a free key from https://www.weatherapi.com/
 
 ## Agent mode
-NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to write and execute code on your system.  
+
+NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to write and execute code on
+your system.  
 If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
+
+## Code Review mode
+
+Code review mode sends code related files to AI for review. The review looks for bugs and issues in the code and provides a ranking of severity as well as suggestions for how to fix them.
+
+Change to the root of the project you want to check (or sub folder for smaller / faster / more cost-effective checks) and run the following:
+```shell
+par_gpt 'code review'
+```
 
 ## Example Usage
 
@@ -208,19 +228,28 @@ par_gpt --pricing -c url -f 'https://console.groq.com/docs/vision' "what model i
 
 # get image from url and answer question
 par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' "describe this image"
+
+# check code for bugs (change to root for project you want to check)
+par_gpt 'code review'
 ```
 
 ## What's New
-- Version 0.2.1:
-  - Removed --context-source cli option as it is now auto-detected
-  - When working with images and model is not specified a suitable vision model will be selected
-  - added options to copy context from clipboard and results to clipboard
-- Version 0.2.0:
-  - Added confirmation prompt for agent mode REPL tool
-  - Added yes-to-all flag to skip confirmation prompts
+- Version 0.3.0:
+  - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
+  - Added code review agent
+  - Added prompt generation agent (work in progress)
   - Updated pricing data
+  - Lots of bug fixes and improvements
+- Version 0.2.1:
+    - Removed --context-source cli option as it is now auto-detected
+    - When working with images and model is not specified a suitable vision model will be selected
+    - added options to copy context from clipboard and results to clipboard
+- Version 0.2.0:
+    - Added confirmation prompt for agent mode REPL tool
+    - Added yes-to-all flag to skip confirmation prompts
+    - Updated pricing data
 - Version 0.1.0:
-  - Initial release
+    - Initial release
 
 ## Contributing
 
