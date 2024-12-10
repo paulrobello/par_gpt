@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Literal
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
@@ -65,16 +66,47 @@ def fetch_url(
     *,
     fetch_using: Literal["playwright", "selenium"] = "playwright",
     sleep_time: int = 1,
+    timeout: int = 10,
     verbose: bool = False,
 ) -> list[str]:
-    """Fetch the contents of a webpage."""
+    """
+    Fetch the contents of a webpage using either Playwright or Selenium.
+
+    Args:
+        urls (str | list[str]): The URL(s) to fetch.
+        fetch_using (Literal["playwright", "selenium"]): The library to use for fetching the webpage.
+        sleep_time (int): The number of seconds to sleep between requests.
+        timeout (int): The number of seconds to wait for a response.
+        verbose (bool): Whether to print verbose output.
+
+    Returns:
+        list[str]: A list of HTML contents of the fetched webpages.
+    """
+    if isinstance(urls, str):
+        urls = [urls]
+    if not all(urlparse(url).scheme for url in urls):
+        raise ValueError("All URLs must be absolute URLs with a scheme (e.g. http:// or https://)")
     if fetch_using == "playwright":
-        return fetch_url_playwright(urls, sleep_time, verbose)
-    return fetch_url_selenium(urls, sleep_time, verbose)
+        return fetch_url_playwright(urls, sleep_time=sleep_time, timeout=timeout, verbose=verbose)
+    return fetch_url_selenium(urls, sleep_time=sleep_time, timeout=timeout, verbose=verbose)
 
 
-def fetch_url_selenium(urls: str | list[str], sleep_time: int = 1, verbose: bool = False) -> list[str]:
-    """Fetch the contents of a webpage."""
+def fetch_url_selenium(
+    urls: str | list[str], *, sleep_time: int = 1, timeout: int = 10, ignore_ssl: bool = True, verbose: bool = False
+) -> list[str]:
+    """
+    Fetch the contents of a webpage using Selenium.
+
+    Args:
+        urls (str | list[str]): The URL(s) to fetch.
+        sleep_time (int): The number of seconds to sleep between requests.
+        timeout (int): The number of seconds to wait for a response.
+        ignore_ssl (bool): Whether to ignore SSL errors.
+        verbose (bool): Whether to print verbose output.
+
+    Returns:
+        list[str]: A list of HTML contents of the fetched webpages.
+    """
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
@@ -93,14 +125,15 @@ def fetch_url_selenium(urls: str | list[str], sleep_time: int = 1, verbose: bool
     options.add_argument("--silent")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-infobars")
-    options.add_argument("--ignore-certificate-errors")
+    if ignore_ssl:
+        options.add_argument("--ignore-certificate-errors")
     # Randomize user-agent to mimic different users
     options.add_argument("user-agent=" + get_random_user_agent())
     options.add_argument("--window-position=-2400,-2400")
     options.add_argument("--headless=new")
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
-    driver.set_page_load_timeout(10)
+    driver.set_page_load_timeout(timeout)
 
     results: list[str] = []
     for url in urls:
@@ -128,13 +161,17 @@ def fetch_url_selenium(urls: str | list[str], sleep_time: int = 1, verbose: bool
     return results
 
 
-def fetch_url_playwright(urls: str | list[str], sleep_time: int = 1, verbose: bool = False) -> list[str]:
+def fetch_url_playwright(
+    urls: str | list[str], *, sleep_time: int = 1, timeout: int = 10, ignore_ssl: bool = True, verbose: bool = False
+) -> list[str]:
     """
     Fetch HTML content from a URL using Playwright.
 
     Args:
         urls (Union[str, list[str]]): The URL(s) to fetch.
         sleep_time (int, optional): The number of seconds to sleep between requests. Defaults to 1.
+        timeout (int, optional): The timeout in seconds for the request. Defaults to 10.
+        ignore_ssl (bool, optional): Whether to ignore SSL errors. Defaults to True.
         verbose (bool, optional): Whether to print verbose output. Defaults to False.
 
     Returns:
@@ -156,14 +193,16 @@ def fetch_url_playwright(urls: str | list[str], sleep_time: int = 1, verbose: bo
             )
             raise e
             # return ["" * len(urls)]
-        context = browser.new_context(viewport={"width": 1280, "height": 1024}, user_agent=get_random_user_agent())
+        context = browser.new_context(
+            viewport={"width": 1280, "height": 1024}, user_agent=get_random_user_agent(), ignore_https_errors=ignore_ssl
+        )
 
         page = context.new_page()
         for url in urls:
             if verbose:
                 console.print(f"[bold blue]Playwright fetching content from {url}...[/bold blue]")
             try:
-                page.goto(url)
+                page.goto(url, timeout=timeout * 1000)
 
                 # Add delays to mimic human behavior
                 if sleep_time > 0:
@@ -199,6 +238,7 @@ def fetch_url_and_convert_to_markdown(
     *,
     fetch_using: Literal["playwright", "selenium"] = "playwright",
     sleep_time: int = 1,
+    timeout: int = 10,
     verbose: bool = False,
 ) -> list[str]:
     """Fetch the contents of a webpage and convert it to markdown."""
@@ -206,7 +246,7 @@ def fetch_url_and_convert_to_markdown(
 
     if isinstance(urls, str):
         urls = [urls]
-    pages = fetch_url(urls, fetch_using=fetch_using, sleep_time=sleep_time, verbose=verbose)
+    pages = fetch_url(urls, fetch_using=fetch_using, sleep_time=sleep_time, timeout=timeout, verbose=verbose)
 
     if verbose:
         console.print("[bold green]Converting fetched content to markdown...[/bold green]")
