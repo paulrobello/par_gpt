@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import os
+import threading
 from os import PathLike
 import time
 from pathlib import Path, PurePosixPath
@@ -84,6 +85,7 @@ class GitRepo:
         self.commit_prompt = commit_prompt
         self.subtree_only = subtree_only
         self.ignore_file_cache = {}
+        self.ignore_lock = threading.Lock()
 
         if git_dname:
             check_fnames = [git_dname]
@@ -363,27 +365,24 @@ class GitRepo:
         return path
 
     def refresh_ignore(self) -> None:
-        if not self.ignore_file:
+        if not self.ignore_file or not self.ignore_file.is_file():
             return
 
-        current_time = time.time()
-        if current_time - self.ignore_last_check < 1:
-            return
+        with self.ignore_lock:
+            current_time = time.perf_counter()
+            if current_time - self.ignore_last_check < 1:
+                return
+            self.ignore_last_check = current_time
 
-        self.ignore_last_check = current_time
-
-        if not self.ignore_file.is_file():
-            return
-
-        mtime = self.ignore_file.stat().st_mtime
-        if mtime != self.ignore_ts:
-            self.ignore_ts = mtime
-            self.ignore_file_cache = {}
-            lines = self.ignore_file.read_text().splitlines()
-            self.ignore_spec = pathspec.PathSpec.from_lines(
-                pathspec.patterns.gitwildmatch.GitWildMatchPattern,
-                lines,
-            )
+            mtime = self.ignore_file.stat().st_mtime
+            if mtime != self.ignore_ts:
+                self.ignore_ts = mtime
+                self.ignore_file_cache = {}
+                lines = self.ignore_file.read_text().splitlines()
+                self.ignore_spec = pathspec.PathSpec.from_lines(
+                    pathspec.patterns.gitwildmatch.GitWildMatchPattern,
+                    lines,
+                )
 
     def ignored_file(self, fname: str) -> bool:
         self.refresh_ignore()
