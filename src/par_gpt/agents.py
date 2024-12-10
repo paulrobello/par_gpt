@@ -19,7 +19,14 @@ from rich.pretty import Pretty
 from par_gpt.lib.llm_image_utils import image_to_chat_message
 from par_gpt.lib.output_utils import DisplayOutputFormat, get_output_format_prompt
 
-from par_gpt.lib.utils import gather_files_for_context, code_python_file_globs
+from par_gpt.lib.utils import (
+    gather_files_for_context,
+    code_python_file_globs,
+    code_frontend_file_globs,
+    code_js_file_globs,
+    code_rust_file_globs,
+    code_java_file_globs,
+)
 
 
 def do_single_llm_call(
@@ -262,7 +269,13 @@ def do_code_review_agent(
         encoding="utf-8"
     )
     prompt_template = ChatPromptTemplate.from_template(prompt)
-    code_context = gather_files_for_context(code_python_file_globs)
+    code_context = gather_files_for_context(
+        code_python_file_globs
+        + code_js_file_globs
+        + code_frontend_file_globs
+        + code_rust_file_globs
+        + code_java_file_globs
+    )
     return do_single_llm_call(
         chat_model=chat_model,
         system_prompt=prompt_template.format(code_context=code_context),
@@ -286,7 +299,7 @@ def do_prompt_generation_agent(
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
     prompt_template = ChatPromptTemplate.from_template(prompt)
-    if chat_model.name.startswith("o1"):
+    if chat_model.name and chat_model.name.startswith("o1"):
         return do_single_llm_call(
             chat_model=chat_model,
             user_input=prompt_template.format(user_input=user_input),

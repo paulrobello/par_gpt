@@ -558,6 +558,19 @@ code_frontend_file_globs: list[str | Path] = [
     "./**/*.css",
 ]
 
+code_rust_file_globs: list[str | Path] = [
+    "./**/*.rs",
+    "./**/*.toml",
+]
+
+code_java_file_globs: list[str | Path] = [
+    "./**/*.java",
+    "./**/*.gradle",
+    "./**/*.gradle.kts",
+    "./**/*.kt",
+    "./**/*.kts",
+]
+
 
 def gather_files_for_context(file_patterns: list[str | Path], max_context_length: int = 0) -> str:
     """
@@ -575,13 +588,15 @@ def gather_files_for_context(file_patterns: list[str | Path], max_context_length
         try:
             if isinstance(pattern, Path):
                 pattern = pattern.as_posix()
-            files += glob.glob(pattern, recursive=True)
+            files += glob.glob(pattern, recursive=True, include_hidden=False)
         except Exception as _:
             pass
 
     if not files:
         return "<files>\n</files>\n"
 
+    if max_context_length < 0:
+        max_context_length = 0
     doc = StringIO()
     doc.write("<files>\n")
     i: int = 0
