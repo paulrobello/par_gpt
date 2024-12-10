@@ -97,32 +97,41 @@ def do_tool_agent(
     if image:
         raise ValueError("Image not supported for tool agent")
 
-    module_text = "\n".join([f"    - {module}" for module in modules]) + "\n"
+    module_text = (
+        "<available_modules>\n"
+        + ("\n".join([f"<module>{module}</module>" for module in modules]) + "\n")
+        + "</available_modules>\n"
+    )
     default_system_prompt = (
         """
-You are a helpful assistant.
-
+<role>You are a helpful assistant.</role>
+<instructions>
 Answer the users question, try to be concise and brief unless the user requests otherwise.
 Use tools and the "Extra Context" section to help answer the question.
 When doing a web search determine which of the results is best and only download content from that result.
 Think through all the steps needed to answer the question and make a plan before using tools.
-When creating and executing code you MUST follow these rules:
-- assume python version is 3.11
-- Do not install any packages.
-- ensure any web requests have a 10 second timeout
-- ensure that encoding is set to "utf-8" for all file operations
-- NEVER execute code that could destroy data or otherwise harm the system or its data and files
-- The following modules are already available and do not need to be imported:
-- If an AbortedByUserError is raised by a tool, return its message to the user as the final answer."
+When creating and executing code you MUST follow repl_rules.
+<repl_rules>
+Assume python version is 3.11
+Do NOT install any packages.
+Ensure any web requests have a 10 second timeout.
+Ensure that encoding is set to "utf-8" for all file operations.
+NEVER execute code that could destroy data or otherwise harm the system or its data and files.
+The available_modules are already available and do not need to be imported.
+If an AbortedByUserError is raised by a tool, return its message to the user as the final answer.
+</repl_rules>
+</instructions>
 """
         + module_text
         + env_info
         + """
-# Question
+<question>
 {question}
+</question>
 
-# Agent Scratchpad
+<agent_scratchpad>
 {agent_scratchpad}
+</agent_scratchpad>
         """
     )
     prompt_template = ChatPromptTemplate.from_template(system_prompt or default_system_prompt)

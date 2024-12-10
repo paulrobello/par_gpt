@@ -193,18 +193,38 @@ def main(
             help="Maximum number of iterations to run when in agent mode.",
         ),
     ] = 5,
+    max_context_size: Annotated[
+        int,
+        typer.Option(
+            "--max-context-size",
+            "-M",
+            envvar=f"{ENV_VAR_PREFIX}_MAX_CONTEXT_SIZE",
+            help="Maximum context size when provider supports it. 0 = default.",
+        ),
+    ] = 0,
     debug: Annotated[
         bool,
         typer.Option(
             "--debug",
+            "-D",
             envvar=f"{ENV_VAR_PREFIX}_DEBUG",
             help="Enable debug mode",
+        ),
+    ] = False,
+    show_tool_calls: Annotated[
+        bool,
+        typer.Option(
+            "--show-tool-calls",
+            "-T",
+            envvar=f"{ENV_VAR_PREFIX}_SHOW_TOOL_CALLS",
+            help="Show tool calls",
         ),
     ] = False,
     show_config: Annotated[
         bool,
         typer.Option(
             "--show-config",
+            "-S",
             envvar=f"{ENV_VAR_PREFIX}_SHOW_CONFIG",
             help="Show config",
         ),
@@ -222,6 +242,7 @@ def main(
         bool,
         typer.Option(
             "--copy-to-clipboard",
+            "-c",
             help="Copy output to clipboard",
         ),
     ] = False,
@@ -229,6 +250,7 @@ def main(
         bool,
         typer.Option(
             "--copy-from-clipboard",
+            "-C",
             help="Copy context or context location from clipboard",
         ),
     ] = False,
@@ -325,8 +347,11 @@ def main(
                 model_name=provider_light_models[ai_provider],
                 temperature=0,
                 mode=LlmMode.CHAT,
+                num_ctx=max_context_size,
             )
-            with get_parai_callback(llm_config, show_end=debug, show_pricing=pricing):
+            with get_parai_callback(
+                llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls, show_pricing=pricing
+            ):
                 repo = GitRepo(llm_config=llm_config)
                 if not repo.is_dirty():
                     console.print("[bold yellow]No changes to commit. Exiting...")
@@ -398,12 +423,13 @@ def main(
             base_url=ai_base_url,
             streaming=False,
             user_agent_appid=user_agent_appid,
+            num_ctx=max_context_size,
         )
 
         chat_model = llm_config.build_chat_model()
 
         env_info = mk_env_context()
-        with get_parai_callback(llm_config, show_end=debug) as cb:
+        with get_parai_callback(llm_config=llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
             if agent_mode:
                 module_names = [
                     "requests",
@@ -455,7 +481,9 @@ def main(
                     ai_tools.append(web_search)  # type: ignore
                 if os.environ.get("BRAVE_API_KEY"):
                     ai_tools.append(
-                        BraveSearch.from_api_key(api_key=os.environ.get("BRAVE_API_KEY") or "", search_kwargs={"count": 3})
+                        BraveSearch.from_api_key(
+                            api_key=os.environ.get("BRAVE_API_KEY") or "", search_kwargs={"count": 3}
+                        )
                     )
                 if "clipboard" in question:
                     ai_tools.append(ai_copy_to_clipboard)
@@ -543,27 +571,31 @@ def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None) -> 
     extra_context_text = "\n" + extra_context_text.strip()
 
     return (
-        "# Extra Context\n"
-        + "\n".join(
-            [
-                f"- {k}: {v}"
-                for k, v in (
-                    {
-                        "username": getpass.getuser(),
-                        "home directory": Path("~").expanduser().as_posix(),
-                        "current directory": Path(os.getcwd()).expanduser().as_posix(),
-                        "current date and time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                        "platform": platform.platform(aliased=True, terse=True),
-                        "shell": Path(os.environ.get("SHELL", "bash")).stem,
-                        "term": os.environ.get("TERM", "xterm-256color"),
-                        "console dimensions": f"{console.width}x{console.height}",
-                    }
-                    | extra_context
-                ).items()  # type: ignore
-            ]
+        (
+            "<extra_context>\n"
+            + "\n".join(
+                [
+                    f"<{k}>{v}</{k}>"
+                    for k, v in (
+                        {
+                            "username": getpass.getuser(),
+                            "home_directory": Path("~").expanduser().as_posix(),
+                            "current_directory": Path(os.getcwd()).expanduser().as_posix(),
+                            "current_date_and_time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                            "platform": platform.platform(aliased=True, terse=True),
+                            "shell": Path(os.environ.get("SHELL", "bash")).stem,
+                            "term": os.environ.get("TERM", "xterm-256color"),
+                            "console_dimensions": f"{console.width}x{console.height}",
+                        }
+                        | extra_context
+                    ).items()  # type: ignore
+                ]
+            )
+            + "\n"
         )
-        + "\n"
-    ) + extra_context_text
+        + extra_context_text
+        + "\n</extra_context>\n"
+    )
 
 
 def do_single_llm_call(
@@ -577,7 +609,7 @@ def do_single_llm_call(
     debug: bool,
 ):
     default_system_prompt = (
-        "ROLE: You are a helpful assistant. Try to be concise and brief unless the user requests otherwise."
+        "<role>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise.</role>"
     )
 
     chat_history: list[tuple[str, str | list[dict[str, Any]]]] = [
