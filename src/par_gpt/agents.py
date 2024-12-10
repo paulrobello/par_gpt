@@ -2,12 +2,72 @@
 
 from __future__ import annotations
 
+import copy
+from pathlib import Path
+from typing import Any
+
 from langchain.agents import create_react_agent, AgentExecutor, create_tool_calling_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.tools import BaseTool
+from langchain_groq import ChatGroq
+from langchain_core.messages import BaseMessage
 from rich.console import Console
 from rich.panel import Panel
+from rich.pretty import Pretty
+
+from par_gpt.lib.llm_image_utils import image_to_chat_message
+from par_gpt.lib.output_utils import DisplayOutputFormat, get_output_format_prompt
+
+from par_gpt.lib.utils import gather_files_for_context, code_python_file_globs
+
+
+def do_single_llm_call(
+    *,
+    chat_model: BaseChatModel,
+    user_input: str,
+    image: str | None = None,
+    system_prompt: str | None = None,
+    no_system_prompt: bool = False,
+    env_info: str | None = None,
+    display_format: DisplayOutputFormat = DisplayOutputFormat.NONE,
+    debug: bool,
+    io: Console | None = None,
+) -> tuple[str, BaseMessage]:
+    if not io:
+        io = Console(stderr=True)
+    default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
+
+    chat_history: list[tuple[str, str | list[dict[str, Any]]]] = []
+    if not no_system_prompt:
+        chat_history.append(
+            (
+                "system",
+                (system_prompt or default_system_prompt).strip() + "\n" + get_output_format_prompt(display_format),
+            )
+        )
+        if env_info:
+            chat_history.append(("user", env_info))
+
+        # Groq does not support images if a system prompt is specified
+        if isinstance(chat_model, ChatGroq) and image:
+            chat_history.pop(0)
+
+    chat_history_debug = copy.deepcopy(chat_history)
+    if image:
+        chat_history.append(("user", [{"type": "text", "text": user_input}, image_to_chat_message(image)]))
+        chat_history_debug.append(("user", [{"type": "text", "text": user_input}, ({"IMAGE": "DATA"})]))
+    else:
+        chat_history.append(("user", user_input))
+        chat_history_debug.append(("user", user_input))
+
+    if debug:
+        io.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
+
+    result = chat_model.invoke(chat_history)  # type: ignore
+    content = str(result.content).replace("```markdown", "").replace("```", "").strip()
+    result.content = content
+    return content, result
 
 
 # not currently used
@@ -83,7 +143,7 @@ def do_tool_agent(
     ai_tools: list[BaseTool],
     modules: list[str],
     env_info: str,
-    question: str,
+    user_input: str,
     system_prompt: str | None,
     image: str | None = None,
     max_iterations: int = 5,
@@ -92,49 +152,74 @@ def do_tool_agent(
     io: Console | None = None,
 ):
     """Tool agent"""
-    if not io:
-        io = Console(stderr=True)
     if image:
         raise ValueError("Image not supported for tool agent")
 
-    module_text = (
-        "<available_modules>\n"
-        + ("\n".join([f"    <module>{module}</module>" for module in modules]) + "\n")
-        + "</available_modules>\n"
-    )
+    if not io:
+        io = Console(stderr=True)
+
+    has_repl = False
+    for tool in ai_tools:
+        if "repl" in tool.name.lower():
+            has_repl = True
+            break
+
+    if has_repl and modules:
+        module_text = (
+            "<available_modules>\n"
+            + ("\n".join([f"    <module>{module}</module>" for module in modules]) + "\n")
+            + "</available_modules>\n"
+        )
+    else:
+        module_text = ""
+
     default_system_prompt = """
 <role>You are a helpful assistant.</role>
 <instructions>
-    <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
-    <instruction>Use tools and the "Extra Context" section to help answer the question.</instruction>
-    <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
     <instruction>Think through all the steps needed to answer the question and make a plan before using tools.</instruction>
-    <instruction>When creating and executing code you MUST follow the rules in the repl_rules section.</instruction>
-    <repl_rules>
-        <rule>Assume python version is 3.11</rule>
-        <rule>Do NOT install any packages.</rule>
-        <rule>Ensure any web requests have a 10 second timeout.</rule>
-        <rule>Ensure that encoding is set to "utf-8" for all file operations.</rule>
-        <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
-        <rule>The available_modules are already available and do not need to be imported.</rule>
-        <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
-    </repl_rules>
+    <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
+    <instruction>Use tools and the extra_context section to help answer the question.</instruction>
+    <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
+    <instruction>When creating code you MUST follow the rules in the code_rules section.</instruction>
+"""
+    if has_repl:
+        default_system_prompt += """
+    <instruction>When using a REPL tool you MUST follow the rules in the repl_rules section.</instruction>
+"""
+    default_system_prompt += """
 </instructions>
+"""
+    if has_repl:
+        default_system_prompt += """
+<repl_rules>
+    <rule>Do NOT install any packages.</rule>
+    <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
+    <rule>The available_modules are already available and do not need to be imported.</rule>
+    <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
+</repl_rules>
+"""
+
+    default_system_prompt += """
+<code_rules>
+    <rule>Assume python version is 3.11</rule>
+    <rule>Ensure any web requests have a 10 second timeout.</rule>
+    <rule>Ensure that encoding is set to "utf-8" for all file operations.</rule>
+</code_rules>
 
 {module_text}
 
 {env_info}
 
-<question>
-{question}
-</question>
+<user_input>
+{user_input}
+</user_input>
 
 <agent_scratchpad>
 {agent_scratchpad}
 </agent_scratchpad>
-        """
+"""
     prompt = system_prompt or default_system_prompt
-    if "agent_scratchpad" not in prompt:
+    if "{agent_scratchpad}" not in prompt:
         prompt += "\n<agent_scratchpad>\n{agent_scratchpad}\n</agent_scratchpad>\n"
     prompt_template = ChatPromptTemplate.from_template(prompt)
     agent = create_tool_calling_agent(chat_model, ai_tools, prompt_template)
@@ -147,7 +232,7 @@ def do_tool_agent(
         stream_runnable=False,  # type: ignore
         # early_stopping_method="generate",
     )
-    args = {"question": question, "module_text": module_text, "env_info": env_info}
+    args = {"user_input": user_input, "module_text": module_text, "env_info": env_info}
     if debug:
         io.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
     result = agent_executor.invoke(args)
@@ -159,3 +244,52 @@ def do_tool_agent(
         content = result["output"][0]["text"]
     content = content.replace("```markdown", "").replace("```", "").strip()
     return content, result
+
+
+def do_code_review_agent(
+    *,
+    chat_model: BaseChatModel,
+    env_info: str,
+    user_input: str,
+    system_prompt: str | None,
+    display_format: DisplayOutputFormat,
+    debug: bool = True,
+    io: Console | None = None,
+) -> tuple[str, BaseMessage]:
+    """Code Agent"""
+
+    prompt = system_prompt or (Path(__file__).parent / "prompts" / "prompt_bug_analysis.xml").read_text(
+        encoding="utf-8"
+    )
+    prompt_template = ChatPromptTemplate.from_template(prompt)
+    code_context = gather_files_for_context(code_python_file_globs)
+    return do_single_llm_call(
+        chat_model=chat_model,
+        system_prompt=prompt_template.format(code_context=code_context),
+        user_input=user_input,
+        env_info=env_info,
+        display_format=display_format,
+        debug=debug,
+        io=io,
+    )
+
+
+def do_prompt_generation_agent(
+    *,
+    chat_model: BaseChatModel,
+    user_input: str,
+    system_prompt: str | None,
+    debug: bool = True,
+    io: Console | None = None,
+) -> tuple[str, BaseMessage]:
+    """Prompt Agent"""
+
+    prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
+    prompt_template = ChatPromptTemplate.from_template(prompt)
+    return do_single_llm_call(
+        chat_model=chat_model,
+        user_input=prompt_template.format(user_input=user_input),
+        no_system_prompt=True,
+        debug=debug,
+        io=io,
+    )
