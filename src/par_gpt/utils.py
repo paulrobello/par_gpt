@@ -136,8 +136,11 @@ def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", io: 
     if not image_path:
         return "Image not found"
     try:
-        if str(image_path).startswith("http"):
-            image_path = download_cache.download(str(image_path))
+        image_path = str(image_path)
+        if image_path.startswith("//"):
+            image_path = "https:" + image_path
+        if image_path.startswith("http"):
+            image_path = download_cache.download(image_path)
 
         if dimension in ["auto", "small", "medium", "large"]:
             width = io.width
