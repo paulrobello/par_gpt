@@ -59,13 +59,13 @@ def ai_copy_to_clipboard(text: str) -> str:
 
 
 @tool(parse_docstring=True)
-def git_commit_tool(message_only: bool, files: list[str] | None = None, context: str | None = None) -> str:
+def git_commit_tool(message_only: bool, files: list[str], context: str | None = None) -> str:
     """
     Create a git commit or return the commit message
 
     Args:
         message_only: If true, don't commit only return the commit message
-        files: Optional list of files to commit. If not provided, commit all tracked files
+        files: List of files to commit. Empty list will commit all tracked files
         context: Optional extra context to help generate the commit message
 
     Returns:
