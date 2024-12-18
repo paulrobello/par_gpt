@@ -6,27 +6,29 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from langchain.agents import create_react_agent, AgentExecutor, create_tool_calling_agent
+from langchain.agents import AgentExecutor, create_react_agent, create_tool_calling_agent
 from langchain_core.language_models import BaseChatModel
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.messages import BaseMessage
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
-from langchain_core.messages import BaseMessage
 from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from par_gpt.lib.llm_image_utils import image_to_chat_message
-from par_gpt.lib.output_utils import DisplayOutputFormat, get_output_format_prompt
-
-from par_gpt.lib.utils import (
-    gather_files_for_context,
-    code_python_file_globs,
+from .lib.llm_config import llm_run_manager
+from .lib.llm_image_utils import image_to_chat_message
+from .lib.output_utils import DisplayOutputFormat, get_output_format_prompt
+from .lib.utils import (
     code_frontend_file_globs,
-    code_js_file_globs,
-    code_rust_file_globs,
     code_java_file_globs,
+    code_js_file_globs,
+    code_python_file_globs,
+    code_rust_file_globs,
+    gather_files_for_context,
 )
+
+console = Console(stderr=True)
 
 
 def do_single_llm_call(
@@ -70,8 +72,7 @@ def do_single_llm_call(
 
     if debug:
         io.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
-
-    result = chat_model.invoke(chat_history)  # type: ignore
+    result = chat_model.invoke(chat_history, config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
     content = str(result.content).replace("```markdown", "").replace("```", "").strip()
     result.content = content
     return content, result
@@ -138,7 +139,7 @@ Begin!
     )
     if debug:
         io.print(Panel.fit(default_system_prompt, title="GPT Prompt"))
-    result = agent_executor.invoke({"question": question})
+    result = agent_executor.invoke({"question": question}, config=llm_run_manager.get_runnable_config(chat_model.name))
     content = str(result["output"]).replace("```markdown", "").replace("```", "").strip()
     result["output"] = content
     return content, result
@@ -185,6 +186,7 @@ def do_tool_agent(
 <instructions>
     <instruction>Think through all the steps needed to answer the question and make a plan before using tools.</instruction>
     <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
+    <instruction>If a tool returns an error message asking you to stop, do not make any additional requests and use the error message as the final answer.</instruction>
     <instruction>Use tools and the extra_context section to help answer the question.</instruction>
     <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
     <instruction>When creating code you MUST follow the rules in the code_rules section.</instruction>
@@ -242,7 +244,7 @@ def do_tool_agent(
     args = {"user_input": user_input, "module_text": module_text, "env_info": env_info}
     if debug:
         io.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
-    result = agent_executor.invoke(args)
+    result = agent_executor.invoke(args, config=llm_run_manager.get_runnable_config(chat_model.name))
     # if debug:
     #     io.print(Panel.fit(Pretty(result), title="GPT Response))
     if isinstance(result["output"], str):

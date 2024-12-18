@@ -1,21 +1,23 @@
 """Repo utils."""
 
 from __future__ import annotations
+
 import os
 import threading
-from os import PathLike
 import time
+from os import PathLike
 from pathlib import Path, PurePosixPath
 
 import git
 import git.exc
 import pathspec
-from git import Blob
+from git import Blob, Commit, Remote
 from pathspec import PathSpec
 from rich.console import Console
 
-from ..lib.llm_config import LlmConfig, LlmMode
-from ..lib.llm_providers import LlmProvider, provider_light_models
+from .. import __env_var_prefix__
+from ..lib.llm_config import LlmConfig, llm_run_manager
+from ..lib.llm_utils import llm_config_from_env
 from ..utils import safe_abs_path
 
 commit_system = """
@@ -74,9 +76,7 @@ class GitRepo:
 
         self.normalized_path = {}
         self.tree_files = {}
-        self.llm_config = llm_config or LlmConfig(
-            LlmProvider.OPENAI, provider_light_models[LlmProvider.OPENAI], mode=LlmMode.CHAT, temperature=0
-        )
+        self.llm_config = llm_config or llm_config_from_env(prefix=__env_var_prefix__)
 
         self.attribute_author = attribute_author
         self.attribute_committer = attribute_committer
@@ -222,8 +222,11 @@ class GitRepo:
 
         try:
             chat_model = self.llm_config.build_chat_model()
-            commit_message = str(chat_model.invoke(messages).content)
-        except Exception as _:
+            commit_message = str(
+                chat_model.invoke(messages, config=llm_run_manager.get_runnable_config(chat_model.name)).content
+            )
+        except Exception as e:
+            self.console.print(f"[bold red]Failed to generate commit message: {e}")
             commit_message = ""
 
         if not commit_message:
@@ -456,7 +459,7 @@ class GitRepo:
 
         return self.repo.is_dirty(path=path)
 
-    def get_head_commit(self):
+    def get_head_commit(self) -> Commit | None:
         try:
             return self.repo.head.commit
         except ANY_GIT_ERROR:
@@ -475,3 +478,9 @@ class GitRepo:
         if not commit:
             return default
         return commit.message
+
+    def create_remote(self, name: str, url: str) -> Remote | ANY_GIT_ERROR:
+        try:
+            return self.repo.create_remote(name, url)
+        except ANY_GIT_ERROR as e:
+            return e

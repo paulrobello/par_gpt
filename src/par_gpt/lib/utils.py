@@ -12,6 +12,7 @@ import math
 import os
 import random
 import re
+import select
 import shlex
 import string
 import subprocess
@@ -29,9 +30,8 @@ from pathlib import Path
 from re import Match, Pattern
 from typing import Any
 
-import select
-from markdownify import MarkdownConverter
 from bs4 import BeautifulSoup
+from markdownify import MarkdownConverter
 from rich.console import Console
 
 console = Console(stderr=True)
@@ -297,8 +297,7 @@ def md5_hash(data: str) -> str:
     Returns:
             str: The md5 hash of the input data.
     """
-    md5 = hashlib.md5()
-    md5.update(data.encode())
+    md5 = hashlib.md5(data.encode("utf-8"))
     return md5.hexdigest()
 
 
@@ -312,8 +311,7 @@ def sha1_hash(data: str) -> str:
     Returns:
             str: The SHA1 hash of the input data.
     """
-    sha1 = hashlib.sha1()
-    sha1.update(data.encode())
+    sha1 = hashlib.sha1(data.encode("utf-8"))
     return sha1.hexdigest()
 
 
@@ -327,8 +325,7 @@ def sha256_hash(data: str) -> str:
     Returns:
             str: The SHA256 hash of the input data.
     """
-    sha256 = hashlib.sha256()
-    sha256.update(data.encode())
+    sha256 = hashlib.sha256(data.encode("utf-8"))
     return sha256.hexdigest()
 
 
@@ -625,8 +622,3 @@ def gather_files_for_context(file_patterns: list[str | Path], max_context_length
 
     doc.write("</files>\n")
     return doc.getvalue()
-
-
-if __name__ == "__main__":
-    print(gather_files_for_context([Path("./**/*.py")]))
-    # print(gather_files_for_context([Path("../**/*.py")]))

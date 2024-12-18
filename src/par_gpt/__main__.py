@@ -12,58 +12,63 @@ from typing import Annotated
 
 import pyperclip
 import typer
+from dotenv import load_dotenv
+from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-
 from rich.console import Console
 from rich.markdown import Markdown
-
-from dotenv import load_dotenv
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.text import Text
 
-
-from langchain_community.tools import BraveSearch, TavilySearchResults
-
-
-from .ai_tools.par_python_repl import ParPythonAstREPLTool
-from .lib.llm_image_utils import (
-    try_get_image_type,
-    UnsupportedImageTypeError,
-    image_to_base64,
+from par_gpt.ai_tools.ai_tools import (
+    ai_brave_search,
+    ai_github_create_repo,
+    ai_github_list_repos,
+    ai_github_publish_repo,
+    ai_serper_search,
 )
-from .lib.provider_cb_info import get_parai_callback
-from .lib.web_tools import web_search, fetch_url_and_convert_to_markdown
-from .utils import download_cache, show_image_in_terminal, mk_env_context
-from .agents import do_tool_agent, do_single_llm_call, do_code_review_agent, do_prompt_generation_agent
 
+from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
+from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
 from .ai_tools.ai_tools import (
+    ai_copy_from_clipboard,
+    ai_copy_to_clipboard,
+    ai_display_image_in_terminal,
     ai_fetch_url,
-    git_commit_tool,
-    ai_open_url,
     ai_get_weather_current,
     ai_get_weather_forecast,
-    ai_display_image_in_terminal,
-    ai_copy_to_clipboard,
+    ai_open_url,
+    ai_reddit_search,
+    ai_youtube_get_transcript,
+    ai_youtube_search,
+    git_commit_tool,
 )
-from .repo.repo import GitRepo
-from .lib.output_utils import DisplayOutputFormat, display_formatted_output
-from .lib.utils import has_stdin_content
+from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .lib.llm_config import LlmConfig, LlmMode
-from .lib.pricing_lookup import show_llm_cost, PricingDisplay
+from .lib.llm_image_utils import (
+    UnsupportedImageTypeError,
+    image_to_base64,
+    try_get_image_type,
+)
 from .lib.llm_providers import (
     LlmProvider,
-    provider_env_key_names,
     provider_default_models,
+    provider_env_key_names,
     provider_light_models,
     provider_vision_models,
 )
-from . import __application_title__, __version__, __application_binary__
+from .lib.output_utils import DisplayOutputFormat, display_formatted_output
+from .lib.pricing_lookup import PricingDisplay, show_llm_cost
+from .lib.provider_cb_info import get_parai_callback
+from .lib.utils import has_stdin_content
+from .lib.web_tools import fetch_url_and_convert_to_markdown, web_search
+from .repo.repo import GitRepo
+from .utils import download_cache, mk_env_context, show_image_in_terminal
 
 app = typer.Typer()
 console = Console(stderr=True)
 
-ENV_VAR_PREFIX = "PARGPT"
 
 load_dotenv()
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
@@ -81,7 +86,7 @@ def main(
     ai_provider: Annotated[
         LlmProvider,
         typer.Option(
-            "--ai-provider", "-a", envvar=f"{ENV_VAR_PREFIX}_AI_PROVIDER", help="AI provider to use for processing"
+            "--ai-provider", "-a", envvar=f"{__env_var_prefix__}_AI_PROVIDER", help="AI provider to use for processing"
         ),
     ] = LlmProvider.GITHUB,
     model: Annotated[
@@ -89,7 +94,7 @@ def main(
         typer.Option(
             "--model",
             "-m",
-            envvar=f"{ENV_VAR_PREFIX}_MODEL",
+            envvar=f"{__env_var_prefix__}_MODEL",
             help="AI model to use for processing. If not specified, a default model will be used.",
         ),
     ] = None,
@@ -98,7 +103,7 @@ def main(
         typer.Option(
             "--light-model",
             "-l",
-            envvar=f"{ENV_VAR_PREFIX}_LIGHT_MODEL",
+            envvar=f"{__env_var_prefix__}_LIGHT_MODEL",
             help="Use a light model for processing. If not specified, a default model will be used.",
         ),
     ] = False,
@@ -107,7 +112,7 @@ def main(
         typer.Option(
             "--ai-base-url",
             "-b",
-            envvar=f"{ENV_VAR_PREFIX}_AI_BASE_URL",
+            envvar=f"{__env_var_prefix__}_AI_BASE_URL",
             help="Override the base URL for the AI provider.",
         ),
     ] = None,
@@ -116,7 +121,7 @@ def main(
         typer.Option(
             "--temperature",
             "-t",
-            envvar=f"{ENV_VAR_PREFIX}_TEMPERATURE",
+            envvar=f"{__env_var_prefix__}_TEMPERATURE",
             help="Temperature to use for processing. If not specified, a default temperature will be used.",
         ),
     ] = 0.5,
@@ -125,20 +130,20 @@ def main(
         typer.Option(
             "--user-agent-appid",
             "-U",
-            envvar=f"{ENV_VAR_PREFIX}_USER_AGENT_APPID",
+            envvar=f"{__env_var_prefix__}_USER_AGENT_APPID",
             help="Extra data to include in the User-Agent header for the AI provider.",
         ),
     ] = None,
     pricing: Annotated[
         PricingDisplay,
-        typer.Option("--pricing", "-p", envvar=f"{ENV_VAR_PREFIX}_PRICING", help="Enable pricing summary display"),
+        typer.Option("--pricing", "-p", envvar=f"{__env_var_prefix__}_PRICING", help="Enable pricing summary display"),
     ] = PricingDisplay.NONE,
     display_format: Annotated[
         DisplayOutputFormat,
         typer.Option(
             "--display-output",
             "-d",
-            envvar=f"{ENV_VAR_PREFIX}_DISPLAY_OUTPUT",
+            envvar=f"{__env_var_prefix__}_DISPLAY_OUTPUT",
             help="Display output in terminal (none, plain, md, csv, or json)",
         ),
     ] = DisplayOutputFormat.MD,
@@ -171,7 +176,7 @@ def main(
         typer.Option(
             "--agent-mode",
             "-g",
-            envvar=f"{ENV_VAR_PREFIX}_AGENT_MODE",
+            envvar=f"{__env_var_prefix__}_AGENT_MODE",
             help="Enable agent mode.",
         ),
     ] = False,
@@ -180,7 +185,7 @@ def main(
         typer.Option(
             "--max-iterations",
             "-i",
-            envvar=f"{ENV_VAR_PREFIX}_MAX_ITERATIONS",
+            envvar=f"{__env_var_prefix__}_MAX_ITERATIONS",
             help="Maximum number of iterations to run when in agent mode.",
         ),
     ] = 5,
@@ -189,7 +194,7 @@ def main(
         typer.Option(
             "--max-context-size",
             "-M",
-            envvar=f"{ENV_VAR_PREFIX}_MAX_CONTEXT_SIZE",
+            envvar=f"{__env_var_prefix__}_MAX_CONTEXT_SIZE",
             help="Maximum context size when provider supports it. 0 = default.",
         ),
     ] = 0,
@@ -198,7 +203,7 @@ def main(
         typer.Option(
             "--debug",
             "-D",
-            envvar=f"{ENV_VAR_PREFIX}_DEBUG",
+            envvar=f"{__env_var_prefix__}_DEBUG",
             help="Enable debug mode",
         ),
     ] = False,
@@ -207,7 +212,7 @@ def main(
         typer.Option(
             "--show-tool-calls",
             "-T",
-            envvar=f"{ENV_VAR_PREFIX}_SHOW_TOOL_CALLS",
+            envvar=f"{__env_var_prefix__}_SHOW_TOOL_CALLS",
             help="Show tool calls",
         ),
     ] = False,
@@ -216,7 +221,7 @@ def main(
         typer.Option(
             "--show-config",
             "-S",
-            envvar=f"{ENV_VAR_PREFIX}_SHOW_CONFIG",
+            envvar=f"{__env_var_prefix__}_SHOW_CONFIG",
             help="Show config",
         ),
     ] = False,
@@ -225,7 +230,7 @@ def main(
         typer.Option(
             "--yes-to-all",
             "-y",
-            envvar=f"{ENV_VAR_PREFIX}_YES_TO_ALL",
+            envvar=f"{__env_var_prefix__}_YES_TO_ALL",
             help="Yes to all prompts",
         ),
     ] = False,
@@ -249,7 +254,7 @@ def main(
         bool,
         typer.Option(
             "--no-repl",
-            envvar=f"{ENV_VAR_PREFIX}_NO_REPL",
+            envvar=f"{__env_var_prefix__}_NO_REPL",
             help="Disable REPL tool",
         ),
     ] = False,
@@ -346,14 +351,16 @@ def main(
         if re.match(r"(git|gen|generate|create|do|show|display) commit", question, flags=re.IGNORECASE):
             llm_config = LlmConfig(
                 provider=ai_provider,
-                model_name=provider_light_models[ai_provider],
+                model_name=model,
                 temperature=0,
                 mode=LlmMode.CHAT,
+                streaming=False,
+                user_agent_appid=user_agent_appid,
                 num_ctx=max_context_size,
-            )
-            with get_parai_callback(
-                llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls, show_pricing=pricing
-            ):
+                env_prefix=__env_var_prefix__,
+                base_url=ai_base_url,
+            ).set_env()
+            with get_parai_callback(show_end=debug, show_tool_calls=debug or show_tool_calls, show_pricing=pricing):
                 repo = GitRepo(llm_config=llm_config)
                 if not repo.is_dirty():
                     console.print("[bold yellow]No changes to commit. Exiting...")
@@ -426,13 +433,15 @@ def main(
             streaming=False,
             user_agent_appid=user_agent_appid,
             num_ctx=max_context_size,
-        )
+            env_prefix=__env_var_prefix__,
+        ).set_env()
 
         chat_model = llm_config.build_chat_model()
-        chat_model.name = llm_config.model_name
+        question = question.strip()
+        question_lower = question.lower()
 
         env_info = mk_env_context({}, console)
-        with get_parai_callback(llm_config=llm_config, show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
+        with get_parai_callback(show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
             if agent_mode:
                 module_names = [
                     "requests",
@@ -453,6 +462,8 @@ def main(
                     ai_fetch_url,
                     git_commit_tool,
                     ai_display_image_in_terminal,
+                    ai_youtube_get_transcript,
+                    # ai_joke,
                 ]  # type: ignore
 
                 if not no_repl:
@@ -462,7 +473,10 @@ def main(
                         ),
                     )
 
-                # use TavilySearchResults if API key is set with fallback to google search if its key is set
+                if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
+                    ai_tools.append(ai_youtube_search)
+
+                # use TavilySearchResults with fallback to serper and google search if api keys are set
                 if os.environ.get("TAVILY_API_KEY"):
                     ai_tools.append(
                         TavilySearchResults(
@@ -481,20 +495,28 @@ def main(
                             description="General search for content not directly related to current events",
                         )
                     )
+                elif os.environ.get("SERPER_API_KEY"):
+                    ai_tools.append(ai_serper_search)
                 elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
                     ai_tools.append(web_search)  # type: ignore
-                if os.environ.get("BRAVE_API_KEY"):
-                    ai_tools.append(
-                        BraveSearch.from_api_key(
-                            api_key=os.environ.get("BRAVE_API_KEY") or "", search_kwargs={"count": 3}
-                        )
-                    )
-                if "clipboard" in question:
-                    ai_tools.append(ai_copy_to_clipboard)
 
-                if ("weather" in question or " wx " in question) and os.environ.get("WEATHERAPI_KEY"):
+                if os.environ.get("BRAVE_API_KEY"):
+                    ai_tools.append(ai_brave_search)
+
+                if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
+                    ai_tools.append(ai_reddit_search)
+
+                if "clipboard" in question_lower:
+                    ai_tools.append(ai_copy_to_clipboard)
+                    ai_tools.append(ai_copy_from_clipboard)
+
+                if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                     ai_tools.append(ai_get_weather_current)
                     ai_tools.append(ai_get_weather_forecast)
+                if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
+                    ai_tools.append(ai_github_list_repos)
+                    ai_tools.append(ai_github_create_repo)
+                    ai_tools.append(ai_github_publish_repo)
 
                 content, result = do_tool_agent(
                     chat_model=chat_model,
@@ -509,7 +531,7 @@ def main(
                     io=console,
                 )
             else:
-                if "code review" in question:
+                if "code review" in question_lower:
                     content, result = do_code_review_agent(
                         chat_model=chat_model,
                         user_input=question,
@@ -519,7 +541,7 @@ def main(
                         debug=debug,
                         io=console,
                     )
-                elif "generate prompt" in question:
+                elif "generate prompt" in question_lower:
                     content, result = do_prompt_generation_agent(
                         chat_model=chat_model,
                         user_input=question,
@@ -532,6 +554,7 @@ def main(
                         chat_model=chat_model,
                         user_input=question,
                         system_prompt=system_prompt,
+                        no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
                         env_info=env_info,
                         image=context if context_is_image else None,
                         display_format=display_format,
@@ -551,7 +574,7 @@ def main(
         if debug:
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
-        show_llm_cost(llm_config, usage_metadata, console=console, show_pricing=pricing)
+        show_llm_cost(usage_metadata, console=console, show_pricing=pricing)
 
         display_formatted_output(content, display_format, out_console=console)
 

@@ -61,6 +61,13 @@ dependencies = [
     "faker>=30.8.2",
     "rich-pixels>=3.0.1",
     "keyring>=25.5.0",
+    "praw>=7.8.1",
+    "youtube-transcript-api>=0.6.3",
+    "tavily-python>=0.5.0",
+    "google-search-results>=2.4.2",
+    "trafilatura>=2.0.0",
+    "langchain-xai>=0.1.0",
+    "pygithub>=2.5.0",
 ]
 packages = ["src/par_gpt"]
 

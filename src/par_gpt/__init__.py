@@ -19,6 +19,8 @@ __email__ = "probello@gmail.com"
 __version__ = "0.3.0"
 __application_title__ = "Par Gpt"
 __application_binary__ = "par_gpt"
+__env_var_prefix__ = "PARGPT"
+
 __licence__ = "MIT"
 
 
@@ -34,4 +36,5 @@ __all__: list[str] = [
     "__application_binary__",
     "__licence__",
     "__application_title__",
+    "__env_var_prefix__",
 ]

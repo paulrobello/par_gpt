@@ -6,18 +6,18 @@ import getpass
 import hashlib
 import os
 import platform
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import orjson as json
 import requests
-from rich_pixels import Pixels
 from rich.console import Console
+from rich_pixels import Pixels
 
-from .lib.user_agents import get_random_user_agent
 from . import __application_binary__
+from .lib.user_agents import get_random_user_agent
 
 
 def get_url_file_suffix(url):

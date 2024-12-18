@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from langchain_core.tools import tool
-import pyperclip
+import os
 import webbrowser
+from pathlib import Path
+from typing import Any, Literal
 
-from ..lib.llm_config import LlmConfig, LlmMode
+import pyperclip
+from git import Remote
+from github import Auth, Github
+from langchain_core.tools import tool
+from rich.console import Console
+
+from ..lib.llm_config import LlmConfig, LlmMode, llm_run_manager
 from ..lib.llm_providers import LlmProvider, provider_light_models
-from ..lib.web_tools import fetch_url_and_convert_to_markdown, web_search, GoogleSearchResult
-from ..repo.repo import GitRepo
+from ..lib.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
+from ..lib.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
+from ..repo.repo import ANY_GIT_ERROR, GitRepo
 from ..utils import get_weather_current, get_weather_forecast, show_image_in_terminal
+
+console = Console(stderr=True)
 
 
 @tool(parse_docstring=True)
@@ -27,7 +35,7 @@ def ai_fetch_url(
     Returns:
         A list of markdown content for each url.
     """
-    return fetch_url_and_convert_to_markdown(urls[:3], verbose=True)
+    return fetch_url_and_convert_to_markdown(urls[:3], include_links=True, verbose=True)
 
 
 @tool(parse_docstring=True)
@@ -44,18 +52,49 @@ def ai_web_search(query: str) -> list[GoogleSearchResult]:
 
 
 @tool(parse_docstring=True)
+def ai_reddit_search(
+    query: str, subreddit: str = "all", max_comments: int = 0, max_results: int = 3
+) -> list[dict[str, Any]]:
+    """Performs a Reddit search.
+
+    Args:
+        query: The Google search query. The following list of single word queries can be used to fetch posts [hot, new, controversial]
+        subreddit: The sub-reddit to search (default: 'all')
+        max_comments (int): Maximum number of comments to return (default: 0 do not return comments)
+        max_results: Maximum number of results to return (default: 3)
+
+    Returns:
+        A list of Reddit search results.
+    """
+    return reddit_search(query, subreddit=subreddit, max_comments=max_comments, max_results=max_results)["results"]
+
+
+@tool(parse_docstring=True)
 def ai_copy_to_clipboard(text: str) -> str:
     """Copies text to the clipboard.
 
     Args:
-        text: The text to copy.
+        text: The text to copy to the clipboard.
 
     Returns:
-        The text that was copied.
+        "Text copied to clipboard"
     """
 
     pyperclip.copy(text)
     return "Text copied to clipboard"
+
+
+@tool(parse_docstring=True)
+def ai_copy_from_clipboard() -> str:
+    """Copies text from the clipboard.
+
+    Args:
+
+    Returns:
+        Any text that was copied from the clipboard.
+    """
+
+    return pyperclip.paste() or ""
 
 
 @tool(parse_docstring=True)
@@ -153,3 +192,246 @@ def ai_display_image_in_terminal(image_path: str, dimension: str = "auto") -> st
     """
 
     return show_image_in_terminal(image_path, dimension)
+
+
+@tool(parse_docstring=True)
+def ai_youtube_get_transcript(video_id: str) -> str:
+    """
+    Fetch transcript for a YouTube video.
+
+    Args:
+        video_id: YouTube video ID
+
+    Returns:
+        str: Transcript text
+    """
+    return youtube_get_transcript(video_id)
+
+
+@tool(parse_docstring=True)
+def ai_youtube_search(
+    query: str, days: int = 0, max_results: int = 3, fetch_transcript: bool = False
+) -> list[dict[str, Any]]:
+    """
+    Search YouTube for videos and optionally fetch transcripts.
+
+    Args:
+        query (str): The search query.
+        days (int, optional): The number of days to search. Defaults to 0 meaning all time.
+        max_results (int, optional): The maximum number of results to return. Defaults to 3.
+        fetch_transcript (bool, optional): Whether to fetch the transcript for each video. Defaults to False.
+
+    Returns:
+        - results (list): List of search result dictionaries, each containing:
+            - title (str): Title of the search result
+            - url (str): URL of the search result
+            - description (str): Snippet/summary of the content
+            - raw_content (str): Full content of the page if available
+    """
+    return youtube_search(query, days=days, max_results=max_results, fetch_transcript=fetch_transcript)
+
+
+@tool(parse_docstring=True)
+def ai_brave_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[dict[str, Any]]:
+    """Search the web using Brave.
+
+    Args:
+        query (str): The search query to execute
+        days (int): Number of days to search (default is 0 meaning all time)
+        max_results (int): Maximum number of results to return
+        scrape (bool): Whether to scrape the content of the search result urls
+
+    Returns:
+        - results (list): List of search result dictionaries, each containing:
+            - title (str): Title of the search result
+            - url (str): URL of the search result
+            - description (str): Snippet/summary of the content
+            - raw_content (str): Full content of the page if available
+    """
+    return brave_search(query, days=days, max_results=max_results, scrape=scrape)
+
+
+@tool(parse_docstring=True)
+def ai_serper_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[dict[str, Any]]:
+    """Search the web using Google Serper.
+
+    Args:
+        query (str): The search query to execute
+        days (int): Number of days to search (default is 0 meaning all time)
+        max_results (int): Maximum number of results to return
+        scrape (bool): Whether to scrape the search result urls (default is False)
+
+    Returns:
+        - results (list): List of search result dictionaries, each containing:
+            - title (str): Title of the search result
+            - url (str): URL of the search result
+            - description (str): Snippet/summary of the content
+            - raw_content (str): Full content of the page if available
+    """
+
+    return serper_search(query, days=days, max_results=max_results, scrape=scrape)
+
+
+@tool()
+def ai_joke(subject: str | None = None) -> str:
+    """
+    Tell a joke.
+
+    Args:
+        subject: The subject of the joke (default: None for any subject)
+
+    Returns:
+        str: The joke
+    """
+    llm_config = LlmConfig(
+        provider=LlmProvider.OPENAI,
+        model_name=provider_light_models[LlmProvider.OPENAI],
+    )
+    chat_model = llm_config.build_chat_model()
+
+    prompt = f"Tell me a {subject} joke"
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a comedian that specializes in jokes that really make you think. Tell a joke dealing with the subject provided by the user. If the subject is not provided, tell a joke about anything.",
+        },
+        {"role": "user", "content": prompt or "anything"},
+    ]
+    return str(chat_model.invoke(messages, config=llm_run_manager.get_runnable_config(chat_model.name)).content)
+
+
+REPO_ORDER_BY = Literal["created", "updated", "pushed", "full_name"]
+REPO_ORDER_DIRECTION = Literal["asc", "desc"]
+
+
+@tool(parse_docstring=True)
+def ai_github_list_repos(
+    order_by: REPO_ORDER_BY = "updated", order_direction: REPO_ORDER_DIRECTION = "asc", max_results: int = 0
+) -> list[dict[str, Any]]:
+    """
+    List all the GitHub repositories for the current authenticated user.
+
+    Args:
+        order_by (str): The field to order the repositories by. Valid values are "created", "updated", "pushed", and "full_name".
+        order_direction (str): The direction to order the repositories. Valid values are "asc" (ascending) and "desc" (descending).
+        max_results (int): The maximum number of results to return. If 0, returns all results.
+
+    Returns:
+        - results (list): List of repository dictionaries, each containing:
+            - name (str): Name of the repository
+            - full_name (str): Full name of the repository
+            - description (str): Description of the repository
+            - url (str): URL of the repository
+            - default_branch (str): Default branch of the repository
+            - private (bool): Whether the repository is private
+            - stars (int): Number of stars the repository has
+            - forks_count (int): Number of forks the repository has
+            - created_at (str): ISO format date and time the repository was created
+            - updated_at (str): ISO format date and time the repository was last updated
+            - pushed_at (str): ISO format date and time the repository was last pushed
+            - open_issues (int): Number of open issues in the repository
+    """
+    if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
+        raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
+    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    g = Github(auth=auth)
+    repos = g.get_user().get_repos(sort=order_by, direction=order_direction)
+    res = [
+        {
+            "name": r.name,
+            "full_name": r.full_name,
+            "description": r.description,
+            "url": r.html_url,
+            "default_branch": r.default_branch,
+            "private": r.private,
+            "stars": r.stargazers_count,
+            "forks_count": r.forks_count,
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+            "pushed_at": r.pushed_at.isoformat(),
+            "open_issues": r.open_issues,
+        }
+        for r in repos
+    ]
+    # console.print(res)
+    if max_results:
+        return res[:max_results]
+    return res
+
+
+@tool(parse_docstring=True)
+def ai_github_create_repo(repo_name: str | None = None, private: bool = True) -> str:
+    """
+    Create a new GitHub repository
+
+    Args:
+        repo_name (str): The name of the repository (default: the name of the current working directory)
+        private (bool): Whether the repository should be private (default: True)
+
+    Returns:
+        str: The URL of the newly created repository
+    """
+    if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
+        raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
+    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    g = Github(auth=auth)
+    repo_name = repo_name or Path(os.getcwd()).stem.lower().replace(" ", "-")
+    # console.print(f"Creating repository: {repo_name}")
+    repo = g.get_user().create_repo(repo_name, private=private)
+    return repo.html_url
+
+
+@tool(parse_docstring=True)
+def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -> str:
+    """
+    Create a new GitHub repository and push current repo to it.
+    If an error message is returned stop and make it your final response.
+
+    Args:
+        repo_name (str): The name of the repository (default: the name of the current working directory)
+        private (bool): Whether the repository should be private (default: True)
+
+    Returns:
+        str: The URL of the newly created repository or Error message
+    """
+    if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
+        return "Error: GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set."
+
+    repo: GitRepo
+    try:
+        repo = GitRepo()
+        if repo.is_dirty():
+            # console.print("Repo is dirty. Please commit changes before publishing.")
+            return "Error: Repo is dirty. Please commit changes before publishing."
+    except ANY_GIT_ERROR as _:
+        # console.print("Error: GIT repository not found. Please create a repository first.")
+        return "Error: GIT repository not found. Please create a repository first."
+
+    try:
+        if repo.repo.remote("origin") is not None:
+            console.print("Error: Remote origin already exists for this repository. Aborting.")
+            return "Error: Remote origin already exists for this repository. Aborting."
+    except ANY_GIT_ERROR as _:
+        pass
+
+    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    g = Github(auth=auth)
+    repo_name = repo_name or Path(repo.repo.git_dir).parent.stem.lower().replace(" ", "-")
+
+    # console.print(f"Creating repository: {repo_name}")
+
+    gh_repo = g.get_user().create_repo(repo_name, private=private)
+    remote = repo.create_remote("origin", gh_repo.ssh_url)
+    if not isinstance(remote, Remote):
+        # console.print(f"Error: {remote}")
+        return f"Error: {remote}"
+
+    try:
+        remote.push(f"HEAD:{gh_repo.default_branch}")
+    except ANY_GIT_ERROR as e:
+        # console.print(f"Error pushing to remote: {e}")
+        return (
+            f"GitHub repo created {gh_repo.html_url} but there was an error pushing to the remote. Error Message: {e}"
+        )
+
+    return gh_repo.html_url
