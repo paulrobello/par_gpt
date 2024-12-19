@@ -38,7 +38,6 @@ dependencies = [
     "prompt-toolkit>=3.0.0",
     "pydantic-core>=2.20.1",
     "pydantic>=2.8.2",
-    "pyperclip>=1.9.0",
     "pytesseract>=0.3.13",
     "python-dotenv>=1.0.1",
     "qdrant-client>=1.11.1",
@@ -68,6 +67,7 @@ dependencies = [
     "trafilatura>=2.0.0",
     "langchain-xai>=0.1.0",
     "pygithub>=2.5.0",
+    "clipman>=3.3.1",
 ]
 packages = ["src/par_gpt"]
 

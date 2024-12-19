@@ -5,11 +5,11 @@ from __future__ import annotations
 import os
 import webbrowser
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-import pyperclip
+import clipman as clipboard
 from git import Remote
-from github import Auth, Github
+from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
 from rich.console import Console
 
@@ -66,7 +66,7 @@ def ai_reddit_search(
     Returns:
         A list of Reddit search results.
     """
-    return reddit_search(query, subreddit=subreddit, max_comments=max_comments, max_results=max_results)["results"]
+    return reddit_search(query, subreddit=subreddit, max_comments=max_comments, max_results=max_results)
 
 
 @tool(parse_docstring=True)
@@ -80,7 +80,7 @@ def ai_copy_to_clipboard(text: str) -> str:
         "Text copied to clipboard"
     """
 
-    pyperclip.copy(text)
+    clipboard.copy(text)
     return "Text copied to clipboard"
 
 
@@ -94,7 +94,7 @@ def ai_copy_from_clipboard() -> str:
         Any text that was copied from the clipboard.
     """
 
-    return pyperclip.paste() or ""
+    return clipboard.paste() or ""
 
 
 @tool(parse_docstring=True)
@@ -333,7 +333,7 @@ def ai_github_list_repos(
     """
     if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
         raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
-    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repos = g.get_user().get_repos(sort=order_by, direction=order_direction)
     res = [
@@ -373,11 +373,11 @@ def ai_github_create_repo(repo_name: str | None = None, private: bool = True) ->
     """
     if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
         raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
-    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repo_name = repo_name or Path(os.getcwd()).stem.lower().replace(" ", "-")
     # console.print(f"Creating repository: {repo_name}")
-    repo = g.get_user().create_repo(repo_name, private=private)
+    repo = cast(AuthenticatedUser, g.get_user()).create_repo(repo_name, private=private)  # type: ignore
     return repo.html_url
 
 
@@ -414,13 +414,12 @@ def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -
     except ANY_GIT_ERROR as _:
         pass
 
-    auth = Auth.Token(os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"))
+    auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repo_name = repo_name or Path(repo.repo.git_dir).parent.stem.lower().replace(" ", "-")
 
     # console.print(f"Creating repository: {repo_name}")
-
-    gh_repo = g.get_user().create_repo(repo_name, private=private)
+    gh_repo = cast(AuthenticatedUser, g.get_user()).create_repo(repo_name, private=private)  # type: ignore
     remote = repo.create_remote("origin", gh_repo.ssh_url)
     if not isinstance(remote, Remote):
         # console.print(f"Error: {remote}")
