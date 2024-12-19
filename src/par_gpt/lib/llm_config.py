@@ -324,7 +324,7 @@ class LlmConfig:
 
         if self.mode == LlmMode.CHAT:
             return ChatAnthropic(
-                model=self.model_name,
+                model=self.model_name,  # type: ignore
                 temperature=self.temperature,
                 streaming=self.streaming,
                 base_url=self.base_url,
@@ -334,8 +334,8 @@ class LlmConfig:
                 top_p=self.top_p,
                 max_tokens_to_sample=self.num_predict or 1024,
                 disable_streaming=not self.streaming,
-                max_tokens=self.num_ctx or None,
-            )
+                max_tokens=self.num_ctx or None,  # type: ignore
+            )  # type: ignore
 
         raise ValueError(f"Invalid LLM mode '{self.mode}'")
 
@@ -541,12 +541,12 @@ class LlmRunManager:
             self._id_to_config[config["metadata"]["config_id"]] = (config, llmConfig)
 
     def get_config(self, config_id: str) -> tuple[RunnableConfig, LlmConfig] | None:
-        """Get runnable config by run id."""
+        """Get runnable config by config id."""
         with self._lock:
             return self._id_to_config.get(config_id)
 
     def get_runnable_config(self, config_id: str | None) -> RunnableConfig | None:
-        """Get runnable config by run id."""
+        """Get runnable config by config id."""
         if not config_id:
             return None
         with self._lock:
@@ -554,6 +554,26 @@ class LlmRunManager:
             if not config:
                 return None
             return config[0]
+
+    def get_runnable_config_by_model(self, model_name: str) -> RunnableConfig | None:
+        """Get runnable config by model name."""
+        if not model_name:
+            return None
+        with self._lock:
+            for item in self._id_to_config.values():
+                if item[1].model_name == model_name:
+                    return item[0]
+            return None
+
+    def get_runnable_config_by_llm_config(self, llm_config: LlmConfig) -> RunnableConfig | None:
+        """Get runnable config by llm config."""
+        if not llm_config:
+            return None
+        with self._lock:
+            for item in self._id_to_config.values():
+                if item[1].model_name == llm_config.model_name:
+                    return item[0]
+            return None
 
     def get_provider_and_model(self, config_id: str | None) -> tuple[str, str] | None:
         """Get provider and model by run id."""
