@@ -10,7 +10,7 @@ from io import StringIO
 from pathlib import Path
 from typing import Annotated
 
-import pyperclip
+import clipman as clipboard
 import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
@@ -278,7 +278,7 @@ def main(
                 console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
                 raise typer.Exit(1)
         if copy_from_clipboard:
-            context_location = pyperclip.paste()
+            context_location = clipboard.paste()
             console.print("[bold green]Context copied from clipboard")
 
         context_is_url: bool = context_location.startswith("http")
@@ -444,6 +444,15 @@ def main(
         with get_parai_callback(show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
             if agent_mode:
                 module_names = [
+                    "os",
+                    "sys",
+                    "re",
+                    "json",
+                    "time",
+                    "datetime",
+                    "random",
+                    "string",
+                    "pathlib",
                     "requests",
                     "git",
                     "pandas",
@@ -453,7 +462,7 @@ def main(
                     "bs4",
                     "html2text",
                     "pydantic",
-                    "pyperclip",
+                    "clipman",
                 ]
                 local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
 
@@ -568,7 +577,7 @@ def main(
             print(content)
 
         if copy_to_clipboard:
-            pyperclip.copy(content)
+            clipboard.copy(content)
             console.print("[bold green]Copied to clipboard")
 
         if debug:
