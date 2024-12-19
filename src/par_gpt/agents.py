@@ -204,6 +204,7 @@ def do_tool_agent(
     <rule>Do NOT install any packages.</rule>
     <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
     <rule>The available_modules are already available and do not need to be imported.</rule>
+    <rule>Do not include imports in your code reference the module name instead.</rule>
     <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
 </repl_rules>
 """
