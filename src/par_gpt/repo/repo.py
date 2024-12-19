@@ -479,7 +479,7 @@ class GitRepo:
             return default
         return commit.message
 
-    def create_remote(self, name: str, url: str) -> Remote | ANY_GIT_ERROR:
+    def create_remote(self, name: str, url: str) -> Remote | Exception:
         try:
             return self.repo.create_remote(name, url)
         except ANY_GIT_ERROR as e:
