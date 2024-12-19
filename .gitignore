@@ -76,3 +76,5 @@ __pypackages__/
 /data.csv
 /graph.png
 *~
+/temp_prompt.txt
+/src/par_gpt/lib/gh_utils.py
