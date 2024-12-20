@@ -14,12 +14,9 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel, BaseLanguageModel
 from langchain_core.runnables import RunnableConfig
 from pydantic import SecretStr
-from rich.console import Console
 
 # from langchain_experimental import
 from .llm_providers import LlmProvider, is_provider_api_key_set, provider_base_urls
-
-console = Console(stderr=True)
 
 warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
 

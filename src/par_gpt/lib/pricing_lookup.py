@@ -8,6 +8,7 @@ from rich.pretty import Pretty
 
 from .llm_config import LlmConfig
 from .llm_providers import LlmProvider
+from .par_logging import console_err
 
 
 class PricingDisplay(StrEnum):
@@ -317,7 +318,7 @@ def show_llm_cost(
     if show_pricing == PricingDisplay.NONE:
         return
     if not console:
-        console = Console(stderr=True)
+        console = console_err
 
     grand_total: float = 0.0
     if show_pricing == PricingDisplay.PRICE:

@@ -34,7 +34,7 @@ from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 from rich.console import Console
 
-console = Console(stderr=True)
+from .par_logging import console_err
 
 DECIMAL_PRECESSION = 5
 
@@ -393,7 +393,7 @@ def catch_to_logger(logger: any, re_throw: bool = False) -> Generator[None, None
 
 
 @contextmanager
-def timer_block(label: str = "Timer") -> Generator[None, None, None]:
+def timer_block(label: str = "Timer", console: Console | None = None) -> Generator[None, None, None]:
     """Time a block of code."""
 
     start_time = time.time()
@@ -402,6 +402,8 @@ def timer_block(label: str = "Timer") -> Generator[None, None, None]:
     finally:
         end_time = time.time()
         elapsed_time = end_time - start_time
+        if not console:
+            console = console_err
         console.print(f"{label} took {elapsed_time:.4f} seconds.")
 
 
@@ -475,7 +477,7 @@ def output_to_dicts(output: str) -> list[dict[str, Any]]:
     return ret
 
 
-def run_cmd(params: list[str]) -> str | None:
+def run_cmd(params: list[str], console: Console | None = None) -> str | None:
     """Run a command and return the output."""
     try:
         result = subprocess.run(params, capture_output=True, text=True, check=True)
@@ -486,11 +488,13 @@ def run_cmd(params: list[str]) -> str | None:
         # Get the last two lines
         return "\n".join(lines)
     except subprocess.CalledProcessError as e:
+        if not console:
+            console = console_err
         console.print(f"Error running command {e.stderr}")
         return None
 
 
-def read_env_file(filename: str) -> dict[str, str]:
+def read_env_file(filename: str, console: Console | None = None) -> dict[str, str]:
     """
     Read environment variables from a file into a dictionary
 
@@ -512,6 +516,8 @@ def read_env_file(filename: str) -> dict[str, str]:
                 key, value = line.split("=", 1)
                 env_vars[key.strip()] = value.strip()
             except Exception as e:
+                if not console:
+                    console = console_err
                 console.print(f"Error: {e} --- line {line}")
     return env_vars
 

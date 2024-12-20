@@ -12,21 +12,26 @@ from rich.markdown import Markdown
 from rich.syntax import Syntax
 from rich.table import Table
 
-console = Console(stderr=True)
+from .par_logging import console_err
 
 
 class DisplayOutputFormat(StrEnum):
     """Enum for display output format choices."""
 
     NONE = "none"
+    """No output."""
     PLAIN = "plain"
+    """Plain text output."""
     MD = "md"
+    """Rich Markdown output."""
     CSV = "csv"
+    """Rich Table output."""
     JSON = "json"
+    """Rich JSON output."""
 
 
 def csv_to_table(data: str, title: str = "Results") -> Table:
-    """Convert csv data to a table."""
+    """Convert csv data to a Rich Table."""
     data = data.strip()
     table = Table(title=title)
     if not data:
@@ -46,7 +51,7 @@ def csv_to_table(data: str, title: str = "Results") -> Table:
 
 
 def csv_file_to_table(csv_file: Path, title: str | None = None) -> Table:
-    """Convert csv file to a table."""
+    """Convert csv file to a Rich Table."""
     return csv_to_table(
         csv_file.read_text(encoding="utf-8").strip(),
         csv_file.name if title is None else title,
@@ -66,24 +71,21 @@ def highlight_json_file(json_file: Path) -> Syntax:
 def get_output_format_prompt(display_format: DisplayOutputFormat) -> str:
     """Get the output format prompt."""
     if display_format == DisplayOutputFormat.MD:
-        return """
-<output_instructions>
+        return """<output_instructions>
     <instruction>Output properly formatted Markdown.</instruction>
     <instruction>Use table / list formatting when applicable or requested.</instruction>
     <instruction>Do not include an opening ```markdown or closing ```</instruction>
 </output_instructions>
 """
     if display_format == DisplayOutputFormat.JSON:
-        return """
-<output_instructions>
+        return """<output_instructions>
     <instruction>Output proper JSON.</instruction>
     <instruction>Use a schema if provided.</instruction>
     <instruction>Only output JSON. Do not include any other text / markdown or formatting such as opening ```json or closing ```</instruction>
 </output_instructions>
 """
     if display_format == DisplayOutputFormat.CSV:
-        return """
-<output_instructions>
+        return """<output_instructions>
     <instruction>Output proper CSV format.</instruction>
     <instruction>Ensure you use double quotes on fields containing line breaks or commas.</instruction>
     <instruction>Include a header with names of the fields.</instruction>
@@ -92,28 +94,32 @@ def get_output_format_prompt(display_format: DisplayOutputFormat) -> str:
 </output_instructions>
 """
     if display_format == DisplayOutputFormat.PLAIN:
-        return """
-<output_instructions>
+        return """<output_instructions>
     <instruction>Output plain text without formatting, do not include any other formatting such as markdown.</instruction>
 </output_instructions>
 """
     return ""
 
 
-def display_formatted_output(
-    content: str, display_format: DisplayOutputFormat, out_console: Console | None = None
-) -> None:
-    """Display formatted output."""
+def display_formatted_output(content: str, display_format: DisplayOutputFormat, console: Console | None = None) -> None:
+    """
+    Display formatted output.
+
+    Args:
+        content (str): The content to display.
+        display_format (DisplayOutputFormat): The output format.
+        console (Console, optional): The console to use. Defaults to console_err.
+    """
     if display_format == DisplayOutputFormat.NONE:
         return
 
-    if not out_console:
-        out_console = console
+    if not console:
+        console = console_err
 
     if display_format == DisplayOutputFormat.PLAIN:
-        out_console.print(content)
+        console.print(content)
     elif display_format == DisplayOutputFormat.MD:
-        out_console.print(Markdown(content))
+        console.print(Markdown(content))
     elif display_format == DisplayOutputFormat.CSV:
         # Convert CSV to rich Table
         table = Table(title="CSV Data")
@@ -123,6 +129,6 @@ def display_formatted_output(
             table.add_column(header, style="cyan")
         for row in csv_reader:
             table.add_row(*row)
-        out_console.print(table)
+        console.print(table)
     elif display_format == DisplayOutputFormat.JSON:
-        out_console.print(Syntax(content, "json"))
+        console.print(Syntax(content, "json"))

@@ -12,14 +12,12 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.load.serializable import Serializable
 from langchain_core.outputs import ChatGeneration, LLMResult
 from langchain_core.tracers.context import register_configure_hook
-from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
 from .llm_config import LlmConfig, llm_run_manager
+from .par_logging import console_err
 from .pricing_lookup import PricingDisplay, accumulate_cost, get_api_call_cost, mk_usage_metadata, show_llm_cost
-
-console = Console(stderr=True)
 
 
 class ParAICallbackHandler(BaseCallbackHandler, Serializable):
@@ -75,6 +73,7 @@ class ParAICallbackHandler(BaseCallbackHandler, Serializable):
     def on_llm_start(self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any) -> None:
         """Print out the prompts."""
         if self.show_prompts:
+            console = kwargs.get("console", console_err)
             console.print(Panel(f"Prompt: {prompts[0]}", title="Prompt"))
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
@@ -84,6 +83,7 @@ class ParAICallbackHandler(BaseCallbackHandler, Serializable):
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         """Collect token usage."""
 
+        console = kwargs.get("console", console_err)
         if self.show_end:
             console.print(Panel(Pretty(response), title="LLM END"))
             console.print(Panel(Pretty(kwargs), title="LLM END KWARGS"))
@@ -140,6 +140,7 @@ class ParAICallbackHandler(BaseCallbackHandler, Serializable):
         """Run when the tool starts running."""
         if not self.show_tool_calls:
             return
+        console = kwargs.get("console", console_err)
         console.print(Panel(Pretty(inputs), title=f"Tool Call: {serialized['name']}"))
 
     def __copy__(self) -> "ParAICallbackHandler":

@@ -12,9 +12,8 @@ from pydantic import BaseModel
 from rich.console import Console
 from rich.repr import rich_repr
 
+from .par_logging import console_err
 from .user_agents import get_random_user_agent
-
-console = Console(stderr=True)
 
 
 @rich_repr
@@ -26,11 +25,15 @@ class GoogleSearchResult(BaseModel):
     snippet: str
 
 
-def web_search(query: str, *, num_results: int = 3, verbose: bool = False) -> list[GoogleSearchResult]:
+def web_search(
+    query: str, *, num_results: int = 3, verbose: bool = False, console: Console | None = None
+) -> list[GoogleSearchResult]:
     """Google web search."""
     from langchain_google_community import GoogleSearchAPIWrapper
 
     if verbose:
+        if not console:
+            console = console_err
         console.print(f"[bold green]Web search:[bold yellow] {query}")
 
     search = GoogleSearchAPIWrapper(
@@ -90,7 +93,13 @@ def fetch_url(
 
 
 def fetch_url_selenium(
-    urls: str | list[str], *, sleep_time: int = 1, timeout: int = 10, ignore_ssl: bool = True, verbose: bool = False
+    urls: str | list[str],
+    *,
+    sleep_time: int = 1,
+    timeout: int = 10,
+    ignore_ssl: bool = True,
+    verbose: bool = False,
+    console: Console | None = None,
 ) -> list[str]:
     """
     Fetch the contents of a webpage using Selenium.
@@ -101,6 +110,7 @@ def fetch_url_selenium(
         timeout (int): The number of seconds to wait for a response.
         ignore_ssl (bool): Whether to ignore SSL errors.
         verbose (bool): Whether to print verbose output.
+        console (Console | None): The console to use for printing verbose output.
 
     Returns:
         list[str]: A list of HTML contents of the fetched webpages.
@@ -109,6 +119,9 @@ def fetch_url_selenium(
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
     from webdriver_manager.chrome import ChromeDriverManager
+
+    if not console:
+        console = console_err
 
     if isinstance(urls, str):
         urls = [urls]
@@ -160,7 +173,13 @@ def fetch_url_selenium(
 
 
 def fetch_url_playwright(
-    urls: str | list[str], *, sleep_time: int = 1, timeout: int = 10, ignore_ssl: bool = True, verbose: bool = False
+    urls: str | list[str],
+    *,
+    sleep_time: int = 1,
+    timeout: int = 10,
+    ignore_ssl: bool = True,
+    verbose: bool = False,
+    console: Console | None = None,
 ) -> list[str]:
     """
     Fetch HTML content from a URL using Playwright.
@@ -171,11 +190,15 @@ def fetch_url_playwright(
         timeout (int, optional): The timeout in seconds for the request. Defaults to 10.
         ignore_ssl (bool, optional): Whether to ignore SSL errors. Defaults to True.
         verbose (bool, optional): Whether to print verbose output. Defaults to False.
+        console (Console, optional): The console to use for printing verbose output.
 
     Returns:
         list[str]: The fetched HTML content as a list of strings.
     """
     from playwright.sync_api import sync_playwright
+
+    if not console:
+        console = console_err
 
     if isinstance(urls, str):
         urls = [urls]
@@ -242,6 +265,7 @@ def fetch_url_and_convert_to_markdown(
     sleep_time: int = 1,
     timeout: int = 10,
     verbose: bool = False,
+    console: Console | None = None,
 ) -> list[str]:
     """
     Fetch the contents of a webpage and convert it to markdown.
@@ -257,11 +281,15 @@ def fetch_url_and_convert_to_markdown(
         sleep_time (int, optional): The number of seconds to sleep between requests. Defaults to 1.
         timeout (int, optional): The timeout in seconds for the request. Defaults to 10.
         verbose (bool, optional): Whether to print verbose output. Defaults to False.
+        console (Console, optional): The console to use for printing verbose output.
 
     Returns:
         list[str]: The converted markdown content as a list of strings.
     """
     import html2text
+
+    if not console:
+        console = console_err
 
     if not tags:
         tags = []

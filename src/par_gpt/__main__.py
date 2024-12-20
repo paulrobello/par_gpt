@@ -15,7 +15,6 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.pretty import Pretty
@@ -28,6 +27,7 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_publish_repo,
     ai_serper_search,
 )
+from par_gpt.lib.par_logging import console_err
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
@@ -67,7 +67,7 @@ from .repo.repo import GitRepo
 from .utils import download_cache, mk_env_context, show_image_in_terminal
 
 app = typer.Typer()
-console = Console(stderr=True)
+console = console_err
 
 
 load_dotenv()
@@ -585,7 +585,7 @@ def main(
 
         show_llm_cost(usage_metadata, console=console, show_pricing=pricing)
 
-        display_formatted_output(content, display_format, out_console=console)
+        display_formatted_output(content, display_format, console=console)
 
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {str(e)}")

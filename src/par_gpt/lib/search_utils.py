@@ -14,18 +14,14 @@ import praw
 import praw.models
 import requests
 from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.brave_search import BraveSearchWrapper
 from langchain_core.language_models import BaseChatModel
-from rich.console import Console
 from tavily import TavilyClient
 from youtube_transcript_api import YouTubeTranscriptApi
 
 from .llm_utils import summarize_content
 from .web_tools import fetch_url_and_convert_to_markdown
-
-console = Console(stderr=True)
 
 
 def tavily_search(
@@ -199,7 +195,7 @@ def reddit_search(
     try:
         sub_reddit = reddit.subreddit(subreddit)
     except Exception as _:
-        console.log("[red]Subreddit not found, falling back to all")
+        # console.log("[red]Subreddit not found, falling back to all")
         subreddit = "all"
         sub_reddit = reddit.subreddit(subreddit)
     if query == "hot":
@@ -253,16 +249,16 @@ def youtube_get_comments(youtube, video_id: str) -> list[str]:
     """Fetch comments for a YouTube video."""
     comments = []
 
-    try:
-        # Fetch top-level comments
-        request = youtube.commentThreads().list(
-            part="snippet,replies",
-            videoId=video_id,
-            textFormat="plainText",
-            maxResults=100,  # Adjust based on needs
-        )
+    # Fetch top-level comments
+    request = youtube.commentThreads().list(
+        part="snippet,replies",
+        videoId=video_id,
+        textFormat="plainText",
+        maxResults=100,  # Adjust based on needs
+    )
 
-        while request:
+    while request:
+        try:
             response = request.execute()
             for item in response["items"]:
                 # Top-level comment
@@ -281,9 +277,8 @@ def youtube_get_comments(youtube, video_id: str) -> list[str]:
                 request = youtube.commentThreads().list_next(previous_request=request, previous_response=response)
             else:
                 request = None
-
-    except HttpError as e:
-        console.print(f"Failed to fetch comments: {e}")
+        except Exception as _:
+            break
 
     return comments
 
