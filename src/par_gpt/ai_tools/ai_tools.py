@@ -11,12 +11,12 @@ import clipman as clipboard
 from git import Remote
 from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
+from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
+from par_ai_core.llm_providers import LlmProvider, provider_light_models
+from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
+from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
 from rich.console import Console
 
-from ..lib.llm_config import LlmConfig, LlmMode, llm_run_manager
-from ..lib.llm_providers import LlmProvider, provider_light_models
-from ..lib.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
-from ..lib.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
 from ..repo.repo import ANY_GIT_ERROR, GitRepo
 from ..utils import get_weather_current, get_weather_forecast, show_image_in_terminal
 

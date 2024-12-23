@@ -12,12 +12,12 @@ import git
 import git.exc
 import pathspec
 from git import Blob, Commit, Remote
+from par_ai_core.llm_config import LlmConfig, llm_run_manager
+from par_ai_core.llm_utils import llm_config_from_env
 from pathspec import PathSpec
 from rich.console import Console
 
 from .. import __env_var_prefix__
-from ..lib.llm_config import LlmConfig, llm_run_manager
-from ..lib.llm_utils import llm_config_from_env
 from ..utils import safe_abs_path
 
 commit_system = """

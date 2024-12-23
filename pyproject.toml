@@ -68,6 +68,7 @@ dependencies = [
     "langchain-xai>=0.1.0",
     "pygithub>=2.5.0",
     "clipman>=3.3.1",
+    "par-ai-core",
 ]
 packages = ["src/par_gpt"]
 
@@ -100,6 +101,9 @@ dev-dependencies = [
     "docutils-stubs>=0.0.22",
     "pyinstrument>=5.0.0",
 ]
+
+[tool.uv.sources]
+par-ai-core = { path = "../par_ai_core" }
 
 [tool.hatch.version]
 path = "src/par_gpt/__init__.py"

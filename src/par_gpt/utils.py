@@ -13,11 +13,11 @@ from urllib.parse import urlparse
 
 import orjson as json
 import requests
+from par_ai_core.user_agents import get_random_user_agent
 from rich.console import Console
 from rich_pixels import Pixels
 
 from . import __application_binary__
-from .lib.user_agents import get_random_user_agent
 
 
 def get_url_file_suffix(url):

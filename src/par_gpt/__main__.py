@@ -15,6 +15,25 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
+from par_ai_core.llm_config import LlmConfig, LlmMode
+from par_ai_core.llm_image_utils import (
+    UnsupportedImageTypeError,
+    image_to_base64,
+    try_get_image_type,
+)
+from par_ai_core.llm_providers import (
+    LlmProvider,
+    provider_default_models,
+    provider_env_key_names,
+    provider_light_models,
+    provider_vision_models,
+)
+from par_ai_core.output_utils import DisplayOutputFormat, display_formatted_output
+from par_ai_core.par_logging import console_err
+from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
+from par_ai_core.provider_cb_info import get_parai_callback
+from par_ai_core.utils import has_stdin_content
+from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.pretty import Pretty
@@ -27,7 +46,6 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_publish_repo,
     ai_serper_search,
 )
-from par_gpt.lib.par_logging import console_err
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
@@ -45,24 +63,6 @@ from .ai_tools.ai_tools import (
     git_commit_tool,
 )
 from .ai_tools.par_python_repl import ParPythonAstREPLTool
-from .lib.llm_config import LlmConfig, LlmMode
-from .lib.llm_image_utils import (
-    UnsupportedImageTypeError,
-    image_to_base64,
-    try_get_image_type,
-)
-from .lib.llm_providers import (
-    LlmProvider,
-    provider_default_models,
-    provider_env_key_names,
-    provider_light_models,
-    provider_vision_models,
-)
-from .lib.output_utils import DisplayOutputFormat, display_formatted_output
-from .lib.pricing_lookup import PricingDisplay, show_llm_cost
-from .lib.provider_cb_info import get_parai_callback
-from .lib.utils import has_stdin_content
-from .lib.web_tools import fetch_url_and_convert_to_markdown, web_search
 from .repo.repo import GitRepo
 from .utils import download_cache, mk_env_context, show_image_in_terminal
 

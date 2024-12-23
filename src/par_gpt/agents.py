@@ -12,14 +12,10 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.tools import BaseTool
 from langchain_groq import ChatGroq
-from rich.console import Console
-from rich.panel import Panel
-from rich.pretty import Pretty
-
-from .lib.llm_config import llm_run_manager
-from .lib.llm_image_utils import image_to_chat_message
-from .lib.output_utils import DisplayOutputFormat, get_output_format_prompt
-from .lib.utils import (
+from par_ai_core.llm_config import llm_run_manager
+from par_ai_core.llm_image_utils import image_to_chat_message
+from par_ai_core.output_utils import DisplayOutputFormat, get_output_format_prompt
+from par_ai_core.utils import (
     code_frontend_file_globs,
     code_java_file_globs,
     code_js_file_globs,
@@ -27,6 +23,9 @@ from .lib.utils import (
     code_rust_file_globs,
     gather_files_for_context,
 )
+from rich.console import Console
+from rich.panel import Panel
+from rich.pretty import Pretty
 
 console = Console(stderr=True)
 
