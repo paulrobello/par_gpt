@@ -26,9 +26,8 @@ customizable output formats.
 
 - Python 3.11 or higher
 - UV package manager
-- API keys for chosen AI provider (except for Ollama)
-    - OpenAI: Set OPENAI_API_KEY environment variable
-    - Other providers: See provider-specific documentation
+- API keys for chosen AI provider (except for Ollama and LlamaCpp)
+    - See provider-specific documentation for required API key environment variables
 
 ## Installation
 
@@ -101,21 +100,30 @@ par_gpt [OPTIONS]
 ### Create a file ~/.par_gpt.env with the following content adjusted for your needs
 
 ```shell
-# AI Providers
+# AI API KEYS
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 GROQ_API_KEY=
-GITHUB_TOKEN=
+XAI_API_KEY=
 GOOGLE_API_KEY=
+MISTRAL_API_KEY=
+GITHUB_TOKEN=
 
 # Search
 GOOGLE_CSE_ID=
 GOOGLE_CSE_API_KEY=
+SERPER_API_KEY=
+SERPER_API_KEY_GOOGLE=
 TAVILY_API_KEY=
+JINA_API_KEY=
 BRAVE_API_KEY=
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
 
-# Weather
+
+# Misc api
 WEATHERAPI_KEY=
+GITHUB_PERSONAL_ACCESS_TOKEN=
 
 ### Tracing (optional)
 LANGCHAIN_TRACING_V2=false
@@ -138,20 +146,37 @@ PARGPT_SHOW_TOOL_CALLS=true
 
 ```
 
-* GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/
+### AI API KEYS
+
 * ANTHROPIC_API_KEY is required for Anthropic. Get a key from https://console.anthropic.com/
 * OPENAI_API_KEY is required for OpenAI. Get a key from https://platform.openai.com/account/api-keys
 * GITHUB_TOKEN is required for GitHub Models. Get a free key from https://github.com/marketplace/models
 * GOOGLE_API_KEY is required for Google Models. Get a free key from https://console.cloud.google.com
-* LANGCHAIN_API_KEY is required for Langchain Langsmith tracing. Get a free key
-  from https://smith.langchain.com/settings
-* AWS_PROFILE is used for Bedrock authentication. The environment must already be authenticated with AWS.
-* No key required to use with Ollama models.
+* XAI_API_KEY is required for XAI. Get a free key from https://x.ai/api
+* GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/
+* MISTRAL_API_KEY is required for Mistral. Get a free key from https://console.mistral.ai/
+* AWS_PROFILE or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are used for Bedrock authentication. The environment must
+  already be authenticated with AWS.
+* No key required to use with Ollama or LlamaCpp.
+
+### Search
+
 * TAVILY_API_KEY is required for Tavily AI search. Get a free key from https://tavily.com/. Tavily is much better than
-  google and is the recommended search provider.
+* JINA_API_KEY is required for Jina search. Get a free key from https://jina.ai
 * BRAVE_API_KEY is required for Brave search. Get a free key from https://brave.com/search/api/
+* SERPER_API_KEY is required for Serper search. Get a free key from https://serper.dev
+* SERPER_API_KEY_GOOGLE is required for Google Serper search. Get a free key from https://serpapi.com/
 * GOOGLE_CSE_ID and GOOGLE_CSE_API_KEY are required for Google search.
+* REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are needed for Reddit search. Get a free key
+  from https://www.reddit.com/prefs/apps/
+
+### Misc
+
+* GITHUB_PERSONAL_ACCESS_TOKEN is required for GitHub related tools. Get a free key
+  from https://github.com/settings/tokens
 * WEATHERAPI_KEY is required for weather. Get a free key from https://www.weatherapi.com/
+* LANGCHAIN_API_KEY is required for Langchain / Langsmith tracing. Get a free key
+  from https://smith.langchain.com/settings
 
 ## Agent mode
 
@@ -161,9 +186,12 @@ If the REPL tool is used it will prompt you before executing the code. Unless yo
 
 ## Code Review mode
 
-Code review mode sends code related files to AI for review. The review looks for bugs and issues in the code and provides a ranking of severity as well as suggestions for how to fix them.
+Code review mode sends code related files to AI for review. The review looks for bugs and issues in the code and
+provides a ranking of severity as well as suggestions for how to fix them.
 
-Change to the root of the project you want to check (or sub folder for smaller / faster / more cost-effective checks) and run the following:
+Change to the root of the project you want to check (or sub folder for smaller / faster / more cost-effective checks)
+and run the following:
+
 ```shell
 par_gpt 'code review'
 ```
@@ -234,12 +262,13 @@ par_gpt 'code review'
 ```
 
 ## What's New
+
 - Version 0.3.0:
-  - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
-  - Added code review agent
-  - Added prompt generation agent (work in progress)
-  - Updated pricing data
-  - Lots of bug fixes and improvements
+    - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
+    - Added code review agent
+    - Added prompt generation agent (work in progress)
+    - Updated pricing data
+    - Lots of bug fixes and improvements
 - Version 0.2.1:
     - Removed --context-source cli option as it is now auto-detected
     - When working with images and model is not specified a suitable vision model will be selected
