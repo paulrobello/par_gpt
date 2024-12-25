@@ -6,13 +6,17 @@ import getpass
 import hashlib
 import os
 import platform
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
+from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import orjson as json
+import pyfiglet
 import requests
+from par_ai_core.par_logging import console_err
 from par_ai_core.user_agents import get_random_user_agent
 from rich.console import Console
 from rich_pixels import Pixels
@@ -20,15 +24,24 @@ from rich_pixels import Pixels
 from . import __application_binary__
 
 
-def get_url_file_suffix(url):
+def get_url_file_suffix(url: str) -> str:
+    """
+    Get url file suffix
+
+    Args:
+        url (str): URL
+
+    Returns:
+        str: File suffix
+    """
     parsed_url = urlparse(url)
     filename = os.path.basename(parsed_url.path)
-    suffix = os.path.splitext(filename)[1]
+    suffix = os.path.splitext(filename)[1].lower()
     return suffix or ".jpg"
 
 
 class DownloadCache:
-    """Download cache"""
+    """Download cache manager"""
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
         if not cache_dir:
@@ -82,7 +95,7 @@ def get_weather_current(location: str, timeout: int = 10) -> dict[str, Any]:
 
     Args:
         location (str): Location
-        timeout (int): Timeout
+        timeout (int): Timeout in seconds
 
     Returns:
         str: Weather
@@ -104,7 +117,7 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
     Args:
         location (str): Location
         num_days (int): Number of days
-        timeout (int): Timeout
+        timeout (int): Timeout in seconds
 
     Returns:
         str: Weather
@@ -119,20 +132,20 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
     return response.json()
 
 
-def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", io: Console | None = None) -> str:
+def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", console: Console | None = None) -> str:
     """
     Show image in terminal.
 
     Args:
         image_path (str): Image path or URL
         dimension (str, optional): Image dimension in format of WIDTHxHEIGHT, small, medium, large or auto.
-        io (Console, optional): Console. Defaults to None.
+        console (Console, optional): Console. Defaults to None.
 
     Returns:
         str: Status of the operation
     """
-    if not io:
-        io = Console(stderr=True)
+    if not console:
+        console = console_err
     if not image_path:
         return "Image not found"
     try:
@@ -143,8 +156,8 @@ def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", io: 
             image_path = download_cache.download(image_path)
 
         if dimension in ["auto", "small", "medium", "large"]:
-            width = io.width
-            height = io.height
+            width = console.width
+            height = console.height
             if dimension == "small":
                 width = width // 3
                 height = height // 3
@@ -162,7 +175,7 @@ def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", io: 
 
         dim = width if width < height else height
         pixels = Pixels.from_image_path(image_path, resize=(dim, dim))
-        io.print(pixels)
+        console.print(pixels)
         return "Image shown in terminal"
     except Exception as e:
         return f"Error: {str(e)}"
@@ -177,10 +190,15 @@ def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None, con
             Path will be read and parsed as JSON with fallback to plain text
             Dictionary will append / overwrite existing context
             String will be appended as-is
+        console: Optional console to use
 
     Returns:
         str: The environment context as Markdown string
     """
+
+    if not console:
+        console = console_err
+
     if extra_context is None:
         extra_context = {}
 
@@ -232,3 +250,175 @@ def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None, con
         + extra_context_text
         + "\n</extra_context>\n"
     )
+
+
+FigletFontName = Literal[
+    "ansi_shadow",
+    "3d-ascii",
+    "alpha",
+    "big_money-se",
+    "blocks",
+    "bulbhead",
+    "doh",
+    "impossible",
+    "isometric1",
+    "slant_relief",
+    "caligraphy",
+    "jerusalem",
+    "pawp",
+    "peaks",
+    "tinker-toy",
+    "big",
+    "bloody",
+]
+
+
+def figlet_vertical(
+    text: str, font: FigletFontName = "ansi_shadow", colors: list[str] | None = None, console: Console | None = None
+) -> str:
+    """
+    Create a figlet text and output it to the terminal
+
+    Args:
+        text (str): The text to convert to figlet
+        font (str): The font to use (default: ansi_shadow)
+        colors (list[str] | None): The colors to use as a top to bottom gradient (default: ["#FFFF00", "#FFB000", "#FF7800", "#FF3200", "#FF0000"])
+        console (Console | None): The console to use
+
+    Returns:
+        str: The figlet text
+
+    Notes:
+        Calling this tool will send its output directly to the terminal. You do not need to capture the output.
+    """
+
+    if not console:
+        console = console_err
+
+    text = pyfiglet.figlet_format(text, font=font, width=console.width)
+
+    # Fire gradient colors
+    colors = colors or [
+        "#FFFF00",  # Bright yellow
+        "#FFB000",  # Orange-yellow
+        "#FF7800",  # Orange
+        "#FF3200",  # Orange-red
+        "#FF0000",  # Deep red
+    ]
+
+    # Split text into lines and compute lines per color
+    lines = text.split("\n")
+    num_lines = len(lines)
+    lines_per_color = num_lines / len(colors)
+
+    # Create gradient text
+    styled_lines = []
+    for i, line in enumerate(lines):
+        color_index = int(i / lines_per_color)
+        if color_index >= len(colors):
+            color_index = len(colors) - 1
+        styled_lines.append(f"[{colors[color_index]}]{line}")
+
+    # Join print and capture output
+    io_buffer = StringIO()
+    with redirect_stdout(io_buffer):
+        with redirect_stderr(io_buffer):
+            console.print("\n".join(styled_lines))
+
+    ret = io_buffer.getvalue()
+    # the llm often messes up the colors so we output before we send to llm
+    print(ret)
+
+    return ret
+
+
+def figlet_horizontal(
+    text: str, font: FigletFontName = "ansi_shadow", colors: list[str] | None = None, console: Console | None = None
+) -> str:
+    """
+    Create a figlet text and output it to the terminal
+
+    Args:
+        text (str): The text to convert to figlet
+        font (str): The font to use (default: ansi_shadow)
+        colors (list[str] | None): The colors to use as a gradient applied to each letter left to right (default: ["#FFFF00", "#FFB000", "#FF7800", "#FF3200", "#FF0000"])
+        console (Console | None): The console to use
+
+    Returns:
+        str: The figlet text
+
+    Notes:
+        Calling this tool will send its output directly to the terminal. You do not need to capture the output.
+    """
+
+    if not console:
+        console = console_err
+
+    # Known issue that fonts that overlap letters will not be overlapped as we render each letter separately
+    max_height: int = 0
+    figlet_chars: list[str] = []
+    # used to pad figlet chars to max height
+    space_char_indexes: list[int] = []
+    # used to not change colors for space characters
+
+    # loop over each letter and generate figlet letter
+    for i, letter in enumerate(text):
+        if letter == " ":
+            space_char_indexes.append(i)
+        figlet_chars.append(pyfiglet.figlet_format(letter, font=font, width=console.width))
+        # figlet wraps at 80 chars by default override with actual console width
+
+        # break char into lines to get max height for padding
+        char_lines = figlet_chars[i].split("\n")
+        if len(char_lines) > max_height:
+            max_height = len(char_lines) - 1
+
+    letters = []
+    # pad figlet chars to max height
+    for letter in figlet_chars:
+        char_lines = letter.split("\n")
+        if len(char_lines) < max_height:
+            char_lines += [""] * (max_height - len(char_lines))
+        letters.append("\n".join(char_lines))
+
+    # Fire gradient colors
+    colors = colors or [
+        "#FFFF00",  # Bright yellow
+        "#FFB000",  # Orange-yellow
+        "#FF7800",  # Orange
+        "#FF3200",  # Orange-red
+        "#FF0000",  # Deep red
+    ]
+
+    # Create gradient text
+    styled_lines = []
+    for y in range(max_height):
+        color_index: int = 0
+        line: str = ""
+        # loop over each letter and apply color for current line
+        for i, letter in enumerate(letters):
+            # escape format char [
+            char_line = letter.split("\n")[y].replace("[", "\\[")
+            # if last char is \, escape it so it does not interfere with color change
+            if char_line and char_line[-1] == "\\":
+                char_line += "\\"
+            # apply color to current strip of text
+            line += f"[{colors[color_index]}]{char_line}[/{colors[color_index]}]"
+            # move to next color if not a space
+            if i not in space_char_indexes:
+                color_index = (color_index + 1) % len(colors)
+        styled_lines.append(line)
+
+    # Join print and capture output
+    io_buffer = StringIO()
+    with redirect_stdout(io_buffer):
+        with redirect_stderr(io_buffer):
+            console.print("\n".join(styled_lines))
+            # print("\n".join(styled_lines))
+
+    ret = io_buffer.getvalue()
+
+    # the llm often messes up the colors so we output before we send to llm
+    print(ret)
+
+    return ret

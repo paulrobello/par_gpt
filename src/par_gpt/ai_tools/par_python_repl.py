@@ -12,7 +12,7 @@ from langchain.callbacks.manager import (
 )
 from langchain_core.runnables.config import run_in_executor
 from langchain_core.tools import BaseTool
-from par_ai_core.par_logging import console
+from par_ai_core.par_logging import console_err
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Prompt
@@ -58,8 +58,8 @@ class ParPythonAstREPLTool(BaseTool):
         "When using this tool, sometimes output is abbreviated - "
         "make sure it does not look abbreviated before using it in your answer."
     )
-    globals: dict | None = Field(default_factory=dict)
-    locals: dict | None = Field(default_factory=dict)
+    globals: dict | None = Field(default_factory=dict)  # type: ignore
+    locals: dict | None = Field(default_factory=dict)  # type: ignore
     args_schema: type[BaseModel] = PythonInputs
 
     sanitize_input: bool = True
@@ -88,7 +88,7 @@ class ParPythonAstREPLTool(BaseTool):
             str: The result of the code execution or error message
         """
         if not self.console:
-            self.console = console
+            self.console = console_err
         if not self.locals:
             self.locals = {}
         if "console" not in self.locals:
@@ -156,8 +156,8 @@ class ParPythonREPLTool(BaseTool):
         "If you want to see the output of a value, you should print it out "
         "with `print(...)`."
     )
-    globals: dict | None = Field(default_factory=dict)
-    locals: dict | None = Field(default_factory=dict)
+    globals: dict | None = Field(default_factory=dict)  # type: ignore
+    locals: dict | None = Field(default_factory=dict)  # type: ignore
     args_schema: type[BaseModel] = PythonInputs
 
     sanitize_input: bool = True
@@ -186,7 +186,7 @@ class ParPythonREPLTool(BaseTool):
             str: The result of the code execution or detailed error message
         """
         if not self.console:
-            self.console = console
+            self.console = console_err
         try:
             if self.sanitize_input:
                 query = sanitize_input(query)
