@@ -12,7 +12,7 @@ from langchain.callbacks.manager import (
 )
 from langchain_core.runnables.config import run_in_executor
 from langchain_core.tools import BaseTool
-from par_ai_core.par_logging import console_err
+from par_ai_core.par_logging import console_err, console
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Prompt
@@ -78,9 +78,17 @@ class ParPythonAstREPLTool(BaseTool):
         query: str,
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
-        """Use the tool."""
+        """Execute Python code in a controlled environment.
+        
+        Args:
+            query: The Python code to execute
+            run_manager: Optional callback manager for tool run
+        
+        Returns:
+            str: The result of the code execution or error message
+        """
         if not self.console:
-            self.console = console_err
+            self.console = console
         if not self.locals:
             self.locals = {}
         if "console" not in self.locals:
@@ -168,9 +176,17 @@ class ParPythonREPLTool(BaseTool):
         query: str,
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
-        """Use the tool."""
+        """Execute Python code in a controlled environment.
+        
+        Args:
+            query: The Python code to execute
+            run_manager: Optional callback manager for tool run
+        
+        Returns:
+            str: The result of the code execution or detailed error message
+        """
         if not self.console:
-            self.console = Console(stderr=True)
+            self.console = console
         try:
             if self.sanitize_input:
                 query = sanitize_input(query)
@@ -185,21 +201,23 @@ class ParPythonREPLTool(BaseTool):
                     console=self.console,
                 )
                 if ans.lower() not in ["y", "yes", ""]:
-                    raise (AbortedByUserError("Tool aborted by user."))
+                    raise AbortedByUserError("Tool aborted by user.")
             elif self.show_exec_code:
                 self.console.print(f"Executing>>>\n[yellow]{query}[/yellow]\n")
 
             io_buffer = StringIO()
-            with redirect_stdout(io_buffer):
+            with redirect_stdout(io_buffer), redirect_stderr(io_buffer):
                 self.console.print("Running...")
                 ret = eval(query, self.globals, self.locals)
                 if ret is None:
                     ret = io_buffer.getvalue()
                 if self.show_exec_code:
                     self.console.print(f"Result>>>\n[cyan]{query}[/cyan]\n")
-                return ret
+                return str(ret)
         except Exception as e:
-            return f"{type(e).__name__}: {str(e)}"
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            self.console.print("[bold red]Error:", error_msg, markup=False)
+            return error_msg
 
     async def _arun(
         self,
