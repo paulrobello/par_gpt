@@ -12,7 +12,7 @@ from langchain.callbacks.manager import (
 )
 from langchain_core.runnables.config import run_in_executor
 from langchain_core.tools import BaseTool
-from par_ai_core.par_logging import console_err, console
+from par_ai_core.par_logging import console
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Prompt
