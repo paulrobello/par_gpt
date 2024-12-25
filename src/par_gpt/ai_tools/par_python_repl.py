@@ -79,11 +79,11 @@ class ParPythonAstREPLTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Execute Python code in a controlled environment.
-        
+
         Args:
             query: The Python code to execute
             run_manager: Optional callback manager for tool run
-        
+
         Returns:
             str: The result of the code execution or error message
         """
@@ -177,11 +177,11 @@ class ParPythonREPLTool(BaseTool):
         run_manager: CallbackManagerForToolRun | None = None,
     ) -> str:
         """Execute Python code in a controlled environment.
-        
+
         Args:
             query: The Python code to execute
             run_manager: Optional callback manager for tool run
-        
+
         Returns:
             str: The result of the code execution or detailed error message
         """
