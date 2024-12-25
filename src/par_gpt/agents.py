@@ -15,6 +15,7 @@ from langchain_groq import ChatGroq
 from par_ai_core.llm_config import llm_run_manager
 from par_ai_core.llm_image_utils import image_to_chat_message
 from par_ai_core.output_utils import DisplayOutputFormat, get_output_format_prompt
+from par_ai_core.par_logging import console_err
 from par_ai_core.utils import (
     code_frontend_file_globs,
     code_java_file_globs,
@@ -27,8 +28,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-console = Console(stderr=True)
-
 
 def do_single_llm_call(
     *,
@@ -40,10 +39,11 @@ def do_single_llm_call(
     env_info: str | None = None,
     display_format: DisplayOutputFormat = DisplayOutputFormat.NONE,
     debug: bool,
-    io: Console | None = None,
+    console: Console | None = None,
 ) -> tuple[str, BaseMessage]:
-    if not io:
-        io = Console(stderr=True)
+    if not console:
+        console = console_err
+
     default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
 
     chat_history: list[tuple[str, str | list[dict[str, Any]]]] = []
@@ -70,7 +70,7 @@ def do_single_llm_call(
         chat_history_debug.append(("user", user_input))
 
     if debug:
-        io.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
+        console.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
     result = chat_model.invoke(chat_history, config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
     content = str(result.content).replace("```markdown", "").replace("```", "").strip()
     result.content = content
@@ -87,11 +87,12 @@ def do_react_agent(
     max_iterations: int = 5,
     debug: bool = False,
     verbose: bool = True,
-    io: Console | None = None,
+    console: Console | None = None,
 ):
     """React agent"""
-    if not io:
-        io = Console(stderr=True)
+    if not console:
+        console = console_err
+
     default_system_prompt = (
         """
 You are a helpful assistant. Try to be concise and brief unless the user requests otherwise.
@@ -137,7 +138,7 @@ Begin!
         max_iterations=max_iterations,
     )
     if debug:
-        io.print(Panel.fit(default_system_prompt, title="GPT Prompt"))
+        console.print(Panel.fit(default_system_prompt, title="GPT Prompt"))
     result = agent_executor.invoke({"question": question}, config=llm_run_manager.get_runnable_config(chat_model.name))
     content = str(result["output"]).replace("```markdown", "").replace("```", "").strip()
     result["output"] = content
@@ -156,14 +157,14 @@ def do_tool_agent(
     max_iterations: int = 5,
     debug: bool = True,
     verbose: bool = False,
-    io: Console | None = None,
+    console: Console | None = None,
 ):
     """Tool agent"""
     if image:
         raise ValueError("Image not supported for tool agent")
 
-    if not io:
-        io = Console(stderr=True)
+    if not console:
+        console = console_err
 
     has_repl = False
     for tool in ai_tools:
@@ -204,6 +205,7 @@ def do_tool_agent(
     <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
     <rule>The available_modules are already available and do not need to be imported.</rule>
     <rule>Do not include imports in your code reference the module name instead.</rule>
+    <rule>Use console.print() to output text to the user. This console.print supports markup formatting using the rich library.</rule>
     <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
 </repl_rules>
 """
@@ -243,7 +245,7 @@ def do_tool_agent(
     )
     args = {"user_input": user_input, "module_text": module_text, "env_info": env_info}
     if debug:
-        io.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
+        console.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
     result = agent_executor.invoke(args, config=llm_run_manager.get_runnable_config(chat_model.name))
     # if debug:
     #     io.print(Panel.fit(Pretty(result), title="GPT Response))
@@ -263,7 +265,7 @@ def do_code_review_agent(
     system_prompt: str | None,
     display_format: DisplayOutputFormat,
     debug: bool = True,
-    io: Console | None = None,
+    console: Console | None = None,
 ) -> tuple[str, BaseMessage]:
     """Code Agent"""
 
@@ -285,7 +287,7 @@ def do_code_review_agent(
         env_info=env_info,
         display_format=display_format,
         debug=debug,
-        io=io,
+        console=console,
     )
 
 
@@ -295,7 +297,7 @@ def do_prompt_generation_agent(
     user_input: str,
     system_prompt: str | None,
     debug: bool = True,
-    io: Console | None = None,
+    console: Console | None = None,
 ) -> tuple[str, BaseMessage]:
     """Prompt Agent"""
 
@@ -307,7 +309,7 @@ def do_prompt_generation_agent(
             user_input=prompt_template.format(user_input=user_input),
             no_system_prompt=True,
             debug=debug,
-            io=io,
+            console=console,
         )
     else:
         return do_single_llm_call(
@@ -315,5 +317,5 @@ def do_prompt_generation_agent(
             system_prompt=prompt_template.format(user_input=""),
             user_input=user_input,
             debug=debug,
-            io=io,
+            console=console,
         )

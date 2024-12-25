@@ -69,6 +69,7 @@ dependencies = [
     "pygithub>=2.5.0",
     "clipman>=3.3.1",
     "par-ai-core",
+    "pyfiglet>=1.0.2",
 ]
 packages = ["src/par_gpt"]
 

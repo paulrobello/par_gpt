@@ -2,7 +2,7 @@
 
 import ast
 import re
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from typing import Any
 
@@ -12,6 +12,7 @@ from langchain.callbacks.manager import (
 )
 from langchain_core.runnables.config import run_in_executor
 from langchain_core.tools import BaseTool
+from par_ai_core.par_logging import console_err
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.prompt import Prompt
@@ -79,7 +80,11 @@ class ParPythonAstREPLTool(BaseTool):
     ) -> str:
         """Use the tool."""
         if not self.console:
-            self.console = Console(stderr=True)
+            self.console = console_err
+        if not self.locals:
+            self.locals = {}
+        if "console" not in self.locals:
+            self.locals["console"] = self.console
         try:
             if self.sanitize_input:
                 query = sanitize_input(query)
@@ -102,20 +107,24 @@ class ParPythonAstREPLTool(BaseTool):
             io_buffer = StringIO()
             try:
                 with redirect_stdout(io_buffer):
-                    ret = eval(module_end_str, self.globals, self.locals)
+                    with redirect_stderr(io_buffer):
+                        ret = eval(module_end_str, self.globals, self.locals)
                 if ret is None:
                     ret = io_buffer.getvalue()
             except Exception as _:
                 with redirect_stdout(io_buffer):
-                    exec(module_end_str, self.globals, self.locals)
+                    with redirect_stderr(io_buffer):
+                        exec(module_end_str, self.globals, self.locals)
                 ret = io_buffer.getvalue()
             if self.show_exec_code and self.console:
-                self.console.print(f"Result>>>\n[blue]{ret}[/blue]\n")
+                self.console.print("[blue]Result>>>")
+                print(ret)
             return ret
         except Exception as e:
             msg = f"{type(e).__name__}: {str(e)}"
             if self.console:
-                self.console.print("[red]" + msg)
+                self.console.print("[bold red]Error:")
+                self.console.print(msg, markup=False)
             return msg
 
     async def _arun(

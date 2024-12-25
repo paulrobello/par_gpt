@@ -4,23 +4,24 @@ from __future__ import annotations
 
 import os
 import webbrowser
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import clipman as clipboard
+import pyfiglet
 from git import Remote
 from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
 from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider, provider_light_models
+from par_ai_core.par_logging import console_err, console_out
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
-from rich.console import Console
 
-from ..repo.repo import ANY_GIT_ERROR, GitRepo
-from ..utils import get_weather_current, get_weather_forecast, show_image_in_terminal
-
-console = Console(stderr=True)
+from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
+from par_gpt.utils import get_weather_current, get_weather_forecast, show_image_in_terminal
 
 
 @tool(parse_docstring=True)
@@ -278,7 +279,7 @@ def ai_joke(subject: str | None = None) -> str:
     Tell a joke.
 
     Args:
-        subject: The subject of the joke (default: None for any subject)
+        subject (str | None): The subject of the joke (default: None for any subject)
 
     Returns:
         str: The joke
@@ -353,7 +354,7 @@ def ai_github_list_repos(
         }
         for r in repos
     ]
-    # console.print(res)
+    # console_err.print(res)
     if max_results:
         return res[:max_results]
     return res
@@ -376,7 +377,7 @@ def ai_github_create_repo(repo_name: str | None = None, private: bool = True) ->
     auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repo_name = repo_name or Path(os.getcwd()).stem.lower().replace(" ", "-")
-    # console.print(f"Creating repository: {repo_name}")
+    # console_err.print(f"Creating repository: {repo_name}")
     repo = cast(AuthenticatedUser, g.get_user()).create_repo(repo_name, private=private)  # type: ignore
     return repo.html_url
 
@@ -401,15 +402,15 @@ def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -
     try:
         repo = GitRepo()
         if repo.is_dirty():
-            # console.print("Repo is dirty. Please commit changes before publishing.")
+            # console_err.print("Repo is dirty. Please commit changes before publishing.")
             return "Error: Repo is dirty. Please commit changes before publishing."
     except ANY_GIT_ERROR as _:
-        # console.print("Error: GIT repository not found. Please create a repository first.")
+        # console_err.print("Error: GIT repository not found. Please create a repository first.")
         return "Error: GIT repository not found. Please create a repository first."
 
     try:
         if repo.repo.remote("origin") is not None:
-            console.print("Error: Remote origin already exists for this repository. Aborting.")
+            console_err.print("Error: Remote origin already exists for this repository. Aborting.")
             return "Error: Remote origin already exists for this repository. Aborting."
     except ANY_GIT_ERROR as _:
         pass
@@ -418,19 +419,197 @@ def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -
     g = Github(auth=auth)
     repo_name = repo_name or Path(repo.repo.git_dir).parent.stem.lower().replace(" ", "-")
 
-    # console.print(f"Creating repository: {repo_name}")
+    # console_err.print(f"Creating repository: {repo_name}")
     gh_repo = cast(AuthenticatedUser, g.get_user()).create_repo(repo_name, private=private)  # type: ignore
     remote = repo.create_remote("origin", gh_repo.ssh_url)
     if not isinstance(remote, Remote):
-        # console.print(f"Error: {remote}")
+        # console_err.print(f"Error: {remote}")
         return f"Error: {remote}"
 
     try:
         remote.push(f"HEAD:{gh_repo.default_branch}")
     except ANY_GIT_ERROR as e:
-        # console.print(f"Error pushing to remote: {e}")
+        # console_err.print(f"Error pushing to remote: {e}")
         return (
             f"GitHub repo created {gh_repo.html_url} but there was an error pushing to the remote. Error Message: {e}"
         )
 
     return gh_repo.html_url
+
+
+FigletFontName = Literal[
+    "ansi_shadow",
+    "3d-ascii",
+    "alpha",
+    "big_money-se",
+    "blocks",
+    "bulbhead",
+    "doh",
+    "impossible",
+    "isometric1",
+    "slant_relief",
+    "caligraphy",
+    "jerusalem",
+    "pawp",
+    "peaks",
+    "tinker-toy",
+    "big",
+    "bloody",
+]
+
+
+@tool(parse_docstring=True)
+def ai_figlet(
+    text: str,
+    font: FigletFontName = "ansi_shadow",
+    colors: list[str] | None = None,
+    color_direction: Literal["horizontal", "vertical"] = "vertical",
+) -> str:
+    """
+    Create a figlet text and output it to the terminal
+
+    Args:
+        text (str): The text to convert to figlet
+        font (str): The font to use (default: ansi_shadow)
+        colors (list[str] | None): The colors to use as a gradient (default: ["#FFFF00", "#FFB000", "#FF7800", "#FF3200", "#FF0000"])
+        color_direction (str): The direction to use for the gradient (default: "vertical")
+
+    Returns:
+        str: The figlet text
+
+    Notes:
+        Calling this tool will send its output directly to the terminal. You do not need to capture the output.
+    """
+    if color_direction == "horizontal":
+        return figlet_horizontal(text, font, colors)
+    return figlet_vertical(text, font, colors)
+
+
+def figlet_vertical(text: str, font: FigletFontName = "ansi_shadow", colors: list[str] | None = None) -> str:
+    """
+    Create a figlet text and output it to the terminal
+
+    Args:
+        text (str): The text to convert to figlet
+        font (str): The font to use (default: ansi_shadow)
+        colors (list[str] | None): The colors to use as a top to bottom gradient (default: ["#FFFF00", "#FFB000", "#FF7800", "#FF3200", "#FF0000"])
+
+    Returns:
+        str: The figlet text
+
+    Notes:
+        Calling this tool will send its output directly to the terminal. You do not need to capture the output.
+    """
+    text = pyfiglet.figlet_format(text, font=font, width=console_out.width)
+
+    # Fire gradient colors from top to bottom
+    colors = colors or [
+        "#FFFF00",  # Bright yellow
+        "#FFB000",  # Orange-yellow
+        "#FF7800",  # Orange
+        "#FF3200",  # Orange-red
+        "#FF0000",  # Deep red
+    ]
+
+    # Split text into lines
+    lines = text.split("\n")
+    num_lines = len(lines)
+    lines_per_color = num_lines / len(colors)
+
+    # Create gradient text
+    styled_lines = []
+    for i, line in enumerate(lines):
+        color_index = int(i / lines_per_color)
+        if color_index >= len(colors):
+            color_index = len(colors) - 1
+        styled_lines.append(f"[{colors[color_index]}]{line}")
+
+    # Join and print
+    io_buffer = StringIO()
+    with redirect_stdout(io_buffer):
+        with redirect_stderr(io_buffer):
+            console_out.print("\n".join(styled_lines))
+
+    ret = io_buffer.getvalue()
+    print(ret)
+
+    return ret
+
+
+def figlet_horizontal(text: str, font: FigletFontName = "ansi_shadow", colors: list[str] | None = None) -> str:
+    """
+    Create a figlet text and output it to the terminal
+
+    Args:
+        text (str): The text to convert to figlet
+        font (str): The font to use (default: ansi_shadow)
+        colors (list[str] | None): The colors to use as a gradient applied to each letter left to right (default: ["#FFFF00", "#FFB000", "#FF7800", "#FF3200", "#FF0000"])
+
+    Returns:
+        str: The figlet text
+
+    Notes:
+        Calling this tool will send its output directly to the terminal. You do not need to capture the output.
+    """
+    letters = []
+    max_width = 0
+    max_height = 0
+    figlet_text = []
+    for i, letter in enumerate(text):
+        figlet_text.append(pyfiglet.figlet_format(letter, font=font, width=console_out.width))
+        char_lines = figlet_text[i].split("\n")
+        if len(char_lines) > max_height:
+            max_height = len(char_lines) - 1
+        for line in char_lines:
+            if len(line) > max_width:
+                max_width = len(line)
+    for letter in figlet_text:
+        lines = []
+        char_lines = letter.split("\n")
+        for line in char_lines:
+            # if len(line) < max_width:
+            #     line += " " * (max_width - len(line))
+            lines.append(line)
+        if len(char_lines) < max_height:
+            lines += [""] * (max_height - len(char_lines))
+        letters.append("\n".join(lines))
+
+    # Fire gradient colors from top to bottom
+    colors = colors or [
+        "#FFFF00",  # Bright yellow
+        "#FFB000",  # Orange-yellow
+        "#FF7800",  # Orange
+        "#FF3200",  # Orange-red
+        "#FF0000",  # Deep red
+    ]
+
+    # Create gradient text
+    styled_lines = []
+    for y in range(max_height):
+        color_index = -1
+        line = ""
+        for i, letter in enumerate(letters):
+            char_line = letter.split("\n")[y].replace("[", "\\[")
+            if char_line and char_line[-1] == "\\":
+                char_line += "\\"
+            color_index = (color_index + 1) % len(colors)
+            line += f"[{colors[color_index]}]{char_line}[/{colors[color_index]}]"
+            # line+=char_line
+        styled_lines.append(line)
+
+    # Join and print
+    io_buffer = StringIO()
+    with redirect_stdout(io_buffer):
+        with redirect_stderr(io_buffer):
+            console_out.print("\n".join(styled_lines))
+            # print("\n".join(styled_lines))
+
+    ret = io_buffer.getvalue()
+    print(ret)
+
+    return ret
+
+
+if __name__ == "__main__":
+    figlet_horizontal("PAR GPT", font="3d-ascii")
+    figlet_vertical("PAR GPT", font="3d-ascii")

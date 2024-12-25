@@ -41,6 +41,7 @@ from rich.text import Text
 
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
+    ai_figlet,
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
@@ -463,6 +464,15 @@ def main(
                     "html2text",
                     "pydantic",
                     "clipman",
+                    "pyfiglet",
+                    "rich",
+                    # "rich.console",
+                    "rich.panel",
+                    "rich.markdown",
+                    "rich.pretty",
+                    "rich.table",
+                    "rich.text",
+                    "rich.color",
                 ]
                 local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
 
@@ -474,6 +484,9 @@ def main(
                     ai_youtube_get_transcript,
                     # ai_joke,
                 ]  # type: ignore
+
+                if "figlet" in question_lower:
+                    ai_tools.append(ai_figlet)
 
                 if not no_repl:
                     ai_tools.append(
@@ -537,7 +550,7 @@ def main(
                     system_prompt=system_prompt,
                     max_iterations=max_iterations,
                     debug=debug,
-                    io=console,
+                    console=console,
                 )
             else:
                 if "code review" in question_lower:
@@ -548,7 +561,7 @@ def main(
                         env_info=env_info,
                         display_format=display_format,
                         debug=debug,
-                        io=console,
+                        console=console,
                     )
                 elif "generate prompt" in question_lower:
                     content, result = do_prompt_generation_agent(
@@ -556,7 +569,7 @@ def main(
                         user_input=question,
                         system_prompt=system_prompt,
                         debug=debug,
-                        io=console,
+                        console=console,
                     )
                 else:
                     content, result = do_single_llm_call(
@@ -568,7 +581,7 @@ def main(
                         image=context if context_is_image else None,
                         display_format=display_format,
                         debug=debug,
-                        io=console,
+                        console=console,
                     )
 
             usage_metadata = cb.usage_metadata
@@ -588,7 +601,8 @@ def main(
         display_formatted_output(content, display_format, console=console)
 
     except Exception as e:
-        console.print(f"[bold red]Error:[/bold red] {str(e)}")
+        console.print("[bold red]Error:")
+        console.print(str(e), markup=False)
         raise typer.Exit(code=1)
 
 
