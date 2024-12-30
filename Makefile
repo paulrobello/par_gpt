@@ -9,7 +9,7 @@ twine  := $(run) twine
 #build  := $(python) -m build
 build := uvx --from build pyproject-build --installer uv
 
-export UV_LINK_MODE=copy
+#export UV_LINK_MODE=copy
 export PIPENV_VERBOSITY=-1
 ##############################################################################
 # Run the app.
@@ -53,12 +53,16 @@ shell:			# Start shell inside of .venv
 # Checking/testing/linting/etc.
 
 .PHONY: format
-format:				# Reformat the code with ruff.
+format:                         # Reformat the code with ruff.
 	$(ruff) format src/$(lib)
 
 .PHONY: lint
-lint:				# Run ruff over the library
+lint:                           # Run ruff lint over the library
 	$(ruff) check src/$(lib) --fix
+
+.PHONY: lint-unsafe
+lint-unsafe:                           # Run ruff lint over the library
+	$(ruff) check src/$(lib) --fix --unsafe-fixes
 
 .PHONY: typecheck
 typecheck:			# Perform static type checks with pyright
@@ -69,13 +73,13 @@ typecheck-stats:			# Perform static type checks with pyright and print stats
 	$(pyright) --stats
 
 .PHONY: checkall
-checkall: typecheck lint 	        # Check all the things
+checkall: format lint typecheck 	        # Check all the things
 
-.PHONY: pre-commit              # run pre-commit checks on all files
+.PHONY: pre-commit	        # run pre-commit checks on all files
 pre-commit:
 	pre-commit run --all-files
 
-.PHONY: pre-commit-update               # run pre-commit and update hooks
+.PHONY: pre-commit-update	        # run pre-commit and update hooks
 pre-commit-update:
 	pre-commit autoupdate
 
