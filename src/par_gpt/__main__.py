@@ -273,7 +273,7 @@ def main(
     #     typer.echo(f"Got extra arg: {unknown_arg}")
     # return
     try:
-        if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.BEDROCK]:
+        if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
             key_name = provider_env_key_names[ai_provider]
             if not os.environ.get(key_name):
                 console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
@@ -535,7 +535,7 @@ def main(
                 if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                     ai_tools.append(ai_get_weather_current)
                     ai_tools.append(ai_get_weather_forecast)
-                if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
+                if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
                     ai_tools.append(ai_github_list_repos)
                     ai_tools.append(ai_github_create_repo)
                     ai_tools.append(ai_github_publish_repo)
