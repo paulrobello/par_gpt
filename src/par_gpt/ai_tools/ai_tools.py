@@ -409,8 +409,8 @@ def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -
         if repo.is_dirty():
             # console_err.print("Repo is dirty. Please commit changes before publishing.")
             return "Error: Repo is dirty. Please commit changes before publishing."
-    except ANY_GIT_ERROR as _:
-        # console_err.print("Error: GIT repository not found. Please create a repository first.")
+    except ANY_GIT_ERROR as e:
+        console_err.print(e)
         return "Error: GIT repository not found. Please create a repository first."
 
     try:
