@@ -21,6 +21,7 @@ customizable output formats.
 - Rich for terminal output
 - Typer for CLI interface
 - Support for multiple AI providers (OpenAI, Ollama, Bedrock)
+- Uses my [PAR AI Core](https://github.com/paulrobello/par_ai_core)
 
 ## Prerequisites
 
