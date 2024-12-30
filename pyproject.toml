@@ -50,6 +50,7 @@ par_gpt = "par_gpt.__main__:app"
 
 [tool.setuptools.package-data]
 par_gpt = [
+    "*.py",
     "py.typed",
     "*/*.gif",
     "*/*.png",
