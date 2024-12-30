@@ -79,20 +79,20 @@ par_gpt = "par_gpt.__main__:app"
 [tool.setuptools.package-data]
 par_gpt = [
     "py.typed",
+    "*/*.gif",
     "*/*.png",
+    "*/*.jpg",
+    "*/*.html",
     "*/*.md",
     "*/*.tcss",
-    "*.png",
-    "*.md",
-    "*.tcss"
 ]
 
 [build-system]
 requires = ["hatchling", "wheel"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "build>=1.2.1",
     "twine>=5.1.1",
     "pyright>=1.1.379",
