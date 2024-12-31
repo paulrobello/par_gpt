@@ -48,18 +48,6 @@ packages = ["src/par_gpt"]
 [project.scripts]
 par_gpt = "par_gpt.__main__:app"
 
-[tool.setuptools.package-data]
-par_gpt = [
-    "*.py",
-    "py.typed",
-    "*/*.gif",
-    "*/*.png",
-    "*/*.jpg",
-    "*/*.html",
-    "*/*.md",
-    "*/*.tcss",
-]
-
 [build-system]
 requires = ["hatchling", "wheel"]
 build-backend = "hatchling.build"
@@ -82,14 +70,14 @@ path = "src/par_gpt/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/par_gpt"]
 include = [
-    "*.py",
     "py.typed",
-    "*.png",
-    "*.md",
-    "*.tcss",
-    "*.png",
-    "*.md",
-    "*.tcss"
+    "**/*.py",
+    "**/*.html",
+    "**/*.gif",
+    "**/*.jpg",
+    "**/*.png",
+    "**/*.md",
+    "**/*.tcss",
 ]
 
 [tool.hatch.build.targets.sdist]
