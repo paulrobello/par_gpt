@@ -1740,6 +1740,22 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-mistralai"
+version = "0.2.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "httpx-sse" },
+    { name = "langchain-core" },
+    { name = "pydantic" },
+    { name = "tokenizers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/74/ec18e3d7c02b8e95a21643d03ba075cca47c25584a9d5ff6a5d79ea2eda0/langchain_mistralai-0.2.4.tar.gz", hash = "sha256:defc9befd7bf26a14e491950a2b3427b8f2d575c917851d665520848ae960055", size = 14220 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/f3/a4d6c69b74ce04644cfd37fc37a6b2ac7166dc990a61138825c983327a28/langchain_mistralai-0.2.4-py3-none-any.whl", hash = "sha256:06b66c5bd9b69e17cd4dc74df77b22c1ec058ee1d0f3b4e2b7159ea3d38ab98e", size = 15207 },
+]
+
+[[package]]
 name = "langchain-ollama"
 version = "0.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1850,7 +1866,7 @@ wheels = [
 
 [[package]]
 name = "langsmith"
-version = "0.2.6"
+version = "0.2.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1859,9 +1875,9 @@ dependencies = [
     { name = "requests" },
     { name = "requests-toolbelt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/10/20/f360e80f3ada8c2af59ab06a7815672114f1ac69359e6b6d762827cbd682/langsmith-0.2.6.tar.gz", hash = "sha256:ceb4ae2330bf87e40dccb0750c570d7b3bd6cd1f890db6b744bf62badca3077b", size = 313272 }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/4f/d416c2f73d756a02d6073fa9f918837f6737d5247a0e3ba1583b7cc625ca/langsmith-0.2.7.tar.gz", hash = "sha256:0996d12622b56ff21414ab8b5c16cbe3ff389a3668fa3fd1d82475bd57e5bc9e", size = 313256 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/01/3e011edd616c34b0cece379be5909fbb2c02d4dbb8c451031ca13c967e47/langsmith-0.2.6-py3-none-any.whl", hash = "sha256:3c18fc6106b9e4b81ba1e4f57c03c5fe1451f348f1360637602a3a7cbe003350", size = 325656 },
+    { url = "https://files.pythonhosted.org/packages/07/8d/022d3e2bc7c8bc933767ace34498bb5a2bd70447359798a216a05a7262bb/langsmith-0.2.7-py3-none-any.whl", hash = "sha256:ae7a0620e9fc4da2b2e4ef7beccdadb0f9009cca0fd71ac08d372660639e2fab", size = 325671 },
 ]
 
 [[package]]
@@ -2530,7 +2546,7 @@ wheels = [
 
 [[package]]
 name = "par-ai-core"
-version = "0.1.8"
+version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -2547,6 +2563,7 @@ dependencies = [
     { name = "langchain-google-community" },
     { name = "langchain-google-genai" },
     { name = "langchain-groq" },
+    { name = "langchain-mistralai" },
     { name = "langchain-ollama" },
     { name = "langchain-openai" },
     { name = "langchain-qdrant" },
@@ -2568,9 +2585,9 @@ dependencies = [
     { name = "webdriver-manager" },
     { name = "youtube-transcript-api" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bc/09/7b26f1003025a92b1ea710b201f0fbce7c804e950168c75aa690e272d8f3/par_ai_core-0.1.8.tar.gz", hash = "sha256:ac07d032472461b86ada2bff5b6215be46cd8116b7a1feb5389bdd77471dfa81", size = 104988 }
+sdist = { url = "https://files.pythonhosted.org/packages/10/68/4d6888bd6de093c6bfaaa1f1fdffbc1bd10f5a29b52398b0cb3005411fe8/par_ai_core-0.1.9.tar.gz", hash = "sha256:60138a47a7a5e06d88aa7725e22f83da98f537795d1a415107a0c6cd178b42f5", size = 105455 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/07/0700454baf6083067e76b0a762ddd7238dc52ede55c526944a94276243a5/par_ai_core-0.1.8-py3-none-any.whl", hash = "sha256:3d254f0084338dd9250c73b44b4f98200a711085f1c15087095f24edd2927b82", size = 146687 },
+    { url = "https://files.pythonhosted.org/packages/b2/8d/4c463c25f985d9baec03ec57937c9aa02b2ee3f0b33337ca4471ba21038f/par_ai_core-0.1.9-py3-none-any.whl", hash = "sha256:0c3ece68d78584a14f5550109320c816a34ee28197463d4d10738c1495ce57a0", size = 147085 },
 ]
 
 [[package]]

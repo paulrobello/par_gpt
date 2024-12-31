@@ -71,29 +71,30 @@ par_gpt [OPTIONS]
 ### CLI Options
 
 ```
---ai-provider          -a      [Ollama|OpenAI|Groq|Anthropic|Google|Bedrock|Github|LlamaCpp]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
---model                -m      TEXT                                                           AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
---light-model          -l                                                                     Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
---ai-base-url          -b      TEXT                                                           Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
---temperature          -t      FLOAT                                                          Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
---user-agent-appid     -U      TEXT                                                           Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
---pricing              -p      [none|price|details]                                           Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
---display-output       -d      [none|plain|md|csv|json]                                       Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
---context-location     -f      TEXT                                                           Location of context to use for processing.
---system-prompt        -s      TEXT                                                           System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt          -u      TEXT                                                           User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---agent-mode           -g                                                                     Enable agent mode. [env var: PARGPT_AGENT_MODE]
---max-iterations       -i      INTEGER                                                        Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
---max-context-size     -M      INTEGER                                                        Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
---debug                -D                                                                     Enable debug mode [env var: PARGPT_DEBUG]
---show-tool-calls      -T                                                                     Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
---show-config          -S                                                                     Show config [env var: PARGPT_SHOW_CONFIG]
---yes-to-all           -y                                                                     Yes to all prompts [env var: PARGPT_YES_TO_ALL]
---copy-to-clipboard    -c                                                                     Copy output to clipboard
---copy-from-clipboard  -C                                                                     Copy context or context location from clipboard
---no-repl                                                                                     Disable REPL tool [env var: PARGPT_NO_REPL]                                                                                          
+--ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|Anthropic|   AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
+                                Google|Bedrock|Github|Mistral]
+--model                -m      TEXT                                          AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--light-model          -l                                                    Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
+--ai-base-url          -b      TEXT                                          Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
+--temperature          -t      FLOAT                                         Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
+--user-agent-appid     -U      TEXT                                          Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
+--pricing              -p      [none|price|details]                          Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
+--display-output       -d      [none|plain|md|csv|json]                      Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
+--context-location     -f      TEXT                                          Location of context to use for processing.
+--system-prompt        -s      TEXT                                          System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt          -u      TEXT                                          User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--agent-mode           -g                                                    Enable agent mode. [env var: PARGPT_AGENT_MODE]
+--max-iterations       -i      INTEGER                                       Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
+--max-context-size     -M      INTEGER                                       Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
+--debug                -D                                                    Enable debug mode [env var: PARGPT_DEBUG]
+--show-tool-calls      -T                                                    Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
+--show-config          -S                                                    Show config [env var: PARGPT_SHOW_CONFIG]
+--yes-to-all           -y                                                    Yes to all prompts [env var: PARGPT_YES_TO_ALL]
+--copy-to-clipboard    -c                                                    Copy output to clipboard
+--copy-from-clipboard  -C                                                    Copy context or context location from clipboard
+--no-repl                                                                    Disable REPL tool [env var: PARGPT_NO_REPL]                                                                                          
 --version              -v
---help                                                                                        Show this message and exit.
+--help                                                                       Show this message and exit.
 ```
 
 ## Environment Variables
