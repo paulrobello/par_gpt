@@ -46,6 +46,8 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_list_repos,
     ai_github_publish_repo,
     ai_serper_search,
+    ai_fetch_rss,
+    ai_fetch_hacker_news,
 )
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
@@ -300,7 +302,6 @@ def main(
             context_location = ""
 
         sio_all: StringIO = StringIO()
-
         if not context_location and not copy_from_clipboard and has_stdin_content():
             console.print("[bold green]Context is stdin and will be read")
             for line in sys.stdin:
@@ -531,6 +532,10 @@ def main(
                 if "clipboard" in question_lower:
                     ai_tools.append(ai_copy_to_clipboard)
                     ai_tools.append(ai_copy_from_clipboard)
+                if "rss" in question_lower:
+                    ai_tools.append(ai_fetch_rss)
+                if "hackernews" in question_lower:
+                    ai_tools.append(ai_fetch_hacker_news)
 
                 if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                     ai_tools.append(ai_get_weather_current)
@@ -539,6 +544,8 @@ def main(
                     ai_tools.append(ai_github_list_repos)
                     ai_tools.append(ai_github_create_repo)
                     ai_tools.append(ai_github_publish_repo)
+
+                console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
 
                 content, result = do_tool_agent(
                     chat_model=chat_model,

@@ -42,6 +42,9 @@ dependencies = [
     "clipman>=3.3.1",
     "par-ai-core",
     "pyfiglet>=1.0.2",
+    "textual-image>=0.7.0",
+    "sixel>=0.2.0",
+    "feedparser>=6.0.11",
 ]
 packages = ["src/par_gpt"]
 
@@ -94,3 +97,6 @@ exclude = [
     "*.so",
     "*.dylib"
 ]
+
+[tool.uv.sources]
+par-ai-core = { path = "../par_ai_core", editable = true }

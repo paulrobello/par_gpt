@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import os
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import clipman as clipboard
+import feedparser
+import requests
 from git import Remote
 from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
@@ -16,6 +20,7 @@ from par_ai_core.llm_providers import LlmProvider, provider_light_models
 from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
+from rich.markdown import Markdown
 
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
@@ -433,12 +438,12 @@ def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -
 
     try:
         remote.push(f"HEAD:{gh_repo.default_branch}")
+        repo.repo.git.branch(f"--set-upstream-to=origin/{gh_repo.default_branch}", gh_repo.default_branch)
     except ANY_GIT_ERROR as e:
-        # console_err.print(f"Error pushing to remote: {e}")
+        console_err.print(f"Error pushing to remote: {e}")
         return (
             f"GitHub repo created {gh_repo.html_url} but there was an error pushing to the remote. Error Message: {e}"
         )
-
     return gh_repo.html_url
 
 
@@ -467,6 +472,99 @@ def ai_figlet(
     if color_direction == "horizontal":
         return figlet_horizontal(text, font, colors)
     return figlet_vertical(text, font, colors)
+
+
+@tool(parse_docstring=True)
+def ai_fetch_rss(url: str, max_items: int = 5) -> str:
+    """
+    Fetches an RSS feed and formats its content as markdown. The Markdown should be returned to the user without modification until otherwise requested by the user.
+
+    Args:
+        url (str): The URL of the RSS feed to fetch.
+        max_items (int): The maximum number of items to include in the output (default: 5).
+
+    Returns:
+        str: The formatted markdown content of the RSS feed.
+    """
+    feed = feedparser.parse(url)
+
+    if feed.bozo:
+        return f"Error: Unable to parse the RSS feed. {feed.bozo_exception}"
+
+    markdown_content = f"# {feed.feed.title}\n\n"
+
+    if "subtitle" in feed.feed:
+        markdown_content += f"{feed.feed.subtitle}\n\n"
+
+    for i, entry in enumerate(feed.entries[:max_items]):
+        # console_err.print(entry)
+        markdown_content += f"## {entry.title}\n"
+
+        if "published" in entry:
+            pub_date = datetime.strptime(entry.published, "%a, %d %b %Y %H:%M:%S %z")
+            markdown_content += f"*Published on: {pub_date.strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
+
+        if "summary" in entry:
+            markdown_content += f"{entry.summary}\n\n"
+
+        if "link" in entry:
+            markdown_content += f"[Read more]({entry.link})\n\n"
+
+        if i < len(feed.entries[:max_items]) - 1:
+            markdown_content += "---\n\n"
+    # console_err.print(Markdown(markdown_content))
+    return markdown_content
+
+
+@tool(parse_docstring=True)
+def ai_fetch_hacker_news(max_items: int = 5) -> str:
+    """
+    Fetches top articles from Hacker News and formats them as markdown. The Markdown should be returned to the user without modification until otherwise requested by the user.
+
+    Args:
+        max_items (int): The maximum number of items to include in the output (default: 5).
+
+    Returns:
+        str: The formatted markdown content of the Hacker News articles.
+    """
+
+    def fetch_item(item_id):
+        response = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{item_id}.json", timeout=10)
+        return response.json()
+
+    # Fetch top stories
+    response = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json")
+    top_stories = response.json()[:max_items]
+
+    # Fetch details for each story
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_item = {executor.submit(fetch_item, item_id): item_id for item_id in top_stories}
+        stories = []
+        for future in as_completed(future_to_item):
+            stories.append(future.result())
+
+    # Sort stories by score
+    stories.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+    markdown_content = "# Top Hacker News Articles\n\n"
+
+    for story in stories:
+        title = story.get("title", "No Title")
+        url = story.get("url", "")
+        score = story.get("score", 0)
+        author = story.get("by", "Unknown")
+        comments = story.get("descendants", 0)
+
+        markdown_content += f"## {title}\n\n"
+        markdown_content += f"**Score:** {score} | **Author:** {author} | **Comments:** {comments}\n\n"
+
+        if url:
+            markdown_content += f"[Read more]({url})\n\n"
+
+        markdown_content += f"[View on Hacker News](https://news.ycombinator.com/item?id={story['id']})\n\n"
+        markdown_content += "---\n\n"
+
+    return markdown_content
 
 
 if __name__ == "__main__":

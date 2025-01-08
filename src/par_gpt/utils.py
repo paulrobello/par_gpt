@@ -6,6 +6,7 @@ import getpass
 import hashlib
 import os
 import platform
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from io import StringIO
@@ -20,6 +21,8 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.user_agents import get_random_user_agent
 from rich.console import Console
 from rich_pixels import Pixels
+# from sixel import converter
+# from textual_image.renderable.sixel import query_terminal_support
 
 from . import __application_binary__
 
@@ -173,11 +176,30 @@ def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", cons
             else:
                 width = height = int(dimension)
 
+        # sixel_supported = query_terminal_support()
+        # if sixel_supported:
+        #     console.print(f"using image size {width} x {height}")
+        #     if dimension == "auto":
+        #         width = None
+        #         height = None
+        #     else:
+        #         r = width / height
+        #         width *= r
+        #         height *= r * 2
+        #         width = int(width)
+        #         height = int(height)
+        #     c = converter.SixelConverter(image_path, w=width, h=height, chromakey=True, alpha_threshold=0, fast=True)
+        #     if console.stderr:
+        #         c.write(sys.stderr)
+        #     else:
+        #         c.write(sys.stdout)
+        # else:
         dim = width if width < height else height
         pixels = Pixels.from_image_path(image_path, resize=(dim, dim))
         console.print(pixels)
         return "Image shown in terminal"
     except Exception as e:
+        console.print(e)
         return f"Error: {str(e)}"
 
 
