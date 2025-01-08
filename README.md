@@ -68,33 +68,47 @@ uv tool install -U --force git+https://github.com/paulrobello/par_gpt
 par_gpt [OPTIONS]
 ```
 
-### CLI Options
+## CLI Args
+### Global Options
 
 ```
---ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|Anthropic|   AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
-                                Google|Bedrock|Github|Mistral]
---model                -m      TEXT                                          AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
---light-model          -l                                                    Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
---ai-base-url          -b      TEXT                                          Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
---temperature          -t      FLOAT                                         Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
---user-agent-appid     -U      TEXT                                          Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
---pricing              -p      [none|price|details]                          Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
---display-output       -d      [none|plain|md|csv|json]                      Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
---context-location     -f      TEXT                                          Location of context to use for processing.
---system-prompt        -s      TEXT                                          System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt          -u      TEXT                                          User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---agent-mode           -g                                                    Enable agent mode. [env var: PARGPT_AGENT_MODE]
---max-iterations       -i      INTEGER                                       Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
---max-context-size     -M      INTEGER                                       Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
---debug                -D                                                    Enable debug mode [env var: PARGPT_DEBUG]
---show-tool-calls      -T                                                    Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
---show-config          -S                                                    Show config [env var: PARGPT_SHOW_CONFIG]
---yes-to-all           -y                                                    Yes to all prompts [env var: PARGPT_YES_TO_ALL]
---copy-to-clipboard    -c                                                    Copy output to clipboard
---copy-from-clipboard  -C                                                    Copy context or context location from clipboard
---no-repl                                                                    Disable REPL tool [env var: PARGPT_NO_REPL]                                                                                          
+--ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|Anthropic|Google|Bedrock|Github|Mistral]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
+--model                -m      TEXT                                                                       AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--light-model          -l                                                                                 Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
+--ai-base-url          -b      TEXT                                                                       Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
+--temperature          -t      FLOAT                                                                      Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
+--user-agent-appid     -U      TEXT                                                                       Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
+--pricing              -p      [none|price|details]                                                       Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
+--display-output       -d      [none|plain|md|csv|json]                                                   Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
+--context-location     -f      TEXT                                                                       Location of context to use for processing.
+--system-prompt        -s      TEXT                                                                       System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt          -u      TEXT                                                                       User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--max-context-size     -M      INTEGER                                                                    Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
+--copy-to-clipboard    -c                                                                                 Copy output to clipboard
+--copy-from-clipboard  -C                                                                                 Copy context or context location from clipboard
+--debug                -D                                                                                 Enable debug mode [env var: PARGPT_DEBUG]
+--show-config          -S                                                                                 Show config [env var: PARGPT_SHOW_CONFIG]
 --version              -v
---help                                                                       Show this message and exit.
+--help                                                                                                    Show this message and exit.
+```
+
+### CLI Commands
+```
+show-env          Show environment context.
+llm               Basic LLM mode with no tools.
+git               Git commit helper.
+code-review       Review code.
+generate-prompt   Use meta prompting to generate a new prompt.
+agent             Full agent with dynamic tools.
+```
+
+### CLI agent Arguments
+```
+--max-iterations   -i      INTEGER  Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
+--show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
+--yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
+--repl                              Enable REPL tool [env var: PARGPT_REPL]
+--help                              Show this message and exit.
 ```
 
 ## Environment Variables
@@ -141,7 +155,7 @@ PARGPT_DISPLAY_OUTPUT=md
 PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
 PARGPT_AGENT_MODE=false # if this is false par_gpt will only use basic LLM completion
-PARGPT_NO_REPL=true # set this to false and enable agent mode to allow agent to write and execute code 
+PARGPT_REPL=false # set this to true to allow agent to write and execute code 
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
@@ -182,9 +196,8 @@ PARGPT_SHOW_TOOL_CALLS=true
 
 ## Agent mode
 
-NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to write and execute code on
-your system.  
-If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
+NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to **WRITE AND EXECUTE CODE ON YOUR SYSTEM**.
+The REPL tool is not enabled by default. If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
 
 ## Code Review mode
 
@@ -195,76 +208,77 @@ Change to the root of the project you want to check (or sub folder for smaller /
 and run the following:
 
 ```shell
-par_gpt 'code review'
+par_gpt code_review
 ```
 
 ## Example Usage
 
 ```shell
 # Basic usage with stdin
-echo "What is Python?" | par_gpt
+echo "What is Python?" | par_gpt llm
 
 # Use a the light model with custom temperature
-par_gpt --light-model -t 0.7 "Explain quantum computing"
+par_gpt --light-model -t 0.7 llm "Explain quantum computing"
 
 # Use Ollama with local models Note: you must have qwen2:latest pulled
-par_gpt -a ollama -m qwen2:latest "Write a haiku"
+par_gpt -a ollama -m qwen2:latest llm "Write a haiku"
 
 # get 3d printer filament grade and properties from youtube then generate a sorted table and save to Obsidian vault.
 # this example uses other commands that may not be available on your system however does showcase can it can be chainable
 par_yt2text --transcript 'https://www.youtube.com/watch?v=weeG9yOp3i4' | \
-par_gpt -p "use the transcript in the context and create a markdown table with 3 columns 'filament_name', 'properties' and 'grade' generate the table based on the feedback from the transcript" | \
-par_gpt "sort the table by grade in the following order S,A,B,C,F" | \
+par_gpt -p "use the transcript in the context and create a markdown table with 3 columns 'filament_name', 'properties' and 'grade' generate the table based on the feedback from the transcript" llm | \
+par_gpt llm "sort the table by grade in the following order S,A,B,C,F" | \
 save_vault fillament_grade_props
 
 # get commit message for current changes
-par_gpt  'display commit message for current changes'
+par_gpt git 'display commit message for current changes'
 
 # commit current changes with automatically generated commit message also show config and pricing
-par_gpt --show-config --pricing 'commit current changes'
+par_gpt --show-config --pricing git 'commit current changes'
 
 # copy commit message for current changes to clipboard using agent mode
-par_gpt -t 0 --debug -g 'create a commit messages that would be relevant to the changes in the current repository and copy to clipboard'
+par_gpt -t 0 --debug agent 'create a commit messages that would be relevant to the changes in the current repository and copy to clipboard'
 
 # get details for new Macbook M4 Max (this will use web search and web scrape tools)
-par_gpt -g 'get me the details for the new Macbook M4 Max'
+par_gpt agent 'get me the details for the new Macbook M4 Max'
 
 # generate a csv file named data.csv filled with fake names and ages
-par_gpt -g 'generate a csv file named data.csv filled with fake names and ages'
+par_gpt agent 'generate a csv file named data.csv filled with fake names and ages'
 
 # read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser
-par_gpt -g 'read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser'
+par_gpt agent 'read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser'
 
 # read csv file named data.csv and generate a graph with age on the x axis and count of age on y axis. display the image in the terminal
-par_gpt -g 'read csv file named data.csv and generate a graph.png graph with age on the x axis and count of age on y axis. display the image in the terminal size large'
+par_gpt agent 'read csv file named data.csv and generate a graph.png graph with age on the x axis and count of age on y axis. display the image in the terminal size large'
 
 # display the current weather in Woodland CA
-par_gpt -g 'current weather in Woodland CA and display the current conditions image / icon in the terminal'
+par_gpt agent 'current weather in Woodland CA and display the current conditions image / icon in the terminal'
 
-par_gpt --pricing --debug -g -a OpenAI -d md 'what is the value of 4 times the ArcTangent of 1'
+par_gpt --pricing --debug -a OpenAI -d md agent --repl 'what is the value of 4 times the ArcTangent of 1'
 
 # tell me a joke using github model on azure
-par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" "tell me a joke"
-par_gpt --show-config --debug -p -a Github -m "gpt-4o" "tell me a joke"
+par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" llm "tell me a joke"
+par_gpt --show-config --debug -p -a Github -m "gpt-4o" llm "tell me a joke"
 
 # Groq vision model
-par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -f PATH_TO_IMAGE "describe this image"
+par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -f PATH_TO_IMAGE llm "describe this image"
 
 # get image from url and answer question
-par_gpt -f "https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg" "describe the image"
+par_gpt -f "https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg" llm "describe the image"
 
 # Get context from url and answer question about it. Note does not currently use RAG so can be token heavy
-par_gpt --pricing -c url -f 'https://console.groq.com/docs/vision' "what model ids support vision"
+par_gpt --pricing -c url -f 'https://console.groq.com/docs/vision' llm "what model ids support vision"
 
 # get image from url and answer question
-par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' "describe this image"
+par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' llm "describe this image"
 
 # check code for bugs (change to root for project you want to check)
-par_gpt 'code review'
+par_gpt code_review
 ```
 
 ## What's New
-
+- Version 0.4.0:
+  - Reworked sub commands and cli options 
 - Version 0.3.0:
     - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
     - Added code review agent

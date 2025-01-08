@@ -15,7 +15,7 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-from par_ai_core.llm_config import LlmConfig, LlmMode
+from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
     image_to_base64,
@@ -34,20 +34,19 @@ from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
 from par_ai_core.provider_cb_info import get_parai_callback
 from par_ai_core.utils import has_stdin_content
 from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
-from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.text import Text
 
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
+    ai_fetch_hacker_news,
+    ai_fetch_rss,
     ai_figlet,
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
     ai_serper_search,
-    ai_fetch_rss,
-    ai_fetch_hacker_news,
 )
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
@@ -84,14 +83,15 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+@app.callback()
 def main(
+    ctx: typer.Context,
     ai_provider: Annotated[
         LlmProvider,
         typer.Option(
             "--ai-provider", "-a", envvar=f"{__env_var_prefix__}_AI_PROVIDER", help="AI provider to use for processing"
         ),
-    ] = LlmProvider.GITHUB,
+    ] = LlmProvider.OPENAI,
     model: Annotated[
         str | None,
         typer.Option(
@@ -174,24 +174,6 @@ def main(
             help="User prompt to use for processing. If not specified, a default user prompt will be used.",
         ),
     ] = None,
-    agent_mode: Annotated[
-        bool,
-        typer.Option(
-            "--agent-mode",
-            "-g",
-            envvar=f"{__env_var_prefix__}_AGENT_MODE",
-            help="Enable agent mode.",
-        ),
-    ] = False,
-    max_iterations: Annotated[
-        int,
-        typer.Option(
-            "--max-iterations",
-            "-i",
-            envvar=f"{__env_var_prefix__}_MAX_ITERATIONS",
-            help="Maximum number of iterations to run when in agent mode.",
-        ),
-    ] = 5,
     max_context_size: Annotated[
         int,
         typer.Option(
@@ -201,42 +183,6 @@ def main(
             help="Maximum context size when provider supports it. 0 = default.",
         ),
     ] = 0,
-    debug: Annotated[
-        bool,
-        typer.Option(
-            "--debug",
-            "-D",
-            envvar=f"{__env_var_prefix__}_DEBUG",
-            help="Enable debug mode",
-        ),
-    ] = False,
-    show_tool_calls: Annotated[
-        bool,
-        typer.Option(
-            "--show-tool-calls",
-            "-T",
-            envvar=f"{__env_var_prefix__}_SHOW_TOOL_CALLS",
-            help="Show tool calls",
-        ),
-    ] = False,
-    show_config: Annotated[
-        bool,
-        typer.Option(
-            "--show-config",
-            "-S",
-            envvar=f"{__env_var_prefix__}_SHOW_CONFIG",
-            help="Show config",
-        ),
-    ] = False,
-    yes_to_all: Annotated[
-        bool,
-        typer.Option(
-            "--yes-to-all",
-            "-y",
-            envvar=f"{__env_var_prefix__}_YES_TO_ALL",
-            help="Yes to all prompts",
-        ),
-    ] = False,
     copy_to_clipboard: Annotated[
         bool,
         typer.Option(
@@ -253,359 +199,621 @@ def main(
             help="Copy context or context location from clipboard",
         ),
     ] = False,
-    no_repl: Annotated[
+    debug: Annotated[
         bool,
         typer.Option(
-            "--no-repl",
-            envvar=f"{__env_var_prefix__}_NO_REPL",
-            help="Disable REPL tool",
+            "--debug",
+            "-D",
+            envvar=f"{__env_var_prefix__}_DEBUG",
+            help="Enable debug mode",
         ),
     ] = False,
-    version: Annotated[
+    show_config: Annotated[
+        bool,
+        typer.Option(
+            "--show-config",
+            "-S",
+            envvar=f"{__env_var_prefix__}_SHOW_CONFIG",
+            help="Show config",
+        ),
+    ] = False,
+    version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
     ] = None,
-    unknown_args: typer.Context = typer.Option(None),
+):
+    """
+    PAR GPT
+    """
+    # console.print(Pretty(ctx.invoked_subcommand))
+    if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
+        key_name = provider_env_key_names[ai_provider]
+        if not os.environ.get(key_name):
+            console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
+            raise typer.Exit(1)
+
+    if copy_from_clipboard and context_location:
+        console.print("[bold red]copy_from_clipboard and context_location are mutually exclusive. Exiting...")
+        raise typer.Exit(1)
+
+    if copy_from_clipboard:
+        context_location = clipboard.paste()
+        console.print("[bold green]Context copied from clipboard")
+
+    context_is_url: bool = context_location.startswith("http")
+    if context_is_url:
+        console.print("[bold green]Context is URL and will be fetched...")
+
+    context_is_file: bool = not context_is_url and "\n" not in context_location and Path(context_location).is_file()
+    if context_is_file:
+        console.print("[bold green]Context is file and will be read...")
+
+    if context_location and not context_is_url and not context_is_file and not copy_from_clipboard:
+        console.print(f"[bold red]Context source '{context_location}' not found. Exiting...")
+        raise typer.Exit(1)
+
+    context: str = ""
+    if copy_from_clipboard and not context_is_url and not context_is_file:
+        context = context_location
+        context_location = ""
+
+    sio_all: StringIO = StringIO()
+    if not context_location and not copy_from_clipboard and has_stdin_content():
+        console.print("[bold green]Context is stdin and will be read...")
+        for line in sys.stdin:
+            sio_all.write(line)
+        context = sio_all.getvalue().strip()
+
+    context_is_image = False
+    if context_location:
+        console.print("[bold green]Detecting if context is an image...")
+        if context_is_url:
+            try:
+                image_type = try_get_image_type(context_location)
+                image_path = download_cache.download(context_location)
+                context = image_to_base64(image_path.read_bytes(), image_type)
+                context_is_image = True
+                show_image_in_terminal(image_path)
+            except UnsupportedImageTypeError as _:
+                context = fetch_url_and_convert_to_markdown(str(context_location))[0].strip()
+        else:
+            try:
+                image_type = try_get_image_type(context_location)
+                image_path = Path(context_location)
+                context = image_to_base64(image_path.read_bytes(), image_type)
+                context_is_image = True
+                show_image_in_terminal(image_path)
+            except UnsupportedImageTypeError as _:
+                context = Path(context_location).read_text(encoding="utf-8").strip()
+
+    if not model:
+        if light_model:
+            model = provider_light_models[ai_provider]
+            model_type = "light"
+        else:
+            if context_is_image:
+                model = provider_vision_models[ai_provider]
+                model_type = "vision"
+            else:
+                model = provider_default_models[ai_provider]
+                model_type = "default"
+        if not model:
+            console.print(f"[bold red]No supported {model_type} model found for {ai_provider}. Exiting...")
+            raise typer.Exit(1)
+
+        console.print(f"[bold green]Auto selected {model_type} model: {model}")
+
+    llm_config = LlmConfig(
+        provider=ai_provider,
+        model_name=model,
+        temperature=temperature,
+        base_url=ai_base_url,
+        streaming=False,
+        user_agent_appid=user_agent_appid,
+        num_ctx=max_context_size,
+        env_prefix=__env_var_prefix__,
+    ).set_env()
+
+    if show_config:
+        console.print(
+            Panel.fit(
+                Text.assemble(
+                    ("AI Provider: ", "cyan"),
+                    (f"{ai_provider.value}", "green"),
+                    "\n",
+                    ("Light Model: ", "cyan"),
+                    (f"{light_model}", "green"),
+                    "\n",
+                    ("Model: ", "cyan"),
+                    (f"{model}", "green"),
+                    "\n",
+                    ("AI Provider Base URL: ", "cyan"),
+                    (f"{ai_base_url or 'default'}", "green"),
+                    "\n",
+                    ("Temperature: ", "cyan"),
+                    (f"{temperature}", "green"),
+                    "\n",
+                    ("System Prompt: ", "cyan"),
+                    (f"{system_prompt or 'default'}", "green"),
+                    "\n",
+                    ("User Prompt: ", "cyan"),
+                    (f"{user_prompt or 'using stdin'}", "green"),
+                    "\n",
+                    ("Pricing: ", "cyan"),
+                    (f"{pricing}", "green"),
+                    "\n",
+                    ("Display Format: ", "cyan"),
+                    (f"{display_format or 'default'}", "green"),
+                    "\n",
+                    ("Context Location: ", "cyan"),
+                    (f"{context_location or 'default'}", "green"),
+                    "\n",
+                    ("Context Is Image: ", "cyan"),
+                    (f"{context_is_image}", "green"),
+                    "\n",
+                    ("Debug: ", "cyan"),
+                    (f"{debug}", "green"),
+                    "\n",
+                ),
+                title="[bold]GPT Configuration",
+                border_style="bold",
+            )
+        )
+
+    state = {
+        "debug": debug,
+        "ai_provider": ai_provider,
+        "model": model,
+        "ai_base_url": ai_base_url,
+        "pricing": pricing,
+        "is_sixel_supported": False,  # query_terminal_support(),
+        "llm_config": llm_config,
+        "store_url": os.environ["VECTOR_STORE_URL"],
+        "collection_name": "par_gpt",
+        "temperature": temperature,
+        "user_agent_appid": user_agent_appid,
+        "display_format": display_format,
+        "context_location": context_location,
+        "system_prompt": system_prompt,
+        "user_prompt": user_prompt,
+        "max_context_size": max_context_size,
+        "copy_to_clipboard": copy_to_clipboard,
+        "copy_from_clipboard": copy_from_clipboard,
+        "show_config": show_config,
+        "context": context,
+        "context_is_image": context_is_image,
+    }
+
+    ctx.obj = state
+
+
+@app.command()
+def show_env() -> None:
+    """Show environment context."""
+    console.print(mk_env_context())
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def llm(
+    ctx: typer.Context,
 ) -> None:
-    """Main function."""
+    """Basic LLM mode with no tools."""
+    state = ctx.obj
     # console.print((Path(__file__).parent / "prompts" / "meta_prompt.xml").is_file())
     # console.print(typer.get_app_dir(__application_binary__))
     # exit(0)
     # for unknown_arg in unknown_args.args:
     #     typer.echo(f"Got extra arg: {unknown_arg}")
     # return
+
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+
+    if not question:
+        console.print("[bold red]No context or user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    if state["user_prompt"] and state["context"] and not state["context_is_image"]:
+        question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
+
+    question = question.strip()
+    question_lower = question.lower()
+
     try:
-        if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
-            key_name = provider_env_key_names[ai_provider]
-            if not os.environ.get(key_name):
-                console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
-                raise typer.Exit(1)
-        if copy_from_clipboard:
-            context_location = clipboard.paste()
-            console.print("[bold green]Context copied from clipboard")
-
-        context_is_url: bool = context_location.startswith("http")
-        if context_is_url:
-            console.print("[bold green]Context is URL and will be downloaded")
-
-        context_is_file: bool = not context_is_url and "\n" not in context_location and Path(context_location).is_file()
-        if context_is_file:
-            console.print("[bold green]Context is file and will be read")
-
-        if context_location and not context_is_url and not context_is_file and not copy_from_clipboard:
-            console.print("[bold red]Context source not found. Exiting...")
-            raise typer.Exit(1)
-
-        context: str = ""
-        if copy_from_clipboard and not context_is_url and not context_is_file:
-            context = context_location
-            context_location = ""
-
-        sio_all: StringIO = StringIO()
-        if not context_location and not copy_from_clipboard and has_stdin_content():
-            console.print("[bold green]Context is stdin and will be read")
-            for line in sys.stdin:
-                sio_all.write(line)
-            context = sio_all.getvalue().strip()
-
-        context_is_image = False
-        if context_location:
-            if context_is_url:
-                try:
-                    image_type = try_get_image_type(context_location)
-                    image_path = download_cache.download(context_location)
-                    context = image_to_base64(image_path.read_bytes(), image_type)
-                    context_is_image = True
-                    show_image_in_terminal(image_path)
-                except UnsupportedImageTypeError as _:
-                    context = fetch_url_and_convert_to_markdown(str(context_location))[0].strip()
-            else:
-                try:
-                    image_type = try_get_image_type(context_location)
-                    image_path = Path(context_location)
-                    context = image_to_base64(image_path.read_bytes(), image_type)
-                    context_is_image = True
-                    show_image_in_terminal(image_path)
-                except UnsupportedImageTypeError as _:
-                    context = Path(context_location).read_text(encoding="utf-8").strip()
-
-        if not model:
-            if light_model:
-                model = provider_light_models[ai_provider]
-            else:
-                if context_is_image:
-                    model = provider_vision_models[ai_provider]
-                else:
-                    model = provider_default_models[ai_provider]
-            console.print(f"[bold green]Auto selected model: {model}")
-
-        if not user_prompt and len(unknown_args.args) > 0:
-            user_prompt = unknown_args.args.pop(0)
-
-        if not context and not user_prompt:
-            console.print("[bold red]No context or user prompt provided. Exiting...")
-            raise typer.Exit(1)
-
-        question = user_prompt or context
-        if re.match(r"(get|show|list|display) (env|environment|extra context)", question, flags=re.IGNORECASE):
-            console.print(Markdown(mk_env_context()))
-            return
-        if re.match(r"(git|gen|generate|create|do|show|display) commit", question, flags=re.IGNORECASE):
-            llm_config = LlmConfig(
-                provider=ai_provider,
-                model_name=model,
-                temperature=0,
-                mode=LlmMode.CHAT,
-                streaming=False,
-                user_agent_appid=user_agent_appid,
-                num_ctx=max_context_size,
-                env_prefix=__env_var_prefix__,
-                base_url=ai_base_url,
-            ).set_env()
-            with get_parai_callback(show_end=debug, show_tool_calls=debug or show_tool_calls, show_pricing=pricing):
-                repo = GitRepo(llm_config=llm_config)
-                if not repo.is_dirty():
-                    console.print("[bold yellow]No changes to commit. Exiting...")
-                    return
-                # console.print(repo.get_dirty_files())
-                # return
-                if re.match(r"(display|show)\s?(git|gen|generate|create|do)? commit", question, flags=re.IGNORECASE):
-                    console.print(repo.get_commit_message(repo.get_diffs(unknown_args.args), context=context))
-                else:
-                    repo.commit(unknown_args.args, context=context)
-                return
-
-        if user_prompt and context and not context_is_image:
-            question = "\n<context>\n" + context + "\n</context>\n" + question
-
-        if show_config:
-            console.print(
-                Panel.fit(
-                    Text.assemble(
-                        ("AI Provider: ", "cyan"),
-                        (f"{ai_provider.value}", "green"),
-                        "\n",
-                        ("Light Model: ", "cyan"),
-                        (f"{light_model}", "green"),
-                        "\n",
-                        ("Model: ", "cyan"),
-                        (f"{model}", "green"),
-                        "\n",
-                        ("AI Provider Base URL: ", "cyan"),
-                        (f"{ai_base_url or 'default'}", "green"),
-                        "\n",
-                        ("Temperature: ", "cyan"),
-                        (f"{temperature}", "green"),
-                        "\n",
-                        ("System Prompt: ", "cyan"),
-                        (f"{system_prompt or 'default'}", "green"),
-                        "\n",
-                        ("User Prompt: ", "cyan"),
-                        (f"{user_prompt or 'using stdin'}", "green"),
-                        "\n",
-                        ("Pricing: ", "cyan"),
-                        (f"{pricing}", "green"),
-                        "\n",
-                        ("Display Format: ", "cyan"),
-                        (f"{display_format or 'default'}", "green"),
-                        "\n",
-                        ("Context Location: ", "cyan"),
-                        (f"{context_location or 'default'}", "green"),
-                        "\n",
-                        ("Context Is Image: ", "cyan"),
-                        (f"{context_is_image}", "green"),
-                        "\n",
-                        ("Agent Mode: ", "cyan"),
-                        (f"{agent_mode}", "green"),
-                        "\n",
-                        ("Debug: ", "cyan"),
-                        (f"{debug}", "green"),
-                        "\n",
-                    ),
-                    title="[bold]GPT Configuration",
-                    border_style="bold",
-                )
-            )
-
-        llm_config = LlmConfig(
-            provider=ai_provider,
-            model_name=model,
-            temperature=temperature,
-            base_url=ai_base_url,
-            streaming=False,
-            user_agent_appid=user_agent_appid,
-            num_ctx=max_context_size,
-            env_prefix=__env_var_prefix__,
-        ).set_env()
-
-        chat_model = llm_config.build_chat_model()
-        question = question.strip()
-        question_lower = question.lower()
+        chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
-        with get_parai_callback(show_end=debug, show_tool_calls=debug or show_tool_calls) as cb:
-            if agent_mode:
-                module_names = [
-                    "os",
-                    "sys",
-                    "re",
-                    "json",
-                    "time",
-                    "datetime",
-                    "random",
-                    "string",
-                    "pathlib",
-                    "requests",
-                    "git",
-                    "pandas",
-                    "faker",
-                    "numpy",
-                    "matplotlib",
-                    "bs4",
-                    "html2text",
-                    "pydantic",
-                    "clipman",
-                    "pyfiglet",
-                    "rich",
-                    # "rich.console",
-                    "rich.panel",
-                    "rich.markdown",
-                    "rich.pretty",
-                    "rich.table",
-                    "rich.text",
-                    "rich.color",
-                ]
-                local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
-
-                ai_tools: list[BaseTool] = [
-                    ai_open_url,
-                    ai_fetch_url,
-                    git_commit_tool,
-                    ai_display_image_in_terminal,
-                    ai_youtube_get_transcript,
-                    # ai_joke,
-                ]  # type: ignore
-
-                if "figlet" in question_lower:
-                    ai_tools.append(ai_figlet)
-
-                if not no_repl:
-                    ai_tools.append(
-                        ParPythonAstREPLTool(
-                            prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules
-                        ),
-                    )
-
-                if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
-                    ai_tools.append(ai_youtube_search)
-
-                # use TavilySearchResults with fallback to serper and google search if api keys are set
-                if os.environ.get("TAVILY_API_KEY"):
-                    ai_tools.append(
-                        TavilySearchResults(
-                            max_results=3,
-                            include_answer=True,
-                            topic="news",  # type: ignore
-                            name="tavily_news_results_json",
-                            description="Search news and current events",
-                        )
-                    )
-                    ai_tools.append(
-                        TavilySearchResults(
-                            max_results=3,
-                            include_answer=True,
-                            name="tavily_search_results_json",
-                            description="General search for content not directly related to current events",
-                        )
-                    )
-                elif os.environ.get("SERPER_API_KEY"):
-                    ai_tools.append(ai_serper_search)
-                elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
-                    ai_tools.append(web_search)  # type: ignore
-
-                if os.environ.get("BRAVE_API_KEY"):
-                    ai_tools.append(ai_brave_search)
-
-                if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
-                    ai_tools.append(ai_reddit_search)
-
-                if "clipboard" in question_lower:
-                    ai_tools.append(ai_copy_to_clipboard)
-                    ai_tools.append(ai_copy_from_clipboard)
-                if "rss" in question_lower:
-                    ai_tools.append(ai_fetch_rss)
-                if "hackernews" in question_lower:
-                    ai_tools.append(ai_fetch_hacker_news)
-
-                if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
-                    ai_tools.append(ai_get_weather_current)
-                    ai_tools.append(ai_get_weather_forecast)
-                if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
-                    ai_tools.append(ai_github_list_repos)
-                    ai_tools.append(ai_github_create_repo)
-                    ai_tools.append(ai_github_publish_repo)
-
-                console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
-
-                content, result = do_tool_agent(
+        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
+            if "generate prompt" in question_lower:
+                content, result = do_prompt_generation_agent(
                     chat_model=chat_model,
-                    ai_tools=ai_tools,
-                    modules=module_names,
-                    env_info=env_info,
                     user_input=question,
-                    image=context if context_is_image else None,
-                    system_prompt=system_prompt,
-                    max_iterations=max_iterations,
-                    debug=debug,
+                    system_prompt=state["system_prompt"],
+                    debug=state["debug"],
                     console=console,
                 )
             else:
-                if "code review" in question_lower:
-                    content, result = do_code_review_agent(
-                        chat_model=chat_model,
-                        user_input=question,
-                        system_prompt=system_prompt,
-                        env_info=env_info,
-                        display_format=display_format,
-                        debug=debug,
-                        console=console,
-                    )
-                elif "generate prompt" in question_lower:
-                    content, result = do_prompt_generation_agent(
-                        chat_model=chat_model,
-                        user_input=question,
-                        system_prompt=system_prompt,
-                        debug=debug,
-                        console=console,
-                    )
-                else:
-                    content, result = do_single_llm_call(
-                        chat_model=chat_model,
-                        user_input=question,
-                        system_prompt=system_prompt,
-                        no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
-                        env_info=env_info,
-                        image=context if context_is_image else None,
-                        display_format=display_format,
-                        debug=debug,
-                        console=console,
-                    )
+                content, result = do_single_llm_call(
+                    chat_model=chat_model,
+                    user_input=question,
+                    system_prompt=state["system_prompt"],
+                    no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
+                    env_info=env_info,
+                    image=state["context"] if state["context_is_image"] else None,
+                    display_format=state["display_format"],
+                    debug=state["debug"],
+                    console=console,
+                )
 
             usage_metadata = cb.usage_metadata
 
         if not sys.stdout.isatty():
             print(content)
 
-        if copy_to_clipboard:
+        if state["copy_to_clipboard"]:
             clipboard.copy(content)
             console.print("[bold green]Copied to clipboard")
 
-        if debug:
+        if state["debug"]:
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
-        show_llm_cost(usage_metadata, console=console, show_pricing=pricing)
+        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
 
-        display_formatted_output(content, display_format, console=console)
+        display_formatted_output(content, state["display_format"], console=console)
+
+    except Exception as e:
+        console.print("[bold red]Error:")
+        console.print(str(e), markup=False)
+        raise typer.Exit(code=1)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def git(
+    ctx: typer.Context,
+) -> None:
+    """Git commit helper."""
+    state = ctx.obj
+
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+
+    if not question:
+        console.print("[bold red]No context or user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    if state["user_prompt"] and state["context"] and not state["context_is_image"]:
+        question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
+
+    question = question.strip()
+
+    try:
+        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"], show_pricing=state["pricing"]):
+            repo = GitRepo(llm_config=state["llm_config"])
+            if not repo.is_dirty():
+                console.print("[bold yellow]No changes to commit. Exiting...")
+                return
+            # console.print(repo.get_dirty_files())
+            # return
+            if re.match(r"(display|show)\s?(git|gen|generate|create|do)? commit", question, flags=re.IGNORECASE):
+                console.print(repo.get_commit_message(repo.get_diffs(ctx.args), context=state["context"]))
+            else:
+                repo.commit(ctx.args, context=state["context"])
+    except Exception as e:
+        console.print("[bold red]Error:")
+        console.print(str(e), markup=False)
+        raise typer.Exit(code=1)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def code_review(
+    ctx: typer.Context,
+) -> None:
+    """Review code."""
+    state = ctx.obj
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+    if not question:
+        question = "Please review code"
+
+    if state["user_prompt"] and state["context"] and not state["context_is_image"]:
+        question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
+
+    question = question.strip()
+
+    try:
+        chat_model = state["llm_config"].build_chat_model()
+
+        env_info = mk_env_context({}, console)
+        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
+            content, result = do_code_review_agent(
+                chat_model=chat_model,
+                user_input=question,
+                system_prompt=state["system_prompt"],
+                env_info=env_info,
+                display_format=state["display_format"],
+                debug=state["debug"],
+                console=console,
+            )
+
+            usage_metadata = cb.usage_metadata
+
+        if not sys.stdout.isatty():
+            print(content)
+
+        if state["copy_to_clipboard"]:
+            clipboard.copy(content)
+            console.print("[bold green]Copied to clipboard")
+
+        if state["debug"]:
+            console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+
+        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+
+        display_formatted_output(content, state["display_format"], console=console)
+    except Exception as e:
+        console.print("[bold red]Error:")
+        console.print(str(e), markup=False)
+        raise typer.Exit(code=1)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def generate_prompt(
+    ctx: typer.Context,
+) -> None:
+    """Use meta prompting to generate a new prompt."""
+    state = ctx.obj
+
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+
+    if not question:
+        console.print("[bold red]No context or user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    if state["user_prompt"] and state["context"] and not state["context_is_image"]:
+        question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
+
+    question = question.strip()
+
+    try:
+        chat_model = state["llm_config"].build_chat_model()
+
+        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
+            content, result = do_prompt_generation_agent(
+                chat_model=chat_model,
+                user_input=question,
+                system_prompt=state["system_prompt"],
+                debug=state["debug"],
+                console=console,
+            )
+
+            usage_metadata = cb.usage_metadata
+
+        if not sys.stdout.isatty():
+            print(content)
+
+        if state["copy_to_clipboard"]:
+            clipboard.copy(content)
+            console.print("[bold green]Copied to clipboard")
+
+        if state["debug"]:
+            console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+
+        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+
+        display_formatted_output(content, state["display_format"], console=console)
+
+    except Exception as e:
+        console.print("[bold red]Error:")
+        console.print(str(e), markup=False)
+        raise typer.Exit(code=1)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def agent(
+    ctx: typer.Context,
+    max_iterations: Annotated[
+        int,
+        typer.Option(
+            "--max-iterations",
+            "-i",
+            envvar=f"{__env_var_prefix__}_MAX_ITERATIONS",
+            help="Maximum number of iterations to run when in agent mode.",
+        ),
+    ] = 5,
+    show_tool_calls: Annotated[
+        bool,
+        typer.Option(
+            "--show-tool-calls",
+            "-T",
+            envvar=f"{__env_var_prefix__}_SHOW_TOOL_CALLS",
+            help="Show tool calls",
+        ),
+    ] = False,
+    yes_to_all: Annotated[
+        bool,
+        typer.Option(
+            "--yes-to-all",
+            "-y",
+            envvar=f"{__env_var_prefix__}_YES_TO_ALL",
+            help="Yes to all prompts",
+        ),
+    ] = False,
+    repl: Annotated[
+        bool,
+        typer.Option(
+            "--no-repl",
+            envvar=f"{__env_var_prefix__}_REPL",
+            help="Enable REPL tool",
+        ),
+    ] = False,
+) -> None:
+    """Full agent with dynamic tools."""
+    state = ctx.obj
+    # console.print((Path(__file__).parent / "prompts" / "meta_prompt.xml").is_file())
+    # console.print(typer.get_app_dir(__application_binary__))
+    # exit(0)
+    # for unknown_arg in unknown_args.args:
+    #     typer.echo(f"Got extra arg: {unknown_arg}")
+    # return
+
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+
+    if not question:
+        console.print("[bold red]No context or user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    if state["user_prompt"] and state["context"] and not state["context_is_image"]:
+        question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
+
+    question = question.strip()
+    question_lower = question.lower()
+    try:
+        chat_model = state["llm_config"].build_chat_model()
+
+        env_info = mk_env_context({}, console)
+        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"] or show_tool_calls) as cb:
+            module_names = [
+                "os",
+                "sys",
+                "re",
+                "json",
+                "time",
+                "datetime",
+                "random",
+                "string",
+                "pathlib",
+                "requests",
+                "git",
+                "pandas",
+                "faker",
+                "numpy",
+                "matplotlib",
+                "bs4",
+                "html2text",
+                "pydantic",
+                "clipman",
+                "pyfiglet",
+                "rich",
+                # "rich.console",
+                "rich.panel",
+                "rich.markdown",
+                "rich.pretty",
+                "rich.table",
+                "rich.text",
+                "rich.color",
+            ]
+            local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
+
+            ai_tools: list[BaseTool] = [
+                ai_open_url,
+                ai_fetch_url,
+                ai_display_image_in_terminal,
+                # ai_joke,
+            ]  # type: ignore
+
+            if "figlet" in question_lower:
+                ai_tools.append(ai_figlet)
+
+            if repl:
+                ai_tools.append(
+                    ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
+                )
+
+            if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
+                ai_tools.append(ai_youtube_search)
+            if "youtube" in question_lower:
+                ai_tools.append(ai_youtube_get_transcript)
+            if "git" in question_lower or "commit" in question_lower:
+                ai_tools.append(git_commit_tool)
+
+            # use TavilySearchResults with fallback to serper and google search if api keys are set
+            if os.environ.get("TAVILY_API_KEY"):
+                ai_tools.append(
+                    TavilySearchResults(
+                        max_results=3,
+                        include_answer=True,
+                        topic="news",  # type: ignore
+                        name="tavily_news_results_json",
+                        description="Search news and current events",
+                    )
+                )
+                ai_tools.append(
+                    TavilySearchResults(
+                        max_results=3,
+                        include_answer=True,
+                        name="tavily_search_results_json",
+                        description="General search for content not directly related to current events",
+                    )
+                )
+            elif os.environ.get("SERPER_API_KEY"):
+                ai_tools.append(ai_serper_search)
+            elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
+                ai_tools.append(web_search)  # type: ignore
+
+            if os.environ.get("BRAVE_API_KEY"):
+                ai_tools.append(ai_brave_search)
+
+            if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
+                ai_tools.append(ai_reddit_search)
+
+            if "clipboard" in question_lower:
+                ai_tools.append(ai_copy_to_clipboard)
+                ai_tools.append(ai_copy_from_clipboard)
+            if "rss" in question_lower:
+                ai_tools.append(ai_fetch_rss)
+            if "hackernews" in question_lower:
+                ai_tools.append(ai_fetch_hacker_news)
+
+            if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
+                ai_tools.append(ai_get_weather_current)
+                ai_tools.append(ai_get_weather_forecast)
+            if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
+                ai_tools.append(ai_github_list_repos)
+                ai_tools.append(ai_github_create_repo)
+                ai_tools.append(ai_github_publish_repo)
+
+            console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
+
+            content, result = do_tool_agent(
+                chat_model=chat_model,
+                ai_tools=ai_tools,
+                modules=module_names,
+                env_info=env_info,
+                user_input=question,
+                image=state["context"] if state["context_is_image"] else None,
+                system_prompt=state["system_prompt"],
+                max_iterations=max_iterations,
+                debug=state["debug"],
+                console=console,
+            )
+
+            usage_metadata = cb.usage_metadata
+
+        if not sys.stdout.isatty():
+            print(content)
+
+        if state["copy_to_clipboard"]:
+            clipboard.copy(content)
+            console.print("[bold green]Copied to clipboard")
+
+        if state["debug"]:
+            console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+
+        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+
+        display_formatted_output(content, state["display_format"], console=console)
 
     except Exception as e:
         console.print("[bold red]Error:")

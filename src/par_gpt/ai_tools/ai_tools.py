@@ -20,7 +20,6 @@ from par_ai_core.llm_providers import LlmProvider, provider_light_models
 from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
-from rich.markdown import Markdown
 
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (

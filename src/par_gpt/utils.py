@@ -6,7 +6,6 @@ import getpass
 import hashlib
 import os
 import platform
-import sys
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from io import StringIO
@@ -21,9 +20,9 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.user_agents import get_random_user_agent
 from rich.console import Console
 from rich_pixels import Pixels
+
 # from sixel import converter
 # from textual_image.renderable.sixel import query_terminal_support
-
 from . import __application_binary__
 
 
@@ -35,7 +34,7 @@ def get_url_file_suffix(url: str) -> str:
         url (str): URL
 
     Returns:
-        str: File suffix
+        str: File suffix in lowercase with leading dot
     """
     parsed_url = urlparse(url)
     filename = os.path.basename(parsed_url.path)
@@ -56,15 +55,44 @@ class DownloadCache:
 
     @staticmethod
     def key_for_url(url: str) -> str:
-        """Key for url"""
+        """
+        Convert url to cache key
+
+        Args:
+            url (str): URL to compute cache key
+
+        Returns:
+            str: Cache key for url
+        """
         return hashlib.sha1(url.encode()).hexdigest() + "." + get_url_file_suffix(url)
 
     def get_path(self, url: str) -> Path:
-        """Get path"""
+        """
+        Get path in cache for url
+
+        Args:
+            url (str): URL to compute cache key
+
+        Returns:
+            Path: Path in cache for url
+        """
         return self.cache_dir / self.key_for_url(url)
 
     def download(self, url: str, force: bool = False, timeout: int = 10) -> Path:
-        """Return from cache or download"""
+        """
+        Return file from cache or download
+
+        Args:
+            url (str): URL
+            force (bool): Force download
+            timeout (int): Timeout in seconds for download
+
+        Returns:
+            Path: Path in cache for url
+
+        Raises:
+            requests.exceptions.RequestException: If download fails
+        """
         path = self.get_path(url)
         if not force and path.exists():
             return path
@@ -80,7 +108,12 @@ class DownloadCache:
         return path
 
     def delete(self, url: str) -> None:
-        """Delete from cache if exists"""
+        """
+        Delete from cache if exists
+
+        Args:
+            url (str): URL
+        """
         self.get_path(url).unlink(missing_ok=True)
 
 
