@@ -188,6 +188,7 @@ def do_tool_agent(
     <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
     <instruction>If a tool returns an error message asking you to stop, do not make any additional requests and use the error message as the final answer.</instruction>
     <instruction>Use tools and the extra_context section to help answer the question.</instruction>
+    <instruction>If a tool states its output should be returned directly to user ensure you return it directly to the use without modifications.</instruction>
     <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
     <instruction>When creating code you MUST follow the rules in the code_rules section.</instruction>
 """
@@ -201,7 +202,7 @@ def do_tool_agent(
     if has_repl:
         default_system_prompt += """
 <repl_rules>
-    <rule>Do NOT install any packages.</rule>
+    <rule>DO NOT install any packages.</rule>
     <rule>NEVER execute code that could destroy data or otherwise harm the system or its data and files.</rule>
     <rule>The available_modules are already available and do not need to be imported.</rule>
     <rule>Do not include imports in your code reference the module name instead.</rule>
@@ -212,7 +213,7 @@ def do_tool_agent(
 
     default_system_prompt += """
 <code_rules>
-    <rule>Assume python version is 3.11</rule>
+    <rule>Assume python version is 3.12</rule>
     <rule>Ensure any web requests have a 10 second timeout.</rule>
     <rule>Ensure that encoding is set to "utf-8" for all file operations.</rule>
 </code_rules>

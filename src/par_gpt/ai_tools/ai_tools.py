@@ -477,7 +477,7 @@ def ai_figlet(
 @tool(parse_docstring=True)
 def ai_fetch_rss(url: str, max_items: int = 5) -> str:
     """
-    Fetches an RSS feed and formats its content as markdown. The Markdown should be returned to the user without modification until otherwise requested by the user.
+    Fetches an RSS feed and formats its content as markdown. The Markdown should be returned to the user without modification unless otherwise requested by the user.
 
     Args:
         url (str): The URL of the RSS feed to fetch.
@@ -519,7 +519,7 @@ def ai_fetch_rss(url: str, max_items: int = 5) -> str:
 @tool(parse_docstring=True)
 def ai_fetch_hacker_news(max_items: int = 5) -> str:
     """
-    Fetches top articles from Hacker News and formats them as markdown. The Markdown should be returned to the user without modification until otherwise requested by the user.
+    Fetches top articles from Hacker News and formats them as markdown. The Markdown should be returned to the user without modification unless otherwise requested by the user.
 
     Args:
         max_items (int): The maximum number of items to include in the output (default: 5).
