@@ -8,6 +8,31 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "agentrun"
+version = "0.2.5"
+source = { editable = "../AgentRun" }
+dependencies = [
+    { name = "docker" },
+    { name = "restrictedpython" },
+    { name = "rich" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "docker" },
+    { name = "mkdocs", marker = "extra == 'test'" },
+    { name = "mkdocs-jupyter", marker = "extra == 'test'" },
+    { name = "mkdocs-material", marker = "extra == 'test'" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'test'" },
+    { name = "mypy", marker = "extra == 'test'" },
+    { name = "pytest", marker = "extra == 'test'" },
+    { name = "pytest-benchmark", marker = "extra == 'test'" },
+    { name = "pytest-cov", marker = "extra == 'test'" },
+    { name = "restrictedpython" },
+    { name = "rich", specifier = ">=13.9.4" },
+]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -634,6 +659,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fc/f8/98eea607f65de6527f8a2e8885fc8015d3e6f5775df186e443e0964a11c3/distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed", size = 60722 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2", size = 20277 },
+]
+
+[[package]]
+name = "docker"
+version = "7.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/9b/4a2ea29aeba62471211598dac5d96825bb49348fa07e906ea930394a83ce/docker-7.1.0.tar.gz", hash = "sha256:ad8c70e6e3f8926cb8a92619b832b4ea5299e2831c14284663184e200546fa6c", size = 117834 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e3/26/57c6fb270950d476074c087527a558ccb6f4436657314bfb6cdf484114c4/docker-7.1.0-py3-none-any.whl", hash = "sha256:c96b93b7f0a746f9e77d325bcfb87422a3d8bd4f03136ae8a85b37f1898d5fc0", size = 147774 },
 ]
 
 [[package]]
@@ -2607,6 +2646,7 @@ name = "par-gpt"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agentrun" },
     { name = "asyncio" },
     { name = "beautifulsoup4" },
     { name = "clipman" },
@@ -2664,6 +2704,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agentrun", editable = "../AgentRun" },
     { name = "asyncio", specifier = ">=3.4.3" },
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "clipman", specifier = ">=3.3.1" },
@@ -3513,6 +3554,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f3/61/d7545dafb7ac2230c70d38d31cbfe4cc64f7144dc41f6e4e4b78ecd9f5bb/requests-toolbelt-1.0.0.tar.gz", hash = "sha256:7681a0a3d047012b5bdc0ee37d7f8f07ebe76ab08caeccfc3921ce23c88d5bc6", size = 206888 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/51/d4db610ef29373b879047326cbf6fa98b6c1969d6f6dc423279de2b1be2c/requests_toolbelt-1.0.0-py2.py3-none-any.whl", hash = "sha256:cccfdd665f0a24fcf4726e690f65639d272bb0637b9b92dfd91a5568ccf6bd06", size = 54481 },
+]
+
+[[package]]
+name = "restrictedpython"
+version = "7.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/3d/23c87d84ec1cf069b977244a9e9ce81d7ac778768b639b66421090391f5f/restrictedpython-7.4.tar.gz", hash = "sha256:81b62924713dbd280917fceaecaf210fef7a49dddf1a08c8c214a3613fbeb425", size = 836694 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5d/5d/5164e922d470ad58a4c8d34ed5c32e375fa9a71beaeefe0a67b096dcca2c/RestrictedPython-7.4-py3-none-any.whl", hash = "sha256:f431c76f848f6f6d50ae21457cb503642db60889a273e4be439cf7ca4cbaf999", size = 27068 },
 ]
 
 [[package]]

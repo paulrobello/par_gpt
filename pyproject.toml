@@ -45,6 +45,7 @@ dependencies = [
     "textual-image>=0.7.0",
     "sixel>=0.2.0",
     "feedparser>=6.0.11",
+    "agentrun",
 ]
 packages = ["src/par_gpt"]
 
@@ -97,3 +98,6 @@ exclude = [
     "*.so",
     "*.dylib"
 ]
+
+[tool.uv.sources]
+agentrun = { path = "../AgentRun", editable = true }

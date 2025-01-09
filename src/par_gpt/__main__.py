@@ -23,6 +23,7 @@ from par_ai_core.llm_image_utils import (
 )
 from par_ai_core.llm_providers import (
     LlmProvider,
+    provider_base_urls,
     provider_default_models,
     provider_env_key_names,
     provider_light_models,
@@ -40,13 +41,13 @@ from rich.text import Text
 
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
-    ai_fetch_hacker_news,
     ai_fetch_rss,
     ai_figlet,
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
     ai_serper_search,
+    execute_code,
 )
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
@@ -270,15 +271,17 @@ def main(
         if context_is_url:
             try:
                 image_type = try_get_image_type(context_location)
+                console.print(f"[bold green]Image type {image_type} detected.")
                 image_path = download_cache.download(context_location)
                 context = image_to_base64(image_path.read_bytes(), image_type)
                 context_is_image = True
                 show_image_in_terminal(image_path)
             except UnsupportedImageTypeError as _:
-                context = fetch_url_and_convert_to_markdown(str(context_location))[0].strip()
+                context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
         else:
             try:
                 image_type = try_get_image_type(context_location)
+                console.print(f"[bold green]Image type {image_type} detected.")
                 image_path = Path(context_location)
                 context = image_to_base64(image_path.read_bytes(), image_type)
                 context_is_image = True
@@ -303,6 +306,8 @@ def main(
 
         console.print(f"[bold green]Auto selected {model_type} model: {model}")
 
+    if ai_base_url == "none":
+        ai_base_url = provider_base_urls[ai_provider]
     llm_config = LlmConfig(
         provider=ai_provider,
         model_name=model,
@@ -310,7 +315,7 @@ def main(
         base_url=ai_base_url,
         streaming=False,
         user_agent_appid=user_agent_appid,
-        num_ctx=max_context_size,
+        num_ctx=max_context_size or None,
         env_prefix=__env_var_prefix__,
     ).set_env()
 
@@ -419,33 +424,23 @@ def llm(
         question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
 
     question = question.strip()
-    question_lower = question.lower()
 
     try:
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
         with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
-            if "generate prompt" in question_lower:
-                content, result = do_prompt_generation_agent(
-                    chat_model=chat_model,
-                    user_input=question,
-                    system_prompt=state["system_prompt"],
-                    debug=state["debug"],
-                    console=console,
-                )
-            else:
-                content, result = do_single_llm_call(
-                    chat_model=chat_model,
-                    user_input=question,
-                    system_prompt=state["system_prompt"],
-                    no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
-                    env_info=env_info,
-                    image=state["context"] if state["context_is_image"] else None,
-                    display_format=state["display_format"],
-                    debug=state["debug"],
-                    console=console,
-                )
+            content, result = do_single_llm_call(
+                chat_model=chat_model,
+                user_input=question,
+                system_prompt=state["system_prompt"],
+                no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
+                env_info=env_info,
+                image=state["context"] if state["context_is_image"] else None,
+                display_format=state["display_format"],
+                debug=state["debug"],
+                console=console,
+            )
 
             usage_metadata = cb.usage_metadata
 
@@ -650,9 +645,17 @@ def agent(
     repl: Annotated[
         bool,
         typer.Option(
-            "--no-repl",
+            "--repl",
             envvar=f"{__env_var_prefix__}_REPL",
             help="Enable REPL tool",
+        ),
+    ] = False,
+    code_sandbox: Annotated[
+        bool,
+        typer.Option(
+            "--code-sandbox",
+            envvar=f"{__env_var_prefix__}_CODE_SANDBOX",
+            help="Enable code sandbox tool. Requires a running code sandbox container.",
         ),
     ] = False,
 ) -> None:
@@ -726,6 +729,9 @@ def agent(
             if "figlet" in question_lower:
                 ai_tools.append(ai_figlet)
 
+            if code_sandbox:
+                ai_tools.append(execute_code)
+
             if repl:
                 ai_tools.append(
                     ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
@@ -773,8 +779,8 @@ def agent(
                 ai_tools.append(ai_copy_from_clipboard)
             if "rss" in question_lower:
                 ai_tools.append(ai_fetch_rss)
-            if "hackernews" in question_lower:
-                ai_tools.append(ai_fetch_hacker_news)
+            # if "hackernews" in question_lower:
+            #     ai_tools.append(ai_fetch_hacker_news)
 
             if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                 ai_tools.append(ai_get_weather_current)
@@ -819,6 +825,21 @@ def agent(
         console.print("[bold red]Error:")
         console.print(str(e), markup=False)
         raise typer.Exit(code=1)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def code_test(
+    ctx: typer.Context,
+) -> None:
+    """Basic LLM mode with no tools."""
+    state = ctx.obj
+    from agentrun import AgentRun
+
+    runner = AgentRun(container_name="agentrun-api-python_runner-1")  # container should be running
+    code_from_llm = "print('hello, world!')\n"
+
+    result = runner.execute_code_in_container(code_from_llm)
+    console_err.print(result)
 
 
 if __name__ == "__main__":

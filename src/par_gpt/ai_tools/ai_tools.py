@@ -20,6 +20,7 @@ from par_ai_core.llm_providers import LlmProvider, provider_light_models
 from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
+from rich.panel import Panel
 
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
@@ -564,6 +565,33 @@ def ai_fetch_hacker_news(max_items: int = 5) -> str:
         markdown_content += "---\n\n"
 
     return markdown_content
+
+
+@tool(parse_docstring=True)
+def execute_code(code: str) -> str:
+    """
+    Executes the given python code in a sandbox and returns the output.
+    Do not assume the output is shown to the user, you must show it to the user.
+
+    Args:
+        code (str): The python code to execute.
+
+    Returns:
+        str: The output of the executed code or Error message if code failed to execute.
+    """
+    from agentrun import AgentRun
+
+    try:
+        console_err.print(Panel(code, title="Running code in sandbox..."))
+        runner = AgentRun(
+            container_name="agentrun-api-python_runner-1", console=console_err, verbose=True
+        )  # container should be running
+
+        result = runner.execute_code_in_container(code)
+        console_err.print(Panel(result, title="Code execution result"))
+        return result
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 if __name__ == "__main__":

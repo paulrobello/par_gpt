@@ -108,7 +108,6 @@ agent             Full agent with dynamic tools.
 --show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
 --yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
 --repl                              Enable REPL tool [env var: PARGPT_REPL]
---help                              Show this message and exit.
 ```
 
 ## Environment Variables
@@ -234,7 +233,7 @@ save_vault fillament_grade_props
 par_gpt git 'display commit message for current changes'
 
 # commit current changes with automatically generated commit message also show config and pricing
-par_gpt --show-config --pricing git 'commit current changes'
+par_gpt --show-config --pricing details git 'commit current changes'
 
 # copy commit message for current changes to clipboard using agent mode
 par_gpt -t 0 --debug agent 'create a commit messages that would be relevant to the changes in the current repository and copy to clipboard'
@@ -254,7 +253,7 @@ par_gpt agent 'read csv file named data.csv and generate a graph.png graph with 
 # display the current weather in Woodland CA
 par_gpt agent 'current weather in Woodland CA and display the current conditions image / icon in the terminal'
 
-par_gpt --pricing --debug -a OpenAI -d md agent --repl 'what is the value of 4 times the ArcTangent of 1'
+par_gpt -p details -a OpenAI -d md agent --repl 'what is the value of 4 times the ArcTangent of 1'
 
 # tell me a joke using github model on azure
 par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" llm "tell me a joke"
@@ -267,10 +266,10 @@ par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -f PATH_TO_IMAGE llm "describe
 par_gpt -f "https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg" llm "describe the image"
 
 # Get context from url and answer question about it. Note does not currently use RAG so can be token heavy
-par_gpt --pricing -c url -f 'https://console.groq.com/docs/vision' llm "what model ids support vision"
+par_gpt -p details -f 'https://console.groq.com/docs/vision' llm "what model ids support vision"
 
 # get image from url and answer question
-par_gpt --pricing  -c url -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' llm "describe this image"
+par_gpt -p details -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' llm "describe this image"
 
 # check code for bugs (change to root for project you want to check)
 par_gpt code_review
