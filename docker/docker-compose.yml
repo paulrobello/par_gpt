@@ -1,0 +1,19 @@
+services:
+  python_runner:
+    build:
+      context: ./
+      dockerfile: code_runner/Dockerfile
+    volumes:
+      - cache_volume:/home/pythonuser/.cache
+    command: ["tail", "-f", "/dev/null"] 
+    pids_limit: 10
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - OPENBLAS_NUM_THREADS=1 # this specifically for a numpy bug. See: https://github.com/Jonathan-Adly/AgentRun/issues/7#issue-2306842471
+    env_file: ".env.dev"
+volumes:
+  cache_volume:
+
+
+# docker compose up -d --build --force-recreate

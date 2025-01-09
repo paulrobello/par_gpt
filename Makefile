@@ -49,20 +49,26 @@ depsshow:			# Show the dependency graph
 .PHONY: shell
 shell:			# Start shell inside of .venv
 	$(run) bash
+
+.PHONY: sandbox
+sandbox:
+	cd docker
+	docker compose up -d --build --force-recreate
+
 ##############################################################################
 # Checking/testing/linting/etc.
 
 .PHONY: format
 format:                         # Reformat the code with ruff.
-	$(ruff) format src/$(lib)
+	$(ruff) format src/
 
 .PHONY: lint
 lint:                           # Run ruff lint over the library
-	$(ruff) check src/$(lib) --fix
+	$(ruff) check src/ --fix
 
 .PHONY: lint-unsafe
 lint-unsafe:                           # Run ruff lint over the library
-	$(ruff) check src/$(lib) --fix --unsafe-fixes
+	$(ruff) check src/ --fix --unsafe-fixes
 
 .PHONY: typecheck
 typecheck:			# Perform static type checks with pyright
