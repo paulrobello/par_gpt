@@ -47,6 +47,7 @@ dependencies = [
     "feedparser>=6.0.11",
     "docker>=7.1.0",
     "restrictedpython>=7.4",
+    "aider-chat>=0.70.0",
 ]
 packages = ["src/par_gpt"]
 

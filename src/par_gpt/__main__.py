@@ -830,29 +830,29 @@ def agent(
         raise typer.Exit(code=1)
 
 
-# @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
-# def code_test(
-#     ctx: typer.Context,
-# ) -> None:
-#     """Used for experiments. DO NOT RUN"""
-#     # state = ctx.obj
-#     from sandbox import SandboxRun
-#
-#     runner = SandboxRun(
-#         container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True
-#     )
-#     code_from_llm = "print('hello, world!')\n"
-#     result = runner.copy_file_to_container("hello.py", code_from_llm)
-#     console_err.print(result)
-#     # result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
-#     result = runner.copy_file_from_container("hello.py")
-#     console_err.print(result)
-#     if result.status and result.data:
-#         # code_from_container = Path(result.message).read_text()
-#         code_from_container = result.data.read().decode()
-#         console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
-#     # result = runner.execute_code_in_container(code_from_llm)
-#     # console_err.print(result)
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def code_test(
+    ctx: typer.Context,
+) -> None:
+    """Used for experiments. DO NOT RUN"""
+    # state = ctx.obj
+    from sandbox import SandboxRun
+
+    runner = SandboxRun(
+        container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True
+    )
+    code_from_llm = "print('hello, world!')\n"
+    # result = runner.copy_file_to_container("hello.py", code_from_llm)
+    # console_err.print(result)
+    # # result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
+    # result = runner.copy_file_from_container("hello.py")
+    # console_err.print(result)
+    # if result.status and result.data:
+    #     # code_from_container = Path(result.message).read_text()
+    #     code_from_container = result.data.read().decode()
+    #     console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
+    result = runner.execute_code_in_container(code_from_llm)
+    console_err.print(result)
 
 
 if __name__ == "__main__":

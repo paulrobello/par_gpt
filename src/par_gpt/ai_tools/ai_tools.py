@@ -21,6 +21,7 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
 from rich.panel import Panel
+from rich.text import Text
 
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
@@ -31,6 +32,7 @@ from par_gpt.utils import (
     get_weather_forecast,
     show_image_in_terminal,
 )
+from sandbox import ExecuteCommandResult
 
 
 @tool(parse_docstring=True)
@@ -568,7 +570,7 @@ def ai_fetch_hacker_news(max_items: int = 5) -> str:
 
 
 @tool(parse_docstring=True)
-def execute_code(code: str) -> str:
+def execute_code(code: str) -> ExecuteCommandResult:
     """
     Executes the given python code in a sandbox and returns the output.
     Do not assume the output is shown to the user, you must show it to the user.
@@ -577,7 +579,7 @@ def execute_code(code: str) -> str:
         code (str): The python code to execute.
 
     Returns:
-        str: The output of the executed code or error message if code failed to execute.
+        ExecuteCommandResult which will contain the exit code, stdout, and stderr of the executed code.
     """
     from sandbox import SandboxRun
 
@@ -586,10 +588,22 @@ def execute_code(code: str) -> str:
         runner = SandboxRun(container_name="par_gpt_sandbox-python_runner-1", console=console_err, verbose=True)
 
         result = runner.execute_code_in_container(code)
-        console_err.print(Panel(result, title="Code execution result"))
+        console_err.print(
+            Panel(
+                Text.assemble(
+                    ("Return Code: ", "#9999FF"),
+                    f"{result.exit_code}\n",
+                    ("Out:\n", "#99FF99"),
+                    f"{result.stdout}\n",
+                    ("Err:\n", "#FF9999"),
+                    result.stderr,
+                ),
+                title="Code execution result",
+            )
+        )
         return result
     except Exception as e:
-        return f"Error: {str(e)}"
+        return ExecuteCommandResult(exit_code=1, stdout="", stderr=f"Error: {str(e)}")
 
 
 if __name__ == "__main__":

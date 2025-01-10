@@ -19,6 +19,7 @@ from uuid import uuid4
 import docker
 import docker.errors
 from docker import DockerClient
+from pydantic import BaseModel
 from RestrictedPython import compile_restricted
 from rich.console import Console
 
@@ -36,6 +37,14 @@ class SandboxCopyFromResult(SandboxRunResult):
     """Result of a copy operation from the container with optional data."""
 
     data: BytesIO | None = None
+
+
+class ExecuteCommandResult(BaseModel):
+    """Result of a command execution."""
+
+    exit_code: int
+    stdout: str
+    stderr: str
 
 
 class SandboxRun:
@@ -176,7 +185,7 @@ class SandboxRun:
         if not output.status:
             raise ValueError(output.message)
 
-    def execute_command_in_container(self, cmd: str, timeout: int) -> tuple[Any | None, Any | str]:
+    def execute_command_in_container(self, cmd: str, timeout: int) -> ExecuteCommandResult:
         """Execute a command in a Docker container with a timeout.
 
         This function runs the command in a separate thread and waits for the specified timeout.
@@ -190,11 +199,12 @@ class SandboxRun:
         """
         container = self.client.containers.get(self.container_name)
 
-        exit_code, output = None, None
+        exit_code: int = 0
+        output: tuple[Any, Any] = None, None
 
         def target():
             nonlocal exit_code, output
-            exec_log = container.exec_run(cmd=cmd, workdir="/code")
+            exec_log = container.exec_run(cmd=cmd, workdir="/code", demux=True)
             exit_code, output = exec_log.exit_code, exec_log.output
 
         thread = Thread(target=target)
@@ -203,8 +213,15 @@ class SandboxRun:
         if thread.is_alive():
             thread.join(1)
             raise self.CommandTimeout("Command timed out")
-        output = output if output is not None else b""
-        return exit_code, output.decode("utf-8")
+
+        stdout = b""
+        stderr = b""
+        if output:
+            if len(output) > 0:
+                stdout = output[0] if output[0] is not None else b""
+            if len(output) > 1:
+                stderr = output[1] if output[1] is not None else b""
+        return ExecuteCommandResult(exit_code=exit_code, stdout=stdout.decode("utf-8"), stderr=stderr.decode("utf-8"))
 
     @staticmethod
     def safety_check(python_code: str) -> SandboxRunResult:
@@ -361,7 +378,7 @@ class SandboxRun:
             if dep in self.cached_dependencies:
                 continue
             command = f"uv pip uninstall -y {dep}"
-            exit_code, output = self.execute_command_in_container(command, timeout=timeout)
+            self.execute_command_in_container(command, timeout=timeout)
 
         return "Dependencies uninstalled successfully."
 
@@ -478,7 +495,7 @@ class SandboxRun:
             container.exec_run(cmd=f"rm /code/{script_name}", workdir="/code")
         return None
 
-    def execute_code_in_container(self, python_code: str) -> str:
+    def execute_code_in_container(self, python_code: str) -> ExecuteCommandResult:
         """Executes Python code in an isolated Docker container.
         This is the main function to execute Python code in a Docker container. It performs the following steps:
         1. Check if the code is safe to execute
@@ -506,7 +523,7 @@ class SandboxRun:
             safety_message = safety_result.message
             safe = safety_result.status
             if not safe:
-                return safety_message
+                return ExecuteCommandResult(exit_code=1, stdout="", stderr=safety_message)
 
             container = client.containers.get(self.container_name)
 
@@ -522,7 +539,7 @@ class SandboxRun:
             successful_copy = exec_result.status
             message = exec_result.message
             if not successful_copy:
-                return message
+                return ExecuteCommandResult(exit_code=1, stdout="", stderr=message)
 
             script_name = message
 
@@ -530,21 +547,19 @@ class SandboxRun:
             dependencies = self.parse_dependencies(python_code)
             dep_install_result = self.install_dependencies(dependencies)
             if not dep_install_result.status:
-                return dep_install_result.message
+                return ExecuteCommandResult(exit_code=1, stdout="", stderr=dep_install_result.message)
             requirements_name = dep_install_result.message
 
             try:
-                _, output = self.execute_command_in_container(f"uv run /code/{script_name}", timeout_seconds)
+                return self.execute_command_in_container(f"uv run /code/{script_name}", timeout_seconds)
             except self.CommandTimeout:
-                return "Execution timed out."
+                return ExecuteCommandResult(exit_code=1, stdout="", stderr="Execution timed out.")
 
         except Exception as e:
-            return str(e)
+            return ExecuteCommandResult(exit_code=1, stdout="", stderr=str(e))
 
         finally:
             if container:
                 # run clean up in a separate thread to avoid blocking the main thread
                 thread = Thread(target=self.remove_files, args=([script_name, requirements_name],))
                 thread.start()
-
-        return output
