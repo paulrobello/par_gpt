@@ -348,7 +348,7 @@ class SandboxRun:
 
         return SandboxRunResult(status=True, message=file_name)
 
-    def uninstall_dependencies(self, dependencies: list, timeout: int=120) -> str:
+    def uninstall_dependencies(self, dependencies: list, timeout: int = 120) -> str:
         """Uninstall dependencies in the container.
         Args:
             dependencies: List of dependencies to uninstall
