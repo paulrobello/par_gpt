@@ -832,7 +832,7 @@ def code_test(
     ctx: typer.Context,
 ) -> None:
     """Basic LLM mode with no tools."""
-    state = ctx.obj
+    # state = ctx.obj
     from sandbox import SandboxRun
 
     runner = SandboxRun(container_name="par_gpt_sandbox-python_runner-1", console=console_err, verbose=True)
@@ -841,8 +841,9 @@ def code_test(
     console_err.print(result)
     result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
     console_err.print(result)
-    code_from_container = Path(result["message"]).read_text()
-    console_err.print(code_from_llm, code_from_container, code_from_container==code_from_llm)
+    if result.status:
+        code_from_container = Path(result.message).read_text()
+        console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
     # result = runner.execute_code_in_container(code_from_llm)
     # console_err.print(result)
 

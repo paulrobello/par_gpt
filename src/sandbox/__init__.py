@@ -9,6 +9,7 @@ import sys
 import tarfile
 import tempfile
 import warnings
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from threading import Thread
@@ -18,9 +19,16 @@ from uuid import uuid4
 import docker
 import docker.errors
 from docker import DockerClient
-from docker.models.containers import Container
 from RestrictedPython import compile_restricted
 from rich.console import Console
+
+
+@dataclass
+class SandboxRunResult:
+    """Result of a sandbox operation."""
+
+    status: bool
+    message: str
 
 
 class SandboxRun:
@@ -30,8 +38,8 @@ class SandboxRun:
     with resource limits and dependency management.
 
     Example:
-        >>> from agentrun import AgentRun
-        >>> runner = AgentRun(container_name="my_container")  # container should be running
+        >>> from sandbox import SandboxRun
+        >>> runner = SandboxRun(container_name="my_container")
         >>> result = runner.execute_code_in_container("print('Hello, world!')")
         >>> print(result)
 
@@ -59,6 +67,7 @@ class SandboxRun:
     def __init__(
         self,
         container_name: str,
+        *,
         dependencies_whitelist: list[str] = ["*"],
         cached_dependencies=[],
         cpu_quota: int = 50000,
@@ -117,6 +126,7 @@ class SandboxRun:
         This exception is raised when a command running in the Docker container
         exceeds its specified timeout duration.
         """
+
         pass
 
     def is_everything_whitelisted(self) -> bool:
@@ -156,24 +166,23 @@ class SandboxRun:
                 process encounters an error.
         """
         output = self.install_dependencies(self.cached_dependencies)
-        if not output["status"]:
-            raise ValueError(output["message"])
+        if not output.status:
+            raise ValueError(output.message)
 
-    def execute_command_in_container(
-        self, container: Container, cmd: str, timeout: int
-    ) -> tuple[Any | None, Any | str]:
+    def execute_command_in_container(self, cmd: str, timeout: int) -> tuple[Any | None, Any | str]:
         """Execute a command in a Docker container with a timeout.
 
         This function runs the command in a separate thread and waits for the specified timeout.
 
         Args:
-            container: Docker container object
             cmd: Command to execute
             timeout: Timeout in seconds
         Returns:
             Tuple of exit code and output
 
         """
+        container = self.client.containers.get(self.container_name)
+
         exit_code, output = None, None
 
         def target():
@@ -191,7 +200,7 @@ class SandboxRun:
         return exit_code, output.decode("utf-8")
 
     @staticmethod
-    def safety_check(python_code: str) -> dict[str, str | bool]:
+    def safety_check(python_code: str) -> SandboxRunResult:
         """Check if Python code is safe to execute.
         This function uses common patterns and RestrictedPython to check for unsafe patterns in the code.
 
@@ -200,7 +209,6 @@ class SandboxRun:
         Returns:
             Dictionary with "safe" (bool) and "message" (str) keys
         """
-        result = {"safe": True, "message": "The code is safe to execute."}
 
         # Crude check for problematic code (os, sys, subprocess, exec, eval, etc.)
         # unsafe_modules = {"os", "sys", "subprocess", "builtins"}
@@ -230,40 +238,29 @@ class SandboxRun:
         try:
             tree = ast.parse(python_code)
         except SyntaxError as e:
-            return {"safe": False, "message": f"Syntax error: {str(e)}"}
+            return SandboxRunResult(status=False, message=f"Syntax error: {str(e)}")
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in dangerous_builtins:
-                return {
-                    "safe": False,
-                    "message": f"Use of dangerous built-in function: {node.func.id}",
-                }
+                return SandboxRunResult(status=False, message=f"Use of dangerous built-in function: {node.func.id}")
+
             # Check for unsafe imports
             if isinstance(node, ast.Import) or isinstance(node, ast.ImportFrom):
                 module_name = node.module if isinstance(node, ast.ImportFrom) else None
                 for alias in node.names:
                     if module_name and module_name.split(".")[0] in unsafe_modules:
-                        return {
-                            "safe": False,
-                            "message": f"Unsafe module import: {module_name}",
-                        }
+                        SandboxRunResult(status=False, message=f"Unsafe module import: {module_name}")
+
                     if alias.name.split(".")[0] in unsafe_modules:
-                        return {
-                            "safe": False,
-                            "message": f"Unsafe module import: {alias.name}",
-                        }
+                        return SandboxRunResult(status=False, message=f"Unsafe module import: {alias.name}")
+
             # Check for unsafe function calls
             elif isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name) and node.func.id in unsafe_functions:
-                    return {
-                        "safe": False,
-                        "message": f"Unsafe function call: {node.func.id}",
-                    }
+                    return SandboxRunResult(status=False, message=f"Unsafe function call: {node.func.id}")
+
                 elif isinstance(node.func, ast.Attribute) and node.func.attr in unsafe_functions:
-                    return {
-                        "safe": False,
-                        "message": f"Unsafe function call: {node.func.attr}",
-                    }
+                    return SandboxRunResult(status=False, message=f"Unsafe function call: {node.func.attr}")
 
         try:
             # Compile the code using RestrictedPython with a filename indicating its dynamic nature
@@ -274,12 +271,9 @@ class SandboxRun:
             # Note: Execution step is omitted to only check the code without running it
             # This is not perfect, but should catch most unsafe patterns
         except Exception as e:
-            return {
-                "safe": False,
-                "message": f"RestrictedPython detected an unsafe pattern: {str(e)}",
-            }
+            return SandboxRunResult(status=False, message=f"RestrictedPython detected an unsafe pattern: {str(e)}")
 
-        return result
+        return SandboxRunResult(status=True, message="The code is safe to execute.")
 
     @staticmethod
     def parse_dependencies(python_code: str) -> list[str]:
@@ -310,12 +304,12 @@ class SandboxRun:
                     dependencies.append(module_name)
         return list(set(dependencies))  # Return unique dependencies
 
-    def install_dependencies(self, dependencies: list[str]) -> dict[str, str | bool]:
+    def install_dependencies(self, dependencies: list[str]) -> SandboxRunResult:
         """Install dependencies in the container.
         Args:
             dependencies: List of dependencies to install
         Returns:
-            Dict with "success" (bool) and "message" (str) keys
+            SandboxRunResult
         """
         container = self.client.containers.get(self.container_name)
 
@@ -325,7 +319,7 @@ class SandboxRun:
         if not everything_whitelisted:
             for dep in dependencies:
                 if dep not in self.dependencies_whitelist:
-                    return {"status": False, "message": f"Dependency: {dep} is not in the whitelist."}
+                    return SandboxRunResult(status=False, message=f"Dependency: {dep} is not in the whitelist.")
 
         lines = []
         file_name = ""
@@ -333,24 +327,23 @@ class SandboxRun:
             lines.append(dep)
         if lines:
             result = self.copy_requirements_container("\n".join(lines))
-            if not result["success"]:
+            if not result.status:
                 return result
-            command = f"uv pip install -r {result['message']}"
+            command = f"uv pip install -r {result.message}"
             if self.verbose:
                 self.console.print(command)
             exec_log = container.exec_run(cmd=command, workdir="/code")
             exit_code, output = exec_log.exit_code, exec_log.output.decode("utf-8")
             if exit_code != 0:
                 self.console.print(output)
-                return {"status": False, "message": "Failed to install dependencies"}
-            file_name = result["message"]
+                return SandboxRunResult(status=False, message="Failed to install dependencies")
+            file_name = result.message
 
-        return {"status": True, "message": file_name}
+        return SandboxRunResult(status=True, message=file_name)
 
-    def uninstall_dependencies(self, container: Container, dependencies: list) -> str:
+    def uninstall_dependencies(self, dependencies: list) -> str:
         """Uninstall dependencies in the container.
         Args:
-            container: Docker container object
             dependencies: List of dependencies to uninstall
         Returns:
             Success message or error message
@@ -360,11 +353,11 @@ class SandboxRun:
             if dep in self.cached_dependencies:
                 continue
             command = f"uv pip uninstall -y {dep}"
-            exit_code, output = self.execute_command_in_container(container, command, timeout=120)
+            exit_code, output = self.execute_command_in_container(command, timeout=120)
 
         return "Dependencies uninstalled successfully."
 
-    def copy_file_from_container(self, src_file_name: str, dest_file_name: str | None = None) -> dict[str, bool | str]:
+    def copy_file_from_container(self, src_file_name: str, dest_file_name: str | None = None) -> SandboxRunResult:
         """Copy file from the container.
 
         Args:
@@ -372,10 +365,7 @@ class SandboxRun:
             dest_file_name: Destination file name in the system's temp folder. If None, uses src_file_name.
 
         Returns:
-            A dictionary containing:
-                success (bool): True if the file was successfully copied, False otherwise.
-                message (str): The path to the copied file if successful, or an error message if not.
-
+            SandboxRunResult
         Raises:
             Exception: If there's an error during the file copying process.
         """
@@ -399,28 +389,21 @@ class SandboxRun:
                     with open(dest_path, "wb") as f:
                         f.write(extracted_file.read())
 
-                    return {
-                        "success": True,
-                        "message": dest_path,
-                    }
+                    return SandboxRunResult(status=False, message=dest_path)
                 else:
-                    return {
-                        "success": False,
-                        "message": f"Failed to extract {src_file_name} from tar archive.",
-                    }
+                    return SandboxRunResult(
+                        status=False, message=f"Failed to extract {src_file_name} from tar archive."
+                    )
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"Failed to copy {src_file_name} from container: {str(e)}",
-            }
+            return SandboxRunResult(status=False, message=f"Failed to copy {src_file_name} from container: {str(e)}")
 
-    def copy_file_to_container(self, file_name: str, content: str) -> dict[str, bool | str]:
+    def copy_file_to_container(self, file_name: str, content: str) -> SandboxRunResult:
         """Copy file to the container.
         Args:
             file_name: File name to copy
             content: Content of the file
         Returns:
-            Dict with "success" (bool) and "message" (str) keys
+            SandboxRunResult
         """
         container = self.client.containers.get(self.container_name)
 
@@ -436,19 +419,16 @@ class SandboxRun:
 
         exec_result = container.put_archive(path="/code/", data=tar_stream)
         if exec_result:
-            return {"success": True, "message": file_name}
+            return SandboxRunResult(status=True, message=file_name)
 
-        return {
-            "success": False,
-            "message": f"Failed to copy {file_name} to container.",
-        }
+        return SandboxRunResult(status=False, message=f"Failed to copy {file_name} to container.")
 
-    def copy_requirements_container(self, requirements: str) -> dict[str, bool | str]:
+    def copy_requirements_container(self, requirements: str) -> SandboxRunResult:
         """Copy Python requirements file to container.
         Args:
             requirements: file contents
         Returns:
-            Success message or error message
+           SandboxRunResult
         """
         if self.verbose:
             self.console.print("Copying requirements to container...")
@@ -456,12 +436,12 @@ class SandboxRun:
         file_name = f"requirements_{uuid4().hex}.txt"
         return self.copy_file_to_container(file_name, requirements)
 
-    def copy_code_to_container(self, python_code: str) -> dict[str, bool | str]:
+    def copy_code_to_container(self, python_code: str) -> SandboxRunResult:
         """Copy Python code to the container.
         Args:
             python_code: Python code to copy
         Returns:
-            Success message or error message
+            SandboxRunResult
         """
         if self.verbose:
             self.console.print("Copying script to container...")
@@ -508,8 +488,8 @@ class SandboxRun:
 
             # check  if the code is safe to execute
             safety_result = self.safety_check(python_code)
-            safety_message = safety_result["message"]
-            safe = safety_result["safe"]
+            safety_message = safety_result.message
+            safe = safety_result.status
             if not safe:
                 return safety_message
 
@@ -524,8 +504,8 @@ class SandboxRun:
 
             # Copy the code to the container
             exec_result = self.copy_code_to_container(python_code)
-            successful_copy = exec_result["success"]
-            message = exec_result["message"]
+            successful_copy = exec_result.status
+            message = exec_result.message
             if not successful_copy:
                 return message
 
@@ -534,12 +514,12 @@ class SandboxRun:
             # Install dependencies in the container
             dependencies = self.parse_dependencies(python_code)
             dep_install_result = self.install_dependencies(dependencies)
-            if not dep_install_result["status"]:
-                return dep_install_result["message"]
-            requirements_name = dep_install_result["message"]
+            if not dep_install_result.status:
+                return dep_install_result.message
+            requirements_name = dep_install_result.message
 
             try:
-                _, output = self.execute_command_in_container(container, f"uv run /code/{script_name}", timeout_seconds)
+                _, output = self.execute_command_in_container(f"uv run /code/{script_name}", timeout_seconds)
             except self.CommandTimeout:
                 return "Execution timed out."
 
