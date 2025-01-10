@@ -577,13 +577,13 @@ def execute_code(code: str) -> str:
         code (str): The python code to execute.
 
     Returns:
-        str: The output of the executed code or Error message if code failed to execute.
+        str: The output of the executed code or error message if code failed to execute.
     """
-    from agentrun import AgentRun
+    from sandbox import SandboxRun
 
     try:
         console_err.print(Panel(code, title="Running code in sandbox..."))
-        runner = AgentRun(container_name="agentrun-api-python_runner-1", console=console_err, verbose=True)
+        runner = SandboxRun(container_name="par_gpt_sandbox-python_runner-1", console=console_err, verbose=True)
 
         result = runner.execute_code_in_container(code)
         console_err.print(Panel(result, title="Code execution result"))

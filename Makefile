@@ -51,9 +51,8 @@ shell:			# Start shell inside of .venv
 	$(run) bash
 
 .PHONY: sandbox
-sandbox:
-	cd docker
-	docker compose up -d --build --force-recreate
+sandbox:		# start code sandbox container
+	cd sandbox && docker compose -p par_gpt_sandbox up -d --build --force-recreate
 
 ##############################################################################
 # Checking/testing/linting/etc.

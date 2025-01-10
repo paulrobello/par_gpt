@@ -833,13 +833,18 @@ def code_test(
 ) -> None:
     """Basic LLM mode with no tools."""
     state = ctx.obj
-    from agentrun import AgentRun
+    from sandbox import SandboxRun
 
-    runner = AgentRun(container_name="agentrun-api-python_runner-1")  # container should be running
+    runner = SandboxRun(container_name="par_gpt_sandbox-python_runner-1", console=console_err, verbose=True)
     code_from_llm = "print('hello, world!')\n"
-
-    result = runner.execute_code_in_container(code_from_llm)
+    result = runner.copy_file_to_container("hello.py", code_from_llm)
     console_err.print(result)
+    result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
+    console_err.print(result)
+    code_from_container = Path(result["message"]).read_text()
+    console_err.print(code_from_llm, code_from_container, code_from_container==code_from_llm)
+    # result = runner.execute_code_in_container(code_from_llm)
+    # console_err.print(result)
 
 
 if __name__ == "__main__":

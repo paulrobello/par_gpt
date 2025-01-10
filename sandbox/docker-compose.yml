@@ -11,7 +11,7 @@ services:
       - no-new-privileges:true
     environment:
       - OPENBLAS_NUM_THREADS=1 # this specifically for a numpy bug. See: https://github.com/Jonathan-Adly/AgentRun/issues/7#issue-2306842471
-    env_file: ".env.dev"
+    env_file: ".env"
 volumes:
   cache_volume:
 
