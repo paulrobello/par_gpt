@@ -72,24 +72,25 @@ par_gpt [OPTIONS]
 ### Global Options
 
 ```
---ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|Anthropic|Google|Bedrock|Github|Mistral]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: Github]
---model                -m      TEXT                                                                       AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
---light-model          -l                                                                                 Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
---ai-base-url          -b      TEXT                                                                       Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
---temperature          -t      FLOAT                                                                      Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
---user-agent-appid     -U      TEXT                                                                       Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
---pricing              -p      [none|price|details]                                                       Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
---display-output       -d      [none|plain|md|csv|json]                                                   Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
---context-location     -f      TEXT                                                                       Location of context to use for processing.
---system-prompt        -s      TEXT                                                                       System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt          -u      TEXT                                                                       User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---max-context-size     -M      INTEGER                                                                    Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
---copy-to-clipboard    -c                                                                                 Copy output to clipboard
---copy-from-clipboard  -C                                                                                 Copy context or context location from clipboard
---debug                -D                                                                                 Enable debug mode [env var: PARGPT_DEBUG]
---show-config          -S                                                                                 Show config [env var: PARGPT_SHOW_CONFIG]
+--ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|  
+                                Anthropic|Google|Bedrock|Github|Mistral]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: OpenAI]
+--model                -m      TEXT                                       AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--light-model          -l                                                 Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
+--ai-base-url          -b      TEXT                                       Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
+--temperature          -t      FLOAT                                      Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
+--user-agent-appid     -U      TEXT                                       Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
+--pricing              -p      [none|price|details]                       Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
+--display-output       -d      [none|plain|md|csv|json]                   Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
+--context-location     -f      TEXT                                       Location of context to use for processing.
+--system-prompt        -s      TEXT                                       System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt          -u      TEXT                                       User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--max-context-size     -M      INTEGER                                    Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
+--copy-to-clipboard    -c                                                 Copy output to clipboard
+--copy-from-clipboard  -C                                                 Copy context or context location from clipboard
+--debug                -D                                                 Enable debug mode [env var: PARGPT_DEBUG]
+--show-config          -S                                                 Show config [env var: PARGPT_SHOW_CONFIG]
 --version              -v
---help                                                                                                    Show this message and exit.
+--help                                                                    Show this message and exit.
 ```
 
 ### CLI Commands
@@ -135,7 +136,6 @@ BRAVE_API_KEY=
 REDDIT_CLIENT_ID=
 REDDIT_CLIENT_SECRET=
 
-
 # Misc api
 WEATHERAPI_KEY=
 GITHUB_PERSONAL_ACCESS_TOKEN=
@@ -149,12 +149,13 @@ LANGCHAIN_PROJECT=par_gpt
 # Application Options
 PARGPT_AI_PROVIDER=OpenAI
 PARGPT_MODEL=# if blank, strong model default will be used
-PARGPT_PRICING=price
+PARGPT_PRICING=price # none | price | details
 PARGPT_DISPLAY_OUTPUT=md
 PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
 PARGPT_AGENT_MODE=false # if this is false par_gpt will only use basic LLM completion
-PARGPT_REPL=false # set this to true to allow agent to write and execute code 
+PARGPT_REPL=false # set this to true to allow agent to WRITE and EXECUTE CODE ON HOST MACHINE 
+PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute code in a secure docker container sandbox
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
@@ -195,8 +196,41 @@ PARGPT_SHOW_TOOL_CALLS=true
 
 ## Agent mode
 
-NOTE: Agent mode enables tool use one of which is a Python code REPL which allows the AI to **WRITE AND EXECUTE CODE ON YOUR SYSTEM**.
-The REPL tool is not enabled by default. If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
+NOTE: Agent mode enables tool use.  
+Some tools require API keys to be available and various keywords in your request to present to be enabled. 
+If the REPL tool is enabled the Code sandbox tool will not be used.
+
+### AI Tools
+- REPL - Allows the AI to **WRITE AND EXECUTE CODE ON YOUR SYSTEM**.  
+  The REPL tool must be manually enabled. If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
+- Code sandbox - Allows AI to write and execute code in a secure docker sandbox container which must be setup separately.
+  The Code sandbox tool must be manually enabled.
+- Open URL - Opens a URL in the default browser.
+- Fetch URL - Fetches the content of one or more webpages and returns as markdown.
+- Show image in terminal - Displays low resolution image in terminal sized based on terminal dimensions.
+- Figlet - Displays Figlet style text in terminal.
+- Youtube search - Search youtube and get video info.
+- Youtube transcript - Get youtube transcript for video.
+- Git - Allows interaction with local git repos.
+- Tavily search - Search web and get scraped web results.
+- Serper search - Search web using serper.
+- Google search - Search web using google.
+- Brave search - Search web using brave search.
+- Reddit search - Search reddit and get posts and optionally comments.
+- Clipboard - Allows copy to and from clipboard.
+- RSS - Fetch RSS feed content.
+- Weather - Fetch weather info.
+- Github - Allows creation, publishing to and listing of personal Github repos.
+
+## Code sandbox
+The code sandbox allows the AI agent mode to write and execute code safely contained in a docker container.  
+To use the sandbox you must have `docker` and `make` installed as well as build and run the sandbox container.  
+Sandbox setup steps:
+```bash
+git clone https://github.com/paulrobello/par_gpt.git
+cd par_gpt
+make sandbox
+```
 
 ## Code Review mode
 
