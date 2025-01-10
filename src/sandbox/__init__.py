@@ -1,4 +1,7 @@
-"""AgentRun - Run Python code in an isolated Docker container"""
+"""Run Python code in an isolated Docker container.
+
+This module provides functionality to execute Python code safely in Docker containers.
+"""
 
 import ast
 import os
@@ -21,26 +24,36 @@ from rich.console import Console
 
 
 class SandboxRun:
-    """Class to execute Python code in an isolated Docker container.
+    """Execute Python code in an isolated Docker container.
 
-    Example usage:
-        from agentrun import AgentRun\n
-        runner = AgentRun(container_name="my_container") # container should be running\n
-        result = runner.execute_code_in_container("print('Hello, world!')")\n
-        print(result)
+    This class provides functionality to safely execute Python code within Docker containers
+    with resource limits and dependency management.
+
+    Example:
+        >>> from agentrun import AgentRun
+        >>> runner = AgentRun(container_name="my_container")  # container should be running
+        >>> result = runner.execute_code_in_container("print('Hello, world!')")
+        >>> print(result)
 
     Args:
-        container_name: Name of the Docker container to use
-        dependencies_whitelist: List of whitelisted dependencies to install. By default, all dependencies are allowed.
-        cached_dependencies: List of dependencies to cache in the container
-        cpu_quota: CPU quota in microseconds (default: 50,000)
-        default_timeout: Default timeout in seconds (default: 20)
-        memory_limit: Memory limit for the container (default: 100m)
-        memswap_limit: Memory + swap limit for the container (default: 512m)
-        client: Docker client object (default: docker.from_env())
-        start_if_needed: Whether to start the container if its stopped (default: True)'
-        console: Console object for logging (default: Rich Console)
-        verbose: Whether to print verbose output (default: False)
+        container_name (str): Name of the Docker container to use.
+        dependencies_whitelist (list[str], optional): List of whitelisted dependencies to install.
+            Defaults to ["*"] which allows all dependencies.
+        cached_dependencies (list, optional): List of dependencies to cache in the container.
+            Defaults to empty list.
+        cpu_quota (int, optional): CPU quota in microseconds. Defaults to 50,000.
+        default_timeout (int, optional): Default timeout in seconds. Defaults to 20.
+        memory_limit (str, optional): Memory limit for the container. Defaults to "100m".
+        memswap_limit (str, optional): Memory + swap limit for the container. Defaults to "512m".
+        client (DockerClient | None, optional): Docker client object. Defaults to None.
+        start_if_needed (bool, optional): Whether to start the container if stopped.
+            Defaults to True.
+        console (Console | None, optional): Console object for logging. Defaults to None.
+        verbose (bool, optional): Whether to print verbose output. Defaults to False.
+
+    Raises:
+        RuntimeError: If unable to connect to Docker daemon.
+        ValueError: If container is not found or not running, or if dependencies validation fails.
     """
 
     def __init__(
