@@ -686,56 +686,59 @@ def agent(
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
+
+        ai_tools: list[BaseTool] = [
+            ai_open_url,
+            ai_fetch_url,
+            ai_display_image_in_terminal,
+            # ai_joke,
+        ]  # type: ignore
+
         with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"] or show_tool_calls) as cb:
-            module_names = [
-                "os",
-                "sys",
-                "re",
-                "json",
-                "time",
-                "datetime",
-                "random",
-                "string",
-                "pathlib",
-                "requests",
-                "git",
-                "pandas",
-                "faker",
-                "numpy",
-                "matplotlib",
-                "bs4",
-                "html2text",
-                "pydantic",
-                "clipman",
-                "pyfiglet",
-                "rich",
-                # "rich.console",
-                "rich.panel",
-                "rich.markdown",
-                "rich.pretty",
-                "rich.table",
-                "rich.text",
-                "rich.color",
-            ]
-            local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
-
-            ai_tools: list[BaseTool] = [
-                ai_open_url,
-                ai_fetch_url,
-                ai_display_image_in_terminal,
-                # ai_joke,
-            ]  # type: ignore
-
-            if "figlet" in question_lower:
-                ai_tools.append(ai_figlet)
-
-            if code_sandbox:
-                ai_tools.append(execute_code)
-
             if repl:
+                module_names = [
+                    "os",
+                    "sys",
+                    "re",
+                    "json",
+                    "time",
+                    "datetime",
+                    "random",
+                    "string",
+                    "pathlib",
+                    "requests",
+                    "git",
+                    "pandas",
+                    "faker",
+                    "numpy",
+                    "matplotlib",
+                    "bs4",
+                    "html2text",
+                    "pydantic",
+                    "clipman",
+                    "pyfiglet",
+                    "rich",
+                    # "rich.console",
+                    "rich.panel",
+                    "rich.markdown",
+                    "rich.pretty",
+                    "rich.table",
+                    "rich.text",
+                    "rich.color",
+                ]
+                local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
+
                 ai_tools.append(
                     ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
                 )
+            else:
+                module_names = []
+
+            if not repl and code_sandbox:
+                ai_tools.append(execute_code)
+
+            if "figlet" in question_lower:
+                ai_tools.append(ai_figlet)
 
             if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
                 ai_tools.append(ai_youtube_search)
@@ -827,27 +830,29 @@ def agent(
         raise typer.Exit(code=1)
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
-def code_test(
-    ctx: typer.Context,
-) -> None:
-    """Basic LLM mode with no tools."""
-    # state = ctx.obj
-    from sandbox import SandboxRun
-
-    runner = SandboxRun(container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True)
-    code_from_llm = "print('hello, world!')\n"
-    result = runner.copy_file_to_container("hello.py", code_from_llm)
-    console_err.print(result)
-    # result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
-    result = runner.copy_file_from_container("hello.py")
-    console_err.print(result)
-    if result.status and result.data:
-        # code_from_container = Path(result.message).read_text()
-        code_from_container = result.data.read().decode()
-        console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
-    # result = runner.execute_code_in_container(code_from_llm)
-    # console_err.print(result)
+# @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+# def code_test(
+#     ctx: typer.Context,
+# ) -> None:
+#     """Used for experiments. DO NOT RUN"""
+#     # state = ctx.obj
+#     from sandbox import SandboxRun
+#
+#     runner = SandboxRun(
+#         container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True
+#     )
+#     code_from_llm = "print('hello, world!')\n"
+#     result = runner.copy_file_to_container("hello.py", code_from_llm)
+#     console_err.print(result)
+#     # result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
+#     result = runner.copy_file_from_container("hello.py")
+#     console_err.print(result)
+#     if result.status and result.data:
+#         # code_from_container = Path(result.message).read_text()
+#         code_from_container = result.data.read().decode()
+#         console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
+#     # result = runner.execute_code_in_container(code_from_llm)
+#     # console_err.print(result)
 
 
 if __name__ == "__main__":
