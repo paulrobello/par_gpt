@@ -544,7 +544,7 @@ class SandboxRun:
         finally:
             if container:
                 # run clean up in a separate thread to avoid blocking the main thread
-                thread = Thread(target=self.remove_files, args=(container, [script_name, requirements_name]))
+                thread = Thread(target=self.remove_files, args=([script_name, requirements_name],))
                 thread.start()
 
         return output
