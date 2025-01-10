@@ -31,6 +31,13 @@ class SandboxRunResult:
     message: str
 
 
+@dataclass
+class SandboxCopyFromResult(SandboxRunResult):
+    """Result of a copy operation from the container with optional data."""
+
+    data: BytesIO | None = None
+
+
 class SandboxRun:
     """Execute Python code in an isolated Docker container.
 
@@ -207,7 +214,7 @@ class SandboxRun:
         Args:
             python_code: Python code to check
         Returns:
-            Dictionary with "safe" (bool) and "message" (str) keys
+           SandboxRunResult
         """
 
         # Crude check for problematic code (os, sys, subprocess, exec, eval, etc.)
@@ -341,10 +348,11 @@ class SandboxRun:
 
         return SandboxRunResult(status=True, message=file_name)
 
-    def uninstall_dependencies(self, dependencies: list) -> str:
+    def uninstall_dependencies(self, dependencies: list, timeout: int=120) -> str:
         """Uninstall dependencies in the container.
         Args:
             dependencies: List of dependencies to uninstall
+            timeout: Timeout in seconds
         Returns:
             Success message or error message
         """
@@ -353,19 +361,19 @@ class SandboxRun:
             if dep in self.cached_dependencies:
                 continue
             command = f"uv pip uninstall -y {dep}"
-            exit_code, output = self.execute_command_in_container(command, timeout=120)
+            exit_code, output = self.execute_command_in_container(command, timeout=timeout)
 
         return "Dependencies uninstalled successfully."
 
-    def copy_file_from_container(self, src_file_name: str, dest_file_name: str | None = None) -> SandboxRunResult:
+    def copy_file_from_container(self, src_file_name: str, dest_file_name: str | None = None) -> SandboxCopyFromResult:
         """Copy file from the container.
 
         Args:
             src_file_name: File name to copy from the container.
-            dest_file_name: Destination file name in the system's temp folder. If None, uses src_file_name.
+            dest_file_name: Destination file name in the system's temp folder. If None copy to data attribute.
 
         Returns:
-            SandboxRunResult
+            SandboxCopyFromResult
         Raises:
             Exception: If there's an error during the file copying process.
         """
@@ -382,20 +390,27 @@ class SandboxRun:
                 file_info = tar.getmember(src_file_name)
                 extracted_file = tar.extractfile(file_info)
                 if extracted_file:
-                    # Write the content to a file in the system's temp folder
-                    temp_dir = tempfile.gettempdir()
-                    dest_path = os.path.join(temp_dir, dest_file_name or src_file_name)
+                    if dest_file_name:
+                        # Write the content to a file in the system's temp folder
+                        temp_dir = tempfile.gettempdir()
+                        dest_path = os.path.join(temp_dir, dest_file_name)
 
-                    with open(dest_path, "wb") as f:
-                        f.write(extracted_file.read())
+                        with open(dest_path, "wb") as f:
+                            f.write(extracted_file.read())
 
-                    return SandboxRunResult(status=False, message=dest_path)
+                        return SandboxCopyFromResult(status=True, message=dest_path)
+                    else:
+                        data = BytesIO(extracted_file.read())
+                        data.seek(0)
+                        return SandboxCopyFromResult(status=True, message="File copy successful.", data=data)
                 else:
-                    return SandboxRunResult(
+                    return SandboxCopyFromResult(
                         status=False, message=f"Failed to extract {src_file_name} from tar archive."
                     )
         except Exception as e:
-            return SandboxRunResult(status=False, message=f"Failed to copy {src_file_name} from container: {str(e)}")
+            return SandboxCopyFromResult(
+                status=False, message=f"Failed to copy {src_file_name} from container: {str(e)}"
+            )
 
     def copy_file_to_container(self, file_name: str, content: str) -> SandboxRunResult:
         """Copy file to the container.
