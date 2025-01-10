@@ -112,35 +112,48 @@ class SandboxRun:
             ]
 
     class CommandTimeout(Exception):
-        """Exception raised when a command execution times out."""
+        """Exception raised when a command execution times out.
 
+        This exception is raised when a command running in the Docker container
+        exceeds its specified timeout duration.
+        """
         pass
 
     def is_everything_whitelisted(self) -> bool:
-        """
-        Check if everything is whitelisted.
+        """Check if all dependencies are whitelisted.
+
+        Determines if the wildcard "*" is present in the dependencies whitelist,
+        indicating that all dependencies are allowed.
 
         Returns:
-            bool: True if everything is whitelisted, False otherwise.
+            bool: True if all dependencies are whitelisted ("*" is in whitelist),
+                False otherwise.
         """
         return "*" in self.dependencies_whitelist
 
     def validate_cached_dependencies(self) -> bool:
-        """
-        Validates the cached dependencies against the whitelist.
+        """Validate cached dependencies against the whitelist.
+
+        Checks if all cached dependencies are either explicitly whitelisted
+        or if everything is whitelisted via "*".
 
         Returns:
-            bool: True if all cached dependencies are whitelisted, False otherwise.
+            bool: True if all cached dependencies are allowed by the whitelist,
+                False otherwise.
         """
         if self.is_everything_whitelisted():
             return True
         return all(dep in self.dependencies_whitelist for dep in self.cached_dependencies)
 
     def install_cached_dependencies(self) -> None:
-        """
-        Attempts to install cached dependencies into the specified Docker container.
+        """Install cached dependencies into the Docker container.
+
+        Attempts to install all dependencies listed in self.cached_dependencies
+        into the container using the package manager.
+
         Raises:
-            ValueError: If the dependencies could not be successfully installed.
+            ValueError: If any dependency fails to install or if installation
+                process encounters an error.
         """
         output = self.install_dependencies(self.cached_dependencies)
         if not output["status"]:
