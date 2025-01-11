@@ -324,24 +324,26 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.5.0:
+  - Added Aider command for code editing
 - Version 0.4.0:
   - Reworked sub commands and cli options 
 - Version 0.3.0:
-    - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
-    - Added code review agent
-    - Added prompt generation agent (work in progress)
-    - Updated pricing data
-    - Lots of bug fixes and improvements
+  - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
+  - Added code review agent
+  - Added prompt generation agent (work in progress)
+  - Updated pricing data
+  - Lots of bug fixes and improvements
 - Version 0.2.1:
-    - Removed --context-source cli option as it is now auto-detected
-    - When working with images and model is not specified a suitable vision model will be selected
-    - added options to copy context from clipboard and results to clipboard
+  - Removed --context-source cli option as it is now auto-detected
+  - When working with images and model is not specified a suitable vision model will be selected
+  - added options to copy context from clipboard and results to clipboard
 - Version 0.2.0:
-    - Added confirmation prompt for agent mode REPL tool
-    - Added yes-to-all flag to skip confirmation prompts
-    - Updated pricing data
+  - Added confirmation prompt for agent mode REPL tool
+  - Added yes-to-all flag to skip confirmation prompts
+  - Updated pricing data
 - Version 0.1.0:
-    - Initial release
+  - Initial release
 
 ## Contributing
 
