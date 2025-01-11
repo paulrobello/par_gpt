@@ -45,6 +45,7 @@ from rich.text import Text
 
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
+    ai_fetch_hacker_news,
     ai_fetch_rss,
     ai_figlet,
     ai_github_create_repo,
@@ -786,8 +787,8 @@ def agent(
                 ai_tools.append(ai_copy_from_clipboard)
             if "rss" in question_lower:
                 ai_tools.append(ai_fetch_rss)
-            # if "hackernews" in question_lower:
-            #     ai_tools.append(ai_fetch_hacker_news)
+            if "hackernews" in question_lower:
+                ai_tools.append(ai_fetch_hacker_news)
 
             if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                 ai_tools.append(ai_get_weather_current)
