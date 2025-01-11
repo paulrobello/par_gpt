@@ -101,6 +101,7 @@ git               Git commit helper.
 code-review       Review code.
 generate-prompt   Use meta prompting to generate a new prompt.
 agent             Full agent with dynamic tools.
+aider             Use Aider code editing assistant.
 ```
 
 ### CLI agent Arguments
@@ -109,6 +110,13 @@ agent             Full agent with dynamic tools.
 --show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
 --yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
 --repl                              Enable REPL tool [env var: PARGPT_REPL]
+```
+
+### CLI aider Arguments
+```
+--file-names  -f      TEXT  Comma-separated list of file paths to edit [default: None]
+--read-names  -r      TEXT  Comma-separated list of read only file paths [default: None]
+--main-model  -m      TEXT  Main model to use for processing. If not specified, a default model will be used. [env var: PARGPT_AIDER_MAIN_MODEL] [default: None]
 ```
 
 ## Environment Variables
@@ -159,7 +167,7 @@ PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
-
+PARGPT_AIDER_MAIN_MODEL= # Aider supported model name 
 ```
 
 ### AI API KEYS
@@ -211,6 +219,7 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
 - Figlet - Displays Figlet style text in terminal.
 - Youtube search - Search youtube and get video info.
 - Youtube transcript - Get youtube transcript for video.
+- Hacker News - Fetch top posts from HackerNews.
 - Git - Allows interaction with local git repos.
 - Tavily search - Search web and get scraped web results.
 - Serper search - Search web using serper.
@@ -243,6 +252,11 @@ and run the following:
 ```shell
 par_gpt code_review
 ```
+
+## Aider code mode
+
+Use Aider AI code editor to make changes to files.  
+
 
 ## Example Usage
 
