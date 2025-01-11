@@ -6,6 +6,7 @@ import getpass
 import hashlib
 import os
 import platform
+import threading
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from io import StringIO
@@ -43,15 +44,17 @@ def get_url_file_suffix(url: str) -> str:
 
 
 class DownloadCache:
-    """Download cache manager"""
+    """Thread-safe download cache manager"""
 
     def __init__(self, cache_dir: str | Path | None = None) -> None:
         if not cache_dir:
             cache_dir = Path(f"~/.{__application_binary__}/cache").expanduser()
         self.cache_dir = Path(cache_dir)
+        self.lock = threading.Lock()
 
-        if not self.cache_dir.exists():
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        with self.lock:
+            if not self.cache_dir.exists():
+                self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def key_for_url(url: str) -> str:
@@ -94,8 +97,13 @@ class DownloadCache:
             requests.exceptions.RequestException: If download fails
         """
         path = self.get_path(url)
-        if not force and path.exists():
-            return path
+
+        # Check cache first with lock
+        with self.lock:
+            if not force and path.exists():
+                return path
+
+        # Download if needed
         response = requests.get(
             url,
             timeout=timeout,
@@ -104,8 +112,10 @@ class DownloadCache:
         )
         response.raise_for_status()
 
-        path.write_bytes(response.content)
-        return path
+        # Write to cache with lock
+        with self.lock:
+            path.write_bytes(response.content)
+            return path
 
     def delete(self, url: str) -> None:
         """
@@ -114,7 +124,8 @@ class DownloadCache:
         Args:
             url (str): URL
         """
-        self.get_path(url).unlink(missing_ok=True)
+        with self.lock:
+            self.get_path(url).unlink(missing_ok=True)
 
 
 download_cache = DownloadCache()
