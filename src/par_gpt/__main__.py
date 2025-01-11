@@ -14,6 +14,7 @@ import clipman as clipboard
 import typer
 from aider.coders import Coder
 from aider.io import InputOutput
+from aider.models import Model as AiderModel
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
@@ -892,7 +893,7 @@ def aider(
         write_files = file_names.split(",") if file_names else []
 
     coder = Coder.create(
-        main_model=main_model,
+        main_model=AiderModel(main_model),
         io=InputOutput(yes=True),
         fnames=write_files,
         read_only_fnames=read_names.split(",") if read_names else [],
