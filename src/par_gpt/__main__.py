@@ -12,6 +12,8 @@ from typing import Annotated
 
 import clipman as clipboard
 import typer
+from aider.coders import Coder
+from aider.io import InputOutput
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
@@ -23,6 +25,7 @@ from par_ai_core.llm_image_utils import (
 )
 from par_ai_core.llm_providers import (
     LlmProvider,
+    is_provider_api_key_set,
     provider_base_urls,
     provider_default_models,
     provider_env_key_names,
@@ -33,7 +36,7 @@ from par_ai_core.output_utils import DisplayOutputFormat, display_formatted_outp
 from par_ai_core.par_logging import console_err
 from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
 from par_ai_core.provider_cb_info import get_parai_callback
-from par_ai_core.utils import has_stdin_content
+from par_ai_core.utils import code_python_file_globs, get_file_list_for_context, has_stdin_content
 from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
 from rich.panel import Panel
 from rich.pretty import Pretty
@@ -831,17 +834,87 @@ def agent(
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def aider(
+    ctx: typer.Context,
+    file_names: Annotated[
+        str | None,
+        typer.Option(
+            "--file-names",
+            "-f",
+            help="Comma-separated list of file paths to edit",
+        ),
+    ] = None,
+    read_names: Annotated[
+        str | None,
+        typer.Option(
+            "--read-names",
+            "-r",
+            help="Comma-separated list of read only file paths",
+        ),
+    ] = None,
+    main_model: Annotated[
+        str | None,
+        typer.Option(
+            "--main-model",
+            "-m",
+            envvar=f"{__env_var_prefix__}_AIDER_MAIN_MODEL",
+            help="Main model to use for processing. If not specified, a default model will be used.",
+        ),
+    ] = None,
+) -> None:
+    """Use Aider code editing assistant."""
+    state = ctx.obj
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
+
+    question = state["user_prompt"] or state["context"]
+
+    if not question:
+        console.print("[bold red]No context or user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    if not main_model:
+        if is_provider_api_key_set(LlmProvider.ANTHROPIC):
+            main_model = provider_default_models[LlmProvider.ANTHROPIC]
+        elif is_provider_api_key_set(LlmProvider.OPENAI):
+            main_model = provider_default_models[LlmProvider.OPENAI]
+        elif is_provider_api_key_set(LlmProvider.MISTRAL):
+            # main_model = provider_default_models[LlmProvider.MISTRAL]
+            main_model = "mistral/codestral-latest"
+
+    if not main_model:
+        console.print("[bold red]No main model specified and not default found. Exiting...")
+        raise typer.Exit(1)
+
+    if not file_names:
+        write_files = [f.as_posix() for f in get_file_list_for_context(code_python_file_globs)]
+    else:
+        write_files = file_names.split(",") if file_names else []
+
+    coder = Coder.create(
+        main_model=main_model,
+        io=InputOutput(yes=True),
+        fnames=write_files,
+        read_only_fnames=read_names.split(",") if read_names else [],
+        auto_commits=False,
+        suggest_shell_commands=False,
+        detect_urls=False,
+    )
+    coder.run(question)
+
+
+@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def code_test(
     ctx: typer.Context,
 ) -> None:
     """Used for experiments. DO NOT RUN"""
     # state = ctx.obj
-    from sandbox import SandboxRun
-
-    runner = SandboxRun(
-        container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True
-    )
-    code_from_llm = "print('hello, world!')\n"
+    # from sandbox import SandboxRun
+    #
+    # runner = SandboxRun(
+    #     container_name="par_gpt_sandbox-python_runner-1", console=console_err, start_if_needed=True, verbose=True
+    # )
+    # code_from_llm = "print('hello, world!')\n"
     # result = runner.copy_file_to_container("hello.py", code_from_llm)
     # console_err.print(result)
     # # result = runner.copy_file_from_container("hello.py", "hello_from_container.py")
@@ -851,8 +924,9 @@ def code_test(
     #     # code_from_container = Path(result.message).read_text()
     #     code_from_container = result.data.read().decode()
     #     console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
-    result = runner.execute_code_in_container(code_from_llm)
-    console_err.print(result)
+    # result = runner.execute_code_in_container(code_from_llm)
+    # console_err.print(result)
+    console.print(get_file_list_for_context(code_python_file_globs))
 
 
 if __name__ == "__main__":

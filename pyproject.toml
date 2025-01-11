@@ -100,3 +100,6 @@ exclude = [
     "*.so",
     "*.dylib"
 ]
+
+[tool.uv.sources]
+par-ai-core = { path = "../par_ai_core", editable = true }
