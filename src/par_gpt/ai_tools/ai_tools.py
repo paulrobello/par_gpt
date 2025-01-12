@@ -573,7 +573,7 @@ def ai_fetch_hacker_news(max_items: int = 5) -> str:
 def execute_code(code: str) -> ExecuteCommandResult:
     """
     Executes the given python code in a sandbox and returns the output.
-    Do not assume the output is shown to the user, you must show it to the user.
+    Do not assume the output is shown to the user, you must use or show it to the user in the desired format.
 
     Args:
         code (str): The python code to execute.

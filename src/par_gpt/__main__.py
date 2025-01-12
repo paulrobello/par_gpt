@@ -37,7 +37,13 @@ from par_ai_core.output_utils import DisplayOutputFormat, display_formatted_outp
 from par_ai_core.par_logging import console_err
 from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
 from par_ai_core.provider_cb_info import get_parai_callback
-from par_ai_core.utils import code_python_file_globs, get_file_list_for_context, has_stdin_content
+from par_ai_core.utils import (
+    code_python_file_globs,
+    get_file_list_for_context,
+    has_stdin_content,
+    code_js_file_globs,
+    code_frontend_file_globs,
+)
 from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
 from rich.panel import Panel
 from rich.pretty import Pretty
@@ -843,7 +849,7 @@ def aider(
         typer.Option(
             "--file-names",
             "-f",
-            help="Comma-separated list of file paths to edit",
+            help="Comma-separated list of edit file paths or glob patterns",
         ),
     ] = None,
     read_names: Annotated[
@@ -851,7 +857,7 @@ def aider(
         typer.Option(
             "--read-names",
             "-r",
-            help="Comma-separated list of read only file paths",
+            help="Comma-separated list of read only file paths or glob patterns",
         ),
     ] = None,
     main_model: Annotated[
@@ -888,16 +894,26 @@ def aider(
         console.print("[bold red]No main model specified and not default found. Exiting...")
         raise typer.Exit(1)
 
-    if not file_names:
-        write_files = [f.as_posix() for f in get_file_list_for_context(code_python_file_globs)]
-    else:
+    write_files: list[str] = []
+    if file_names:
         write_files = file_names.split(",") if file_names else []
+        write_files = [f.strip() for f in write_files if f.strip()]
+        write_files = [f.as_posix() for f in get_file_list_for_context(write_files)]
+
+    if not write_files:
+        console.print("[bold red]No files specified. Exiting...")
+        raise typer.Exit(1)
+
+    read_files: list[str] = read_names.split(",") if read_names else []
+    read_files = [f.strip() for f in read_files if f.strip()]
+    if read_files:
+        read_files = [f.as_posix() for f in get_file_list_for_context(read_files)]
 
     coder = Coder.create(
         main_model=AiderModel(main_model),
         io=InputOutput(yes=True),
         fnames=write_files,
-        read_only_fnames=read_names.split(",") if read_names else [],
+        read_only_fnames=read_files,
         auto_commits=False,
         suggest_shell_commands=False,
         detect_urls=False,

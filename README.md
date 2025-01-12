@@ -53,7 +53,7 @@ uv tool install git+https://github.com/paulrobello/par_gpt
 ```shell
 cd par_gpt
 git pull
-uv tool install . -U --force
+uv tool install -U --force .
 ```
 
 ### GitHub

@@ -9,7 +9,7 @@ resolution-markers = [
 
 [[package]]
 name = "aider-chat"
-version = "0.71.0"
+version = "0.71.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohappyeyeballs" },
@@ -104,9 +104,9 @@ dependencies = [
     { name = "yarl" },
     { name = "zipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/3f/af783ff5357d61704ffe1cf2fd0d74f3a100b672542203b6712a5abe60a1/aider_chat-0.71.0.tar.gz", hash = "sha256:ceaafc1ccadfda908d799485835d7e0e69d83bedfdc32fda81827d8e72c06d97", size = 1164318 }
+sdist = { url = "https://files.pythonhosted.org/packages/84/52/9203fe094eb3b23ffd0173b45e9d2fcc6e3b50e1404b5ca038d4cbe4068e/aider_chat-0.71.1.tar.gz", hash = "sha256:af6c769c76f98b6adeefa183567cfac20c9c52d6ff7fbcdc541595ea76642065", size = 1164774 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/ae/1dc4248f78b43a2e0fc765e8594932f9d09fb9e865e106bf68ac5e1cf291/aider_chat-0.71.0-py3-none-any.whl", hash = "sha256:02702470f2e0d72311d90d012394e4ade4ffbacac3e3504aacf9825e66271263", size = 274411 },
+    { url = "https://files.pythonhosted.org/packages/7c/bd/aac49e71fbb3bea1e21b2c102811943dc88147b8e7f8828c3bdf20b6118d/aider_chat-0.71.1-py3-none-any.whl", hash = "sha256:a8038918701c166a058e692b54378b285b4762f8c9346fd848a92b2c880e864f", size = 274395 },
 ]
 
 [[package]]
@@ -2213,14 +2213,14 @@ wheels = [
 
 [[package]]
 name = "marshmallow"
-version = "3.25.0"
+version = "3.25.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/5c/cbfa41491d6c83b36471f2a2f75602349d20a8f88afd94f83c1e68bbc298/marshmallow-3.25.0.tar.gz", hash = "sha256:5ba94a4eb68894ad6761a505eb225daf7e5cb7b4c32af62d4a45e9d42665bc31", size = 176751 }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/85/43b8e95251312e8d0d3389263e87e368a5a015db475e140d5dd8cb8dcb47/marshmallow-3.25.1.tar.gz", hash = "sha256:f4debda3bb11153d81ac34b0d582bf23053055ee11e791b54b4b35493468040a", size = 217295 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/26/b347619b719d4c048e038929769f8f6b28c6d930149b40d950bbdde31d48/marshmallow-3.25.0-py3-none-any.whl", hash = "sha256:50894cd57c6b097a6c6ed2bf216af47d10146990a54db52d03e32edb0448c905", size = 49480 },
+    { url = "https://files.pythonhosted.org/packages/8e/25/5b300f0400078d9783fbe44d30fedd849a130fc3aff01f18278c12342b6f/marshmallow-3.25.1-py3-none-any.whl", hash = "sha256:ec5d00d873ce473b7f2ffcb7104286a376c354cab0c2fa12f5573dab03e87210", size = 49624 },
 ]
 
 [[package]]
