@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import getpass
 import hashlib
+import io
 import os
 import platform
 import threading
@@ -15,12 +16,16 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 import orjson as json
+import PIL.Image
 import pyfiglet
 import requests
+from par_ai_core.llm_image_utils import image_to_base64
 from par_ai_core.par_logging import console_err
 from par_ai_core.user_agents import get_random_user_agent
+from pydantic import BaseModel, Field
 from rich.console import Console
 from rich_pixels import Pixels
+from strenum import StrEnum
 
 # from sixel import converter
 # from textual_image.renderable.sixel import query_terminal_support
@@ -488,3 +493,222 @@ def figlet_horizontal(
     print(ret)
 
     return ret
+
+
+class VisibleWindow(BaseModel):
+    """Info about Visible Windows"""
+
+    app_name: str = Field(..., description="Name of the application")
+    app_title: str = Field(..., description="Current content of the application's title bar")
+    window_id: int = Field(..., description="Window ID of the application. Required by some other tools")
+
+
+def list_visible_windows_mac() -> list[VisibleWindow]:
+    """
+    Returns a list of visible windows on macOS.
+
+    Returns:
+        list[VisibleWindow]: A list of VisibleWindows objects representing the visible windows.
+    """
+    import Quartz
+
+    windowList = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
+        Quartz.kCGWindowListExcludeDesktopElements | Quartz.kCGWindowListOptionOnScreenOnly,  # type: ignore
+        Quartz.kCGNullWindowID,  # type: ignore
+    )  # type: ignore
+    result: list[VisibleWindow] = []
+    for window in windowList:
+        app_name = window.get("kCGWindowOwnerName", "")
+        app_title = window.get("kCGWindowName", "")
+        if not app_name and not app_title:
+            continue
+
+        window_id = window["kCGWindowNumber"]
+        result.append(VisibleWindow(app_name=app_name, app_title=app_title, window_id=window_id))
+    return result
+
+
+def list_visible_windows() -> list[VisibleWindow]:
+    """
+    Returns a list of visible windows.
+
+    Returns:
+        list[VisibleWindow]: A list of VisibleWindows objects representing the visible windows.
+    """
+    import platform
+
+    if platform.system() == "Darwin":
+        return list_visible_windows_mac()
+    return []
+
+
+class ImageCaptureOutputType(StrEnum):
+    """
+    Specifies the output format for captured images.
+    """
+
+    PIL = "PIL"
+    BYTES = "BYTES"
+    BASE64 = "BASE64"
+
+
+def capture_window_image_mac(
+    app_name: str | None = None,
+    app_title: str | None = None,
+    window_id: int | None = None,
+    output_format: ImageCaptureOutputType | None = None,
+) -> PIL.Image.Image | bytes | str:
+    """
+    Captures a screenshot of the specified window on macOS and saves it as a PNG image.
+    You must specify at least one of app_name, app_title or window_id.
+    Image will be PNG format in the specified output format.
+
+    Args:
+        app_name (str | None): Name of the application to find and capture. Defaults to None = Any.
+        app_title (str | None): Title of the application to find and capture. Defaults to None = Any.
+        window_id (int | None): Window ID of the application to find and capture. Defaults to None = Any.
+        output_format (ImageCaptureOutputType | None): The format to return the image in. Defaults to None = PIL.
+
+    Returns:
+        Image | bytes | str: The captured image, image bytes or the base64-encoded image data.
+    """
+    import tempfile
+
+    import Quartz
+
+    app_name = (app_name or "").strip().lower()
+    app_title = (app_title or "").strip().lower()
+    if not app_name and not app_title and not window_id:
+        raise ValueError("Either app_name, app_title, or window_id must be specified")
+
+    if not window_id:
+        windowList = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
+            Quartz.kCGWindowListExcludeDesktopElements | Quartz.kCGWindowListOptionOnScreenOnly,  # type: ignore
+            Quartz.kCGNullWindowID,  # type: ignore
+        )  # type: ignore
+
+        for window in windowList:
+            app = window.get("kCGWindowOwnerName", "").lower()
+            title = window.get("kCGWindowName", "").lower()
+
+            if app_name and (not app or app_name not in app):
+                continue
+            if app_title and (not title or app_title not in title):
+                continue
+
+            window_id = window["kCGWindowNumber"]
+
+    with tempfile.NamedTemporaryFile(suffix=".png") as temp_image:
+        # -x mutes sound and -l specifies windowId
+        cmd = f"screencapture -x -t png -l {window_id} {temp_image.name}"
+        # console_err.print(cmd)
+        ret = os.system(cmd)
+        if ret != 0:
+            raise ValueError(
+                f"Failed to capture screenshot of app '{app_name}' / title '{app_title}' / window ID '{window_id}'"
+            )
+
+        screenshot = PIL.Image.open(temp_image.name)
+        if not output_format or output_format == ImageCaptureOutputType.PIL:
+            return screenshot
+
+        img_bytes = io.BytesIO()
+        screenshot.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
+        if output_format == ImageCaptureOutputType.BYTES:
+            return img_bytes.getvalue()
+
+        return image_to_base64(img_bytes.getvalue(), "png")
+
+    raise ValueError(f"No app '{app_name}' / title '{app_title}' / window ID {window_id} found")
+
+
+def capture_window_image(
+    app_name: str | None = None,
+    app_title: str | None = None,
+    window_id: int | None = None,
+    output_format: ImageCaptureOutputType | None = None,
+) -> PIL.Image.Image | bytes | str:
+    """
+    Captures a screenshot of the specified window and saves it as a PNG image.
+    You must specify at least one of app_name, app_title or window_id.
+    Image will be PNG format in the specified output format.
+
+    Args:
+        app_name (str | None): Name of the application to find and capture. Defaults to None = Any.
+        app_title (str | None): Title of the application to find and capture. Defaults to None = Any.
+        window_id (int | None): Window ID of the application to find and capture. Defaults to None = Any.
+        output_format (ImageCaptureOutputType | None): The format to return the image in. Defaults to None = PIL.
+
+    Returns:
+        Image | bytes | str: The captured image, image bytes or the base64-encoded image data.
+    """
+    import platform
+
+    if platform.system() == "Darwin":
+        return capture_window_image_mac(app_name, app_title, window_id, output_format)
+
+    app_name = (app_name or "").strip().lower()
+    app_title = (app_title or "").strip().lower()
+    if not app_name and not app_title:
+        raise ValueError("Either app_name or app_title must be specified")
+
+    import pyautogui
+    import pywinctl as gw
+
+    window_info = gw.getAllWindows()
+    # console_err.print(window_info)
+    if app_name and not app_title:
+        windows = [t for t in window_info if app_name in t.getAppName().lower()]
+    elif app_title and not app_name:
+        windows = [t for t in window_info if app_title in t.title.lower()]
+    else:
+        windows = [t for t in window_info if app_name in t.getAppName().lower() and app_title in t.title.lower()]
+    if not windows:
+        raise ValueError(f"No app '{app_name}' / title '{app_title}' found")
+
+    if len(windows) > 1:
+        print(f"Multiple windows found with title '{app_title}':")
+        for i, title in enumerate(windows, start=1):
+            console_err.print(f"{i}. {title}")
+        raise ValueError(f"Multiple app '{app_name}' windows found with title '{app_title}'")
+    window = windows[0]
+    window.activate()
+
+    left, top, right, bottom = window.left, window.top, window.right, window.bottom
+    screenshot = pyautogui.screenshot(region=(left, top, right - left, bottom - top))
+    if not output_format or output_format == ImageCaptureOutputType.PIL:
+        return screenshot
+
+    img_bytes = io.BytesIO()
+    screenshot.save(img_bytes, format="PNG")
+    img_bytes.seek(0)
+    if output_format == ImageCaptureOutputType.BYTES:
+        return img_bytes.getvalue()
+
+    return image_to_base64(img_bytes.getvalue(), "png")
+
+
+def speak(text: str):
+    from elevenlabs import play
+    from elevenlabs.client import ElevenLabs
+
+    # start_time = time.time()
+    model = "eleven_flash_v2_5"
+    # model="eleven_flash_v2"
+    # model = "eleven_turbo_v2"
+    # model = "eleven_turbo_v2_5"
+    # model="eleven_multilingual_v2"
+    voice = "XB0fDUnXU5powFXDhCwa"  # Charlotte
+    elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+
+    audio_generator = elevenlabs_client.generate(
+        text=text,
+        voice=voice,
+        model=model,
+        stream=False,
+    )
+    audio_bytes = b"".join(list(audio_generator))
+    # duration = time.time() - start_time
+    # console_err.print(f"Model {model} completed tts in {duration:.2f} seconds")
+    play(audio_bytes)

@@ -40,6 +40,7 @@ def do_single_llm_call(
     display_format: DisplayOutputFormat = DisplayOutputFormat.NONE,
     debug: bool,
     console: Console | None = None,
+    use_tts: bool = False,
 ) -> tuple[str, BaseMessage]:
     if not console:
         console = console_err
@@ -48,10 +49,17 @@ def do_single_llm_call(
 
     chat_history: list[tuple[str, str | list[dict[str, Any]]]] = []
     if not no_system_prompt:
+        if use_tts:
+            output_format = """<output_instructions>
+<instruction>Your output will be used by TTS please avoid emojis, special characters or other un-pronounceable things.</instruction>
+</output_instructions>
+"""
+        else:
+            output_format = get_output_format_prompt(display_format)
         chat_history.append(
             (
                 "system",
-                (system_prompt or default_system_prompt).strip() + "\n" + get_output_format_prompt(display_format),
+                (system_prompt or default_system_prompt).strip() + "\n" + output_format,
             )
         )
         if env_info:
@@ -155,6 +163,7 @@ def do_tool_agent(
     system_prompt: str | None,
     image: str | None = None,
     max_iterations: int = 5,
+    use_tts: bool = False,
     debug: bool = True,
     verbose: bool = False,
     console: Console | None = None,
@@ -186,6 +195,7 @@ def do_tool_agent(
 <instructions>
     <instruction>Think through all the steps needed to answer the question and make a plan before using tools.</instruction>
     <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
+    <instruction>If an output_instructions section is present follow its instructions</instruction>
     <instruction>If a tool returns an error message asking you to stop, do not make any additional requests and use the error message as the final answer.</instruction>
     <instruction>Use tools and the extra_context section to help answer the question.</instruction>
     <instruction>If a tool states its output should be returned directly to user ensure you return it directly to the use without modifications.</instruction>
@@ -209,6 +219,13 @@ def do_tool_agent(
     <rule>Use console.print() to output text to the user. This console.print supports markup formatting using the rich library.</rule>
     <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
 </repl_rules>
+"""
+
+    if use_tts:
+        default_system_prompt += """
+<output_instructions>
+<instruction>Your output will be used by TTS please keep final answer concise and avoid emojis, special characters or other un-pronounceable things.</instruction>
+</output_instructions>
 """
 
     default_system_prompt += """

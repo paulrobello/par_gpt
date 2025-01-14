@@ -8,7 +8,7 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import clipman as clipboard
 import typer
@@ -38,15 +38,13 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
 from par_ai_core.provider_cb_info import get_parai_callback
 from par_ai_core.utils import (
-    code_python_file_globs,
     get_file_list_for_context,
     has_stdin_content,
-    code_js_file_globs,
-    code_frontend_file_globs,
 )
 from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
 from rich.panel import Panel
 from rich.pretty import Pretty
+from rich.prompt import Prompt
 from rich.text import Text
 
 from par_gpt.ai_tools.ai_tools import (
@@ -57,9 +55,11 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
+    ai_list_visible_windows,
     ai_serper_search,
     execute_code,
 )
+from par_gpt.tts_manger import TTSManger, TTSProvider
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
@@ -78,13 +78,18 @@ from .ai_tools.ai_tools import (
 )
 from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .repo.repo import GitRepo
-from .utils import download_cache, mk_env_context, show_image_in_terminal
+from .utils import (
+    ImageCaptureOutputType,
+    capture_window_image,
+    download_cache,
+    mk_env_context,
+    show_image_in_terminal,
+)
 
 app = typer.Typer()
 console = console_err
 
 
-load_dotenv()
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
 
 
@@ -229,6 +234,38 @@ def main(
             help="Show config",
         ),
     ] = False,
+    tts: Annotated[
+        bool | None,
+        typer.Option(
+            "--tts",
+            "-T",
+            envvar=f"{__env_var_prefix__}_TTS",
+            help="Use TTS for LLM response.",
+        ),
+    ] = None,
+    tts_provider: Annotated[
+        TTSProvider | None,
+        typer.Option(
+            "--tts-provider",
+            envvar=f"{__env_var_prefix__}_TTS_PROVIDER",
+            help="Provider to use for TTS. Defaults to local",
+        ),
+    ] = None,
+    tts_voice: Annotated[
+        str | None,
+        typer.Option(
+            "--tts-voice",
+            envvar=f"{__env_var_prefix__}_TTS_VOICE",
+            help="Voice to use for TTS. Depends on TTS provider chosen.",
+        ),
+    ] = None,
+    tts_list_voices: Annotated[
+        bool | None,
+        typer.Option(
+            "--tts-list-voices",
+            help="List voices for selected TTS provider.",
+        ),
+    ] = None,
     version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
@@ -329,6 +366,13 @@ def main(
         num_ctx=max_context_size or None,
         env_prefix=__env_var_prefix__,
     ).set_env()
+    tts_man: TTSManger | None = None
+    if tts:
+        if tts_list_voices:
+            voices = TTSManger(tts_provider or TTSProvider.LOCAL, console=console).list_voices()
+            console.print("\nAvailable voices:", voices)
+            exit(0)
+        tts_man = TTSManger(tts_provider or TTSProvider.LOCAL, voice_name=tts_voice, console=console)
 
     if show_config:
         console.print(
@@ -367,6 +411,15 @@ def main(
                     ("Context Is Image: ", "cyan"),
                     (f"{context_is_image}", "green"),
                     "\n",
+                    ("TTS: ", "cyan"),
+                    (f"{tts}", "green"),
+                    "\n",
+                    ("TTS Provider: ", "cyan"),
+                    (f"{tts_provider}", "green"),
+                    "\n",
+                    ("TTS Voice: ", "cyan"),
+                    (f"{tts_voice or 'Default'}", "green"),
+                    "\n",
                     ("Debug: ", "cyan"),
                     (f"{debug}", "green"),
                     "\n",
@@ -398,6 +451,10 @@ def main(
         "show_config": show_config,
         "context": context,
         "context_is_image": context_is_image,
+        "tts": tts,
+        "tts_provider": tts_provider,
+        "tts_voice": tts_voice,
+        "tts_man": tts_man,
     }
 
     ctx.obj = state
@@ -451,6 +508,7 @@ def llm(
                 display_format=state["display_format"],
                 debug=state["debug"],
                 console=console,
+                use_tts=state["tts"],
             )
 
             usage_metadata = cb.usage_metadata
@@ -468,6 +526,8 @@ def llm(
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
 
         display_formatted_output(content, state["display_format"], console=console)
+        if state["tts_man"]:
+            state["tts_man"].speak(content)
 
     except Exception as e:
         console.print("[bold red]Error:")
@@ -795,6 +855,8 @@ def agent(
                 ai_tools.append(ai_fetch_rss)
             if "hackernews" in question_lower:
                 ai_tools.append(ai_fetch_hacker_news)
+            if "window" in question_lower:
+                ai_tools.append(ai_list_visible_windows)
 
             if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
                 ai_tools.append(ai_get_weather_current)
@@ -817,6 +879,7 @@ def agent(
                 max_iterations=max_iterations,
                 debug=state["debug"],
                 console=console,
+                use_tts=state["tts"],
             )
 
             usage_metadata = cb.usage_metadata
@@ -834,6 +897,8 @@ def agent(
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
 
         display_formatted_output(content, state["display_format"], console=console)
+        if state["tts_man"]:
+            state["tts_man"].speak(content)
 
     except Exception as e:
         console.print("[bold red]Error:")
@@ -894,20 +959,34 @@ def aider(
         console.print("[bold red]No main model specified and not default found. Exiting...")
         raise typer.Exit(1)
 
-    write_files: list[str] = []
-    if file_names:
-        write_files = file_names.split(",") if file_names else []
-        write_files = [f.strip() for f in write_files if f.strip()]
-        write_files = [f.as_posix() for f in get_file_list_for_context(write_files)]
+    # split file globs on comma and resolve paths
+    write_files: list[str] = file_names.split(",") if file_names else []
+    write_files = [f.strip() for f in write_files if f.strip()]
+    if write_files:
+        write_files = [f.as_posix() for f in get_file_list_for_context(cast(list[str | Path], write_files))]
 
     if not write_files:
-        console.print("[bold red]No files specified. Exiting...")
+        console.print("[bold red]No write files specified. Exiting...")
         raise typer.Exit(1)
 
+    # split file globs on comma and resolve paths
     read_files: list[str] = read_names.split(",") if read_names else []
     read_files = [f.strip() for f in read_files if f.strip()]
     if read_files:
-        read_files = [f.as_posix() for f in get_file_list_for_context(read_files)]
+        read_files = [f.as_posix() for f in get_file_list_for_context(cast(list[str | Path], read_files))]
+
+    w_flist = "\n".join(write_files)
+    r_flist = "\n".join(read_files)
+    console_err.print(Panel(f"""Write:\n{w_flist}\nRead:\n{r_flist}""", title="File context", highlight=True))
+    if (
+        Prompt.ask(
+            "Started editing? (y/n): ", choices=["y", "n"], default="y", case_sensitive=False, console=console_err
+        )
+        != "y"
+    ):
+        console.print("[bold red]Editing aborted. Exiting...")
+        return
+    console.print("[bold green]Starting aider...")
 
     coder = Coder.create(
         main_model=AiderModel(main_model),
@@ -917,6 +996,9 @@ def aider(
         auto_commits=False,
         suggest_shell_commands=False,
         detect_urls=False,
+        auto_lint=False,
+        auto_test=False,
+        ignore_mentions=True,
     )
     coder.run(question)
 
@@ -926,7 +1008,7 @@ def code_test(
     ctx: typer.Context,
 ) -> None:
     """Used for experiments. DO NOT RUN"""
-    # state = ctx.obj
+    state = ctx.obj
     # from sandbox import SandboxRun
     #
     # runner = SandboxRun(
@@ -944,7 +1026,25 @@ def code_test(
     #     console_err.print(code_from_llm, code_from_container, code_from_container == code_from_llm)
     # result = runner.execute_code_in_container(code_from_llm)
     # console_err.print(result)
-    console.print(get_file_list_for_context(code_python_file_globs))
+    # console.print(get_file_list_for_context(code_python_file_globs))
+
+    app_name = "iTerm2"
+    img = capture_window_image(app_name, None, None, ImageCaptureOutputType.BASE64)
+    # img = capture_window_image_mac(app_name, None, ImageCaptureOutputType.BASE64)
+
+    chat_model = state["llm_config"].build_chat_model()
+
+    with get_parai_callback(show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS):
+        content, result = do_single_llm_call(
+            chat_model=chat_model,
+            user_input="describe the following image",
+            image=img,  # type: ignore
+            display_format=state["display_format"],
+            debug=state["debug"],
+            use_tts=state["tts"],
+            console=console,
+        )
+        console_err.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
 
 if __name__ == "__main__":

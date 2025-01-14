@@ -26,10 +26,12 @@ from rich.text import Text
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
     FigletFontName,
+    VisibleWindow,
     figlet_horizontal,
     figlet_vertical,
     get_weather_current,
     get_weather_forecast,
+    list_visible_windows_mac,
     show_image_in_terminal,
 )
 from sandbox import ExecuteCommandResult
@@ -609,3 +611,14 @@ def execute_code(code: str) -> ExecuteCommandResult:
 if __name__ == "__main__":
     figlet_horizontal("PAR GPT", font="3d-ascii")
     figlet_vertical("PAR GPT", font="3d-ascii")
+
+
+@tool(parse_docstring=True)
+def ai_list_visible_windows() -> list[VisibleWindow]:
+    """
+    Get list all visible windows on the user's screen.
+
+    Returns:
+        list[VisibleWindow]: A list of visible windows on the user's screen.
+    """
+    return list_visible_windows_mac()

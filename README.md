@@ -324,6 +324,9 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.6.0:
+  - Added support for TTS output
+  - Added screenshot support
 - Version 0.5.0:
   - Added Aider command for code editing
 - Version 0.4.0:
