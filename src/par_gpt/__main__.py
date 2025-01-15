@@ -12,9 +12,6 @@ from typing import Annotated, cast
 
 import clipman as clipboard
 import typer
-from aider.coders import Coder
-from aider.io import InputOutput
-from aider.models import Model as AiderModel
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
@@ -60,6 +57,7 @@ from par_gpt.ai_tools.ai_tools import (
     execute_code,
 )
 from par_gpt.tts_manger import TTSManger, TTSProvider
+from par_gpt.voice_input_manger import VoiceInputManager
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
@@ -79,8 +77,6 @@ from .ai_tools.ai_tools import (
 from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .repo.repo import GitRepo
 from .utils import (
-    ImageCaptureOutputType,
-    capture_window_image,
     download_cache,
     mk_env_context,
     show_image_in_terminal,
@@ -235,14 +231,14 @@ def main(
         ),
     ] = False,
     tts: Annotated[
-        bool | None,
+        bool,
         typer.Option(
             "--tts",
             "-T",
             envvar=f"{__env_var_prefix__}_TTS",
             help="Use TTS for LLM response.",
         ),
-    ] = None,
+    ] = False,
     tts_provider: Annotated[
         TTSProvider | None,
         typer.Option(
@@ -266,6 +262,13 @@ def main(
             help="List voices for selected TTS provider.",
         ),
     ] = None,
+    voice_input: Annotated[
+        bool,
+        typer.Option(
+            "--voice-input",
+            help="Use voice input.",
+        ),
+    ] = False,
     version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
@@ -373,6 +376,9 @@ def main(
             console.print("\nAvailable voices:", voices)
             exit(0)
         tts_man = TTSManger(tts_provider or TTSProvider.LOCAL, voice_name=tts_voice, console=console)
+    voice_input_man: VoiceInputManager | None = None
+    if voice_input:
+        voice_input_man = VoiceInputManager(verbose=debug or True)
 
     if show_config:
         console.print(
@@ -420,6 +426,9 @@ def main(
                     ("TTS Voice: ", "cyan"),
                     (f"{tts_voice or 'Default'}", "green"),
                     "\n",
+                    ("Voice Input: ", "cyan"),
+                    (f"{voice_input}", "green"),
+                    "\n",
                     ("Debug: ", "cyan"),
                     (f"{debug}", "green"),
                     "\n",
@@ -455,6 +464,7 @@ def main(
         "tts_provider": tts_provider,
         "tts_voice": tts_voice,
         "tts_man": tts_man,
+        "voice_input_man": voice_input_man,
     }
 
     ctx.obj = state
@@ -906,7 +916,7 @@ def agent(
         raise typer.Exit(code=1)
 
 
-@app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+# @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def aider(
     ctx: typer.Context,
     file_names: Annotated[
@@ -988,19 +998,19 @@ def aider(
         return
     console.print("[bold green]Starting aider...")
 
-    coder = Coder.create(
-        main_model=AiderModel(main_model),
-        io=InputOutput(yes=True),
-        fnames=write_files,
-        read_only_fnames=read_files,
-        auto_commits=False,
-        suggest_shell_commands=False,
-        detect_urls=False,
-        auto_lint=False,
-        auto_test=False,
-        ignore_mentions=True,
-    )
-    coder.run(question)
+    # coder = Coder.create(
+    #     main_model=AiderModel(main_model),
+    #     io=InputOutput(yes=True),
+    #     fnames=write_files,
+    #     read_only_fnames=read_files,
+    #     auto_commits=False,
+    #     suggest_shell_commands=False,
+    #     detect_urls=False,
+    #     auto_lint=False,
+    #     auto_test=False,
+    #     ignore_mentions=True,
+    # )
+    # coder.run(question)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -1028,23 +1038,33 @@ def code_test(
     # console_err.print(result)
     # console.print(get_file_list_for_context(code_python_file_globs))
 
-    app_name = "iTerm2"
-    img = capture_window_image(app_name, None, None, ImageCaptureOutputType.BASE64)
+    # app_name = "iTerm2"
+    # img = capture_window_image(app_name, None, None, ImageCaptureOutputType.BASE64)
     # img = capture_window_image_mac(app_name, None, ImageCaptureOutputType.BASE64)
 
     chat_model = state["llm_config"].build_chat_model()
 
     with get_parai_callback(show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS):
-        content, result = do_single_llm_call(
-            chat_model=chat_model,
-            user_input="describe the following image",
-            image=img,  # type: ignore
-            display_format=state["display_format"],
-            debug=state["debug"],
-            use_tts=state["tts"],
-            console=console,
-        )
-        console_err.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+        while state["voice_input_man"] is not None:
+            prompt = state["voice_input_man"].get_text()
+            if not prompt:
+                continue
+            if prompt.lower().strip() == "exit":
+                break
+            content, result = do_single_llm_call(
+                chat_model=chat_model,
+                user_input=prompt,
+                image=None,
+                display_format=state["display_format"],
+                debug=state["debug"],
+                use_tts=state["tts"],
+                console=console,
+            )
+            console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
+            if state["tts_man"]:
+                state["tts_man"].speak(content)
+        if state["voice_input_man"]:
+            state["voice_input_man"].shutdown()
 
 
 if __name__ == "__main__":

@@ -79,3 +79,4 @@ __pypackages__/
 /temp_prompt.txt
 /src/par_gpt/lib/gh_utils.py
 **/.DS_Store
+*.log

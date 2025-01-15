@@ -29,6 +29,59 @@ customizable output formats.
 - UV package manager
 - API keys for chosen AI provider (except for Ollama and LlamaCpp)
     - See provider-specific documentation for required API key environment variables
+- If you want to use image or audio features ensure you install ffmpeg
+- If you want to use audio features you may need portaudio installed
+
+### **Install ffmpeg**:
+
+> **Note**: *Installation of ffmpeg might not actually be needed to operate RealtimeSTT* <sup> *thanks to jgilbert2017 for pointing this out</sup>
+
+You can download an installer for your OS from the [ffmpeg Website](https://ffmpeg.org/download.html).  
+
+Or use a package manager:
+
+- **On Ubuntu or Debian**:
+    ```bash
+    sudo apt update && sudo apt install ffmpeg
+    ```
+
+- **On Arch Linux**:
+    ```bash
+    sudo pacman -S ffmpeg
+    ```
+
+- **On MacOS using Homebrew** ([https://brew.sh/](https://brew.sh/)):
+    ```bash
+    brew install ffmpeg
+    ```
+
+- **On Windows using Winget** [official documentation](https://learn.microsoft.com/en-us/windows/package-manager/winget/) :
+    ```bash
+    winget install Gyan.FFmpeg
+    ```
+      
+- **On Windows using Chocolatey** ([https://chocolatey.org/](https://chocolatey.org/)):
+    ```bash
+    choco install ffmpeg
+    ```
+
+- **On Windows using Scoop** ([https://scoop.sh/](https://scoop.sh/)):
+    ```bash
+    scoop install ffmpeg
+    ```    
+
+### **Install portaudio**:
+
+- **On Linux**:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install portaudio19-dev
+  ```
+
+- **On MacOS**:
+  ```bash
+  brew install portaudio
+  ```
 
 ## Installation
 
@@ -101,7 +154,6 @@ git               Git commit helper.
 code-review       Review code.
 generate-prompt   Use meta prompting to generate a new prompt.
 agent             Full agent with dynamic tools.
-aider             Use Aider code editing assistant.
 ```
 
 ### CLI agent Arguments
@@ -110,13 +162,6 @@ aider             Use Aider code editing assistant.
 --show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
 --yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
 --repl                              Enable REPL tool [env var: PARGPT_REPL]
-```
-
-### CLI aider Arguments
-```
---file-names  -f      TEXT  Comma-separated list of file paths to edit [default: None]
---read-names  -r      TEXT  Comma-separated list of read only file paths [default: None]
---main-model  -m      TEXT  Main model to use for processing. If not specified, a default model will be used. [env var: PARGPT_AIDER_MAIN_MODEL] [default: None]
 ```
 
 ## Environment Variables
@@ -167,7 +212,6 @@ PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
-PARGPT_AIDER_MAIN_MODEL= # Aider supported model name 
 ```
 
 ### AI API KEYS
@@ -253,10 +297,6 @@ and run the following:
 par_gpt code_review
 ```
 
-## Aider code mode
-
-Use Aider AI code editor to make changes to files.  
-
 
 ## Example Usage
 
@@ -327,6 +367,7 @@ par_gpt code_review
 - Version 0.6.0:
   - Added support for TTS output
   - Added screenshot support
+  - Aider support removed (too many dependency conflicts)
 - Version 0.5.0:
   - Added Aider command for code editing
 - Version 0.4.0:
