@@ -38,6 +38,7 @@ def do_single_llm_call(
     no_system_prompt: bool = False,
     env_info: str | None = None,
     display_format: DisplayOutputFormat = DisplayOutputFormat.NONE,
+    chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
     debug: bool,
     console: Console | None = None,
     use_tts: bool = False,
@@ -45,13 +46,15 @@ def do_single_llm_call(
     if not console:
         console = console_err
 
+    chat_history = chat_history or []
     default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
 
-    chat_history: list[tuple[str, str | list[dict[str, Any]]]] = []
     if not no_system_prompt:
         if use_tts:
             output_format = """<output_instructions>
 <instruction>Your output will be used by TTS please avoid emojis, special characters or other un-pronounceable things.</instruction>
+<instruction>When outputting URLs, ensure they are absolute and do not contain any relative paths.</instruction>
+<instruction>URLs should be in markdown format.</instruction>
 </output_instructions>
 """
         else:
@@ -163,12 +166,16 @@ def do_tool_agent(
     system_prompt: str | None,
     image: str | None = None,
     max_iterations: int = 5,
+    chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
     use_tts: bool = False,
     debug: bool = True,
     verbose: bool = False,
     console: Console | None = None,
 ):
     """Tool agent"""
+
+    chat_history = chat_history or []
+
     if image:
         raise ValueError("Image not supported for tool agent")
 
@@ -225,6 +232,8 @@ def do_tool_agent(
         default_system_prompt += """
 <output_instructions>
 <instruction>Your output will be used by TTS please keep final answer concise and avoid emojis, special characters or other un-pronounceable things.</instruction>
+<instruction>When outputting URLs, ensure they are absolute and do not contain any relative paths.</instruction>
+<instruction>URLs should be in markdown format.</instruction>
 </output_instructions>
 """
 
@@ -238,6 +247,10 @@ def do_tool_agent(
 {module_text}
 
 {env_info}
+
+<chat_history>
+{chat_history}
+</chat_history>
 
 <user_input>
 {user_input}
@@ -261,7 +274,7 @@ def do_tool_agent(
         stream_runnable=False,  # type: ignore
         # early_stopping_method="generate",
     )
-    args = {"user_input": user_input, "module_text": module_text, "env_info": env_info}
+    args = {"user_input": user_input, "module_text": module_text, "env_info": env_info, "chat_history": chat_history}
     if debug:
         console.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
     result = agent_executor.invoke(args, config=llm_run_manager.get_runnable_config(chat_model.name))

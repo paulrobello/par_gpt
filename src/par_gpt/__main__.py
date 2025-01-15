@@ -8,7 +8,7 @@ import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated, Any, cast
 
 import clipman as clipboard
 import typer
@@ -378,7 +378,7 @@ def main(
         tts_man = TTSManger(tts_provider or TTSProvider.LOCAL, voice_name=tts_voice, console=console)
     voice_input_man: VoiceInputManager | None = None
     if voice_input:
-        voice_input_man = VoiceInputManager(verbose=debug or True)
+        voice_input_man = VoiceInputManager(wake_word="jenny", verbose=debug or True, sanity_check_sentence=False)
 
     if show_config:
         console.print(
@@ -693,6 +693,121 @@ def generate_prompt(
         raise typer.Exit(code=1)
 
 
+def build_ai_tool_list(
+    question: str, *, repl: bool = False, code_sandbox: bool = False, yes_to_all: bool = False
+) -> tuple[list[BaseTool], dict[str, Any]]:
+    ai_tools: list[BaseTool] = [
+        ai_open_url,
+        ai_fetch_url,
+        ai_display_image_in_terminal,
+        # ai_joke,
+    ]  # type: ignore
+    question_lower = question.lower()
+
+    if repl:
+        module_names = [
+            "os",
+            "sys",
+            "re",
+            "json",
+            "time",
+            "datetime",
+            "random",
+            "string",
+            "pathlib",
+            "requests",
+            "git",
+            "pandas",
+            "faker",
+            "numpy",
+            "matplotlib",
+            "bs4",
+            "html2text",
+            "pydantic",
+            "clipman",
+            "pyfiglet",
+            "rich",
+            # "rich.console",
+            "rich.panel",
+            "rich.markdown",
+            "rich.pretty",
+            "rich.table",
+            "rich.text",
+            "rich.color",
+        ]
+        local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
+
+        ai_tools.append(
+            ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
+        )
+    else:
+        local_modules = {}
+
+    if not repl and code_sandbox:
+        ai_tools.append(execute_code)
+
+    if "figlet" in question_lower:
+        ai_tools.append(ai_figlet)
+
+    if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
+        ai_tools.append(ai_youtube_search)
+    if "youtube" in question_lower:
+        ai_tools.append(ai_youtube_get_transcript)
+    if "git" in question_lower or "commit" in question_lower:
+        ai_tools.append(git_commit_tool)
+
+    # use TavilySearchResults with fallback to serper and google search if api keys are set
+    if os.environ.get("TAVILY_API_KEY"):
+        ai_tools.append(
+            TavilySearchResults(
+                max_results=3,
+                include_answer=True,
+                topic="news",  # type: ignore
+                name="tavily_news_results_json",
+                description="Search news and current events",
+            )
+        )
+        ai_tools.append(
+            TavilySearchResults(
+                max_results=3,
+                include_answer=True,
+                name="tavily_search_results_json",
+                description="General search for content not directly related to current events",
+            )
+        )
+    elif os.environ.get("SERPER_API_KEY"):
+        ai_tools.append(ai_serper_search)
+    elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
+        ai_tools.append(web_search)  # type: ignore
+
+    if os.environ.get("BRAVE_API_KEY"):
+        ai_tools.append(ai_brave_search)
+
+    if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
+        ai_tools.append(ai_reddit_search)
+
+    if "clipboard" in question_lower:
+        ai_tools.append(ai_copy_to_clipboard)
+        ai_tools.append(ai_copy_from_clipboard)
+    if "rss" in question_lower:
+        ai_tools.append(ai_fetch_rss)
+    if "hackernews" in question_lower:
+        ai_tools.append(ai_fetch_hacker_news)
+    if "window" in question_lower:
+        ai_tools.append(ai_list_visible_windows)
+
+    if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
+        ai_tools.append(ai_get_weather_current)
+        ai_tools.append(ai_get_weather_forecast)
+    if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
+        ai_tools.append(ai_github_list_repos)
+        ai_tools.append(ai_github_create_repo)
+        ai_tools.append(ai_github_publish_repo)
+
+    console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
+    return ai_tools, local_modules
+
+
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def agent(
     ctx: typer.Context,
@@ -752,9 +867,9 @@ def agent(
     if not state["user_prompt"] and len(ctx.args) > 0:
         state["user_prompt"] = ctx.args.pop(0)
 
-    question = state["user_prompt"] or state["context"]
+    question = state["user_prompt"] or state["context"] or ""
 
-    if not question:
+    if not question and not state["voice_input_man"]:
         console.print("[bold red]No context or user prompt provided. Exiting...")
         raise typer.Exit(1)
 
@@ -762,153 +877,80 @@ def agent(
         question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
 
     question = question.strip()
-    question_lower = question.lower()
     try:
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
 
-        ai_tools: list[BaseTool] = [
-            ai_open_url,
-            ai_fetch_url,
-            ai_display_image_in_terminal,
-            # ai_joke,
-        ]  # type: ignore
-
-        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"] or show_tool_calls) as cb:
-            if repl:
-                module_names = [
-                    "os",
-                    "sys",
-                    "re",
-                    "json",
-                    "time",
-                    "datetime",
-                    "random",
-                    "string",
-                    "pathlib",
-                    "requests",
-                    "git",
-                    "pandas",
-                    "faker",
-                    "numpy",
-                    "matplotlib",
-                    "bs4",
-                    "html2text",
-                    "pydantic",
-                    "clipman",
-                    "pyfiglet",
-                    "rich",
-                    # "rich.console",
-                    "rich.panel",
-                    "rich.markdown",
-                    "rich.pretty",
-                    "rich.table",
-                    "rich.text",
-                    "rich.color",
-                ]
-                local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
-
-                ai_tools.append(
-                    ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
-                )
+        with get_parai_callback(
+            show_end=state["debug"],
+            show_tool_calls=state["debug"] or show_tool_calls,
+            console=console,
+            show_pricing=state["pricing"],
+        ) as cb:
+            if state["voice_input_man"]:
+                chat_history = []
+                while True:
+                    prompt = state["voice_input_man"].get_text()
+                    if not prompt:
+                        continue
+                    if prompt.lower().strip() == "exit":
+                        break
+                    ai_tools, local_modules = build_ai_tool_list(
+                        question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
+                    )
+                    chat_history.append(("user", prompt))
+                    content, result = do_tool_agent(
+                        chat_model=chat_model,
+                        ai_tools=ai_tools,
+                        modules=list(local_modules.keys()),
+                        env_info=env_info,
+                        user_input=question,
+                        image=state["context"] if state["context_is_image"] else None,
+                        system_prompt=state["system_prompt"],
+                        max_iterations=max_iterations,
+                        debug=state["debug"],
+                        chat_history=chat_history,
+                        console=console,
+                        use_tts=state["tts"],
+                    )
+                    chat_history.append(("assistant", content))
+                    console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
+                    if state["tts_man"]:
+                        state["tts_man"].speak(content)
+                    show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
+                state["voice_input_man"].shutdown()
             else:
-                module_names = []
-
-            if not repl and code_sandbox:
-                ai_tools.append(execute_code)
-
-            if "figlet" in question_lower:
-                ai_tools.append(ai_figlet)
-
-            if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
-                ai_tools.append(ai_youtube_search)
-            if "youtube" in question_lower:
-                ai_tools.append(ai_youtube_get_transcript)
-            if "git" in question_lower or "commit" in question_lower:
-                ai_tools.append(git_commit_tool)
-
-            # use TavilySearchResults with fallback to serper and google search if api keys are set
-            if os.environ.get("TAVILY_API_KEY"):
-                ai_tools.append(
-                    TavilySearchResults(
-                        max_results=3,
-                        include_answer=True,
-                        topic="news",  # type: ignore
-                        name="tavily_news_results_json",
-                        description="Search news and current events",
-                    )
+                ai_tools, local_modules = build_ai_tool_list(
+                    question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
                 )
-                ai_tools.append(
-                    TavilySearchResults(
-                        max_results=3,
-                        include_answer=True,
-                        name="tavily_search_results_json",
-                        description="General search for content not directly related to current events",
-                    )
+                content, result = do_tool_agent(
+                    chat_model=chat_model,
+                    ai_tools=ai_tools,
+                    modules=list(local_modules.keys()),
+                    env_info=env_info,
+                    user_input=question,
+                    image=state["context"] if state["context_is_image"] else None,
+                    system_prompt=state["system_prompt"],
+                    max_iterations=max_iterations,
+                    debug=state["debug"],
+                    console=console,
+                    use_tts=state["tts"],
                 )
-            elif os.environ.get("SERPER_API_KEY"):
-                ai_tools.append(ai_serper_search)
-            elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
-                ai_tools.append(web_search)  # type: ignore
 
-            if os.environ.get("BRAVE_API_KEY"):
-                ai_tools.append(ai_brave_search)
+                if not sys.stdout.isatty():
+                    print(content)
 
-            if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
-                ai_tools.append(ai_reddit_search)
+                if state["copy_to_clipboard"]:
+                    clipboard.copy(content)
+                    console.print("[bold green]Copied to clipboard")
 
-            if "clipboard" in question_lower:
-                ai_tools.append(ai_copy_to_clipboard)
-                ai_tools.append(ai_copy_from_clipboard)
-            if "rss" in question_lower:
-                ai_tools.append(ai_fetch_rss)
-            if "hackernews" in question_lower:
-                ai_tools.append(ai_fetch_hacker_news)
-            if "window" in question_lower:
-                ai_tools.append(ai_list_visible_windows)
+                if state["debug"]:
+                    console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
-            if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
-                ai_tools.append(ai_get_weather_current)
-                ai_tools.append(ai_get_weather_forecast)
-            if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
-                ai_tools.append(ai_github_list_repos)
-                ai_tools.append(ai_github_create_repo)
-                ai_tools.append(ai_github_publish_repo)
-
-            console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
-
-            content, result = do_tool_agent(
-                chat_model=chat_model,
-                ai_tools=ai_tools,
-                modules=module_names,
-                env_info=env_info,
-                user_input=question,
-                image=state["context"] if state["context_is_image"] else None,
-                system_prompt=state["system_prompt"],
-                max_iterations=max_iterations,
-                debug=state["debug"],
-                console=console,
-                use_tts=state["tts"],
-            )
-
-            usage_metadata = cb.usage_metadata
-
-        if not sys.stdout.isatty():
-            print(content)
-
-        if state["copy_to_clipboard"]:
-            clipboard.copy(content)
-            console.print("[bold green]Copied to clipboard")
-
-        if state["debug"]:
-            console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
-
-        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
-
-        display_formatted_output(content, state["display_format"], console=console)
-        if state["tts_man"]:
-            state["tts_man"].speak(content)
+                display_formatted_output(content, state["display_format"], console=console)
+                if state["tts_man"]:
+                    state["tts_man"].speak(content)
 
     except Exception as e:
         console.print("[bold red]Error:")
@@ -1043,6 +1085,18 @@ def code_test(
     # img = capture_window_image_mac(app_name, None, ImageCaptureOutputType.BASE64)
 
     chat_model = state["llm_config"].build_chat_model()
+    chat_history = []
+    default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
+    output_format = """<output_instructions>
+    <instruction>Your output will be used by TTS please avoid emojis, special characters or other un-pronounceable things.</instruction>
+    </output_instructions>
+    """
+    chat_history.append(
+        (
+            "system",
+            (default_system_prompt).strip() + "\n" + output_format,
+        )
+    )
 
     with get_parai_callback(show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS):
         while state["voice_input_man"] is not None:
@@ -1051,15 +1105,19 @@ def code_test(
                 continue
             if prompt.lower().strip() == "exit":
                 break
+            chat_history.append(("user", prompt))
             content, result = do_single_llm_call(
                 chat_model=chat_model,
                 user_input=prompt,
                 image=None,
                 display_format=state["display_format"],
+                no_system_prompt=True,
+                chat_history=chat_history,
                 debug=state["debug"],
                 use_tts=state["tts"],
                 console=console,
             )
+            chat_history.append(("assistant", content))
             console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
             if state["tts_man"]:
                 state["tts_man"].speak(content)
