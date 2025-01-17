@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -38,10 +39,37 @@ from sandbox import ExecuteCommandResult
 
 
 @tool(parse_docstring=True)
+def ai_image_search(query: str, max_results: int = 10) -> list[str]:
+    """
+    Searches for images using Serper Google Images.
+
+    Args:
+        query: The search query.
+        max_results: The maximum number of images to return (default: 10).
+
+    Returns:
+        A list of Markdown Image URLs.
+    """
+    all_links = []
+    for result in serper_search(query, type="images", max_results=max_results, include_images=True, scrape=True):
+        content = result["raw_content"].replace("\n", "")
+
+        md_url_matcher = r"(!\[.*?\]\(https?://[^\s]+?\))"
+        image_matcher = r".+\.(png|gif|jpe?g)"
+
+        md_links = re.findall(md_url_matcher, content, re.IGNORECASE)
+        md_links = [link for link in md_links if re.match(image_matcher, link, re.IGNORECASE)]
+        all_links.extend(md_links)
+
+    return all_links
+
+
+@tool(parse_docstring=True)
 def ai_fetch_url(
     urls: list[str],
 ) -> list[str]:
-    """Fetches the content of one or more webpages and returns as markdown.
+    """
+    Fetches the content of one or more webpages and returns as markdown.
 
     Args:
         urls: 1 to 3 urls to download. No more than 3 urls will be downloaded.
@@ -54,7 +82,8 @@ def ai_fetch_url(
 
 @tool(parse_docstring=True)
 def ai_web_search(query: str) -> list[GoogleSearchResult]:
-    """Performs a Google web search.
+    """
+    Performs a Google web search.
 
     Args:
         query: The Google search query.
@@ -69,7 +98,8 @@ def ai_web_search(query: str) -> list[GoogleSearchResult]:
 def ai_reddit_search(
     query: str, subreddit: str = "all", max_comments: int = 0, max_results: int = 3
 ) -> list[dict[str, Any]]:
-    """Performs a Reddit search.
+    """
+    Performs a Reddit search.
 
     Args:
         query: The Google search query. The following list of single word queries can be used to fetch posts [hot, new, controversial]
@@ -85,7 +115,8 @@ def ai_reddit_search(
 
 @tool(parse_docstring=True)
 def ai_copy_to_clipboard(text: str) -> str:
-    """Copies text to the clipboard.
+    """
+    Copies text to the clipboard.
 
     Args:
         text: The text to copy to the clipboard.
@@ -100,7 +131,8 @@ def ai_copy_to_clipboard(text: str) -> str:
 
 @tool(parse_docstring=True)
 def ai_copy_from_clipboard() -> str:
-    """Copies text from the clipboard.
+    """
+    Copies text from the clipboard.
 
     Args:
 
@@ -146,7 +178,8 @@ def git_commit_tool(message_only: bool, files: list[str], context: str | None = 
 
 @tool(parse_docstring=True)
 def ai_open_url(url: str) -> str:
-    """Opens a URL in the default browser.
+    """
+    Opens a URL in the default browser.
 
     Args:
         url: The URL to open.
@@ -247,7 +280,8 @@ def ai_youtube_search(
 
 @tool(parse_docstring=True)
 def ai_brave_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[dict[str, Any]]:
-    """Search the web using Brave.
+    """
+    Search the web using Brave.
 
     Args:
         query (str): The search query to execute
@@ -266,11 +300,19 @@ def ai_brave_search(query: str, days: int = 0, max_results: int = 3, scrape: boo
 
 
 @tool(parse_docstring=True)
-def ai_serper_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[dict[str, Any]]:
-    """Search the web using Google Serper.
+def ai_serper_search(
+    query: str,
+    type: Literal["news", "search", "places", "images"] = "search",
+    days: int = 0,
+    max_results: int = 3,
+    scrape: bool = False,
+) -> list[dict[str, Any]]:
+    """
+    Search the web using Google Serper.
 
     Args:
         query (str): The search query to execute
+        type: Literal["news", "search", "places", "images"] = "search",
         days (int): Number of days to search (default is 0 meaning all time)
         max_results (int): Maximum number of results to return
         scrape (bool): Whether to scrape the search result urls (default is False)
@@ -283,7 +325,7 @@ def ai_serper_search(query: str, days: int = 0, max_results: int = 3, scrape: bo
             - raw_content (str): Full content of the page if available
     """
 
-    return serper_search(query, days=days, max_results=max_results, scrape=scrape)
+    return serper_search(query, type=type, days=days, max_results=max_results, scrape=scrape)
 
 
 # this tool is only used to test nested llm calls

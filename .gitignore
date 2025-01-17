@@ -80,3 +80,4 @@ __pypackages__/
 /src/par_gpt/lib/gh_utils.py
 **/.DS_Store
 *.log
+/src/par_gpt/voice_data/

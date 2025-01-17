@@ -1,3 +1,4 @@
+import logging
 import re
 from pathlib import Path
 
@@ -5,6 +6,7 @@ from dotenv import load_dotenv
 from par_ai_core.llm_config import LlmConfig, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider
 from par_ai_core.par_logging import console_err
+from par_ai_core.utils import timer_block
 from RealtimeSTT import AudioToTextRecorder
 from rich.console import Console
 
@@ -57,43 +59,46 @@ class VoiceInputManager:
         self.last_transcript = ""
 
     def init_recorder(self):
-        self.recorder = AudioToTextRecorder(
-            spinner=False,
-            # realtime_processing_pause=0.3,
-            post_speech_silence_duration=self.post_speech_silence_duration,
-            # post_speech_silence_duration=1.5,  # how long to wait after speech ends before processing
-            # compute_type="int8",
-            compute_type="float32",
-            model=self.model,
-            # model="tiny.en",  # VERY fast (.5s), but not accurate
-            # model="small.en",  # decent speed (1.5s), improved accuracy
-            # Beam size controls how many alternative transcription paths are explored
-            # Higher values = more accurate but slower, lower values = faster but less accurate
-            # beam_size=3,
-            # beam_size=5,
-            beam_size=8,
-            # Batch size controls how many audio chunks are processed together
-            # Higher values = faster processing but uses more memory, lower values = slower processing but uses less memory
-            # batch_size=25,
-            batch_size=self.batch_size,
-            # model="large-v3",  # very slow, but accurate
-            # model="distil-large-v3", # very slow (but faster than large-v3) but accurate
-            # realtime_model_type="tiny.en", # realtime models are used for the on_realtime_transcription_update() callback
-            # realtime_model_type="large-v3",
-            language="en",
-            print_transcription_time=self.verbose,
-            # enable_realtime_transcription=True,
-            # on_realtime_transcription_update=lambda text: print(
-            #     f"🎤 on_realtime_transcription_update(): {text}"
-            # ),
-            # on_realtime_transcription_stabilized=lambda text: print(
-            #     f"🎤 on_realtime_transcription_stabilized(): {text}"
-            # ),
-            # on_recorded_chunk=lambda chunk: print(f"🎤 on_recorded_chunk(): {chunk}"),
-            # on_transcription_start=lambda: print("🎤 on_transcription_start()"),
-            # on_recording_stop=lambda: print("🎤 on_transcription_stop()"),
-            # on_recording_start=lambda: print("🎤 on_recording_start()"),
-        )
+        self.console.print("🎤 Initializing audio recording system...")
+        with timer_block("🎤 Recording system initialization complete", console=self.console):
+            self.recorder = AudioToTextRecorder(
+                spinner=False,
+                # realtime_processing_pause=0.3,
+                post_speech_silence_duration=self.post_speech_silence_duration,
+                # post_speech_silence_duration=1.5,  # how long to wait after speech ends before processing
+                # compute_type="int8",
+                compute_type="float32",
+                model=self.model,
+                # model="tiny.en",  # VERY fast (.5s), but not accurate
+                # model="small.en",  # decent speed (1.5s), improved accuracy
+                # Beam size controls how many alternative transcription paths are explored
+                # Higher values = more accurate but slower, lower values = faster but less accurate
+                # beam_size=3,
+                # beam_size=5,
+                beam_size=8,
+                # Batch size controls how many audio chunks are processed together
+                # Higher values = faster processing but uses more memory, lower values = slower processing but uses less memory
+                # batch_size=25,
+                batch_size=self.batch_size,
+                # model="large-v3",  # very slow, but accurate
+                # model="distil-large-v3", # very slow (but faster than large-v3) but accurate
+                # realtime_model_type="tiny.en", # realtime models are used for the on_realtime_transcription_update() callback
+                # realtime_model_type="large-v3",
+                language="en",
+                print_transcription_time=self.verbose,
+                level=logging.ERROR,
+                # enable_realtime_transcription=True,
+                # on_realtime_transcription_update=lambda text: print(
+                #     f"🎤 on_realtime_transcription_update(): {text}"
+                # ),
+                # on_realtime_transcription_stabilized=lambda text: print(
+                #     f"🎤 on_realtime_transcription_stabilized(): {text}"
+                # ),
+                # on_recorded_chunk=lambda chunk: print(f"🎤 on_recorded_chunk(): {chunk}"),
+                # on_transcription_start=lambda: print("🎤 on_transcription_start()"),
+                # on_recording_stop=lambda: print("🎤 on_transcription_stop()"),
+                # on_recording_start=lambda: print("🎤 on_recording_start()"),
+            )
 
     def process_text(self, text: str) -> str:
         if not text:
@@ -144,9 +149,9 @@ class VoiceInputManager:
 
 if __name__ == "__main__":
     load_dotenv(Path("~/.par_gpt.env").expanduser())
-    console_err.print(is_complete_sentence("tell me about"))
-    console_err.print(is_complete_sentence("why is the sky blue?"))
-    console_err.print(is_complete_sentence("why is the sky blue? i wish i"))
+    # console_err.print(is_complete_sentence("tell me about"))
+    # console_err.print(is_complete_sentence("why is the sky blue?"))
+    # console_err.print(is_complete_sentence("why is the sky blue? i wish i"))
     # console_err.print(re.findall(rf"(?i)\b({assistant_name})\b(.*)", "GP what is the weather?"))
     # console_err.print(re.findall(rf"(?i)\b({assistant_name})\b(.*)", "GPT what is the weather?"))
     # console_err.print(re.findall(rf"(?i)\b({assistant_name})\b(.*)", "GPT, what is the weather?"))

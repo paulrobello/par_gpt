@@ -52,11 +52,12 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
+    ai_image_search,
     ai_list_visible_windows,
     ai_serper_search,
     execute_code,
 )
-from par_gpt.tts_manger import TTSManger, TTSProvider
+from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.voice_input_manger import VoiceInputManager
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
@@ -77,7 +78,7 @@ from .ai_tools.ai_tools import (
 from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .repo.repo import GitRepo
 from .utils import (
-    download_cache,
+    cache_manager,
     mk_env_context,
     show_image_in_terminal,
 )
@@ -244,7 +245,7 @@ def main(
         typer.Option(
             "--tts-provider",
             envvar=f"{__env_var_prefix__}_TTS_PROVIDER",
-            help="Provider to use for TTS. Defaults to local",
+            help="Provider to use for TTS. Defaults to kokoro",
         ),
     ] = None,
     tts_voice: Annotated[
@@ -323,7 +324,7 @@ def main(
             try:
                 image_type = try_get_image_type(context_location)
                 console.print(f"[bold green]Image type {image_type} detected.")
-                image_path = download_cache.download(context_location)
+                image_path = cache_manager.download(context_location)
                 context = image_to_base64(image_path.read_bytes(), image_type)
                 context_is_image = True
                 show_image_in_terminal(image_path)
@@ -372,10 +373,10 @@ def main(
     tts_man: TTSManger | None = None
     if tts:
         if tts_list_voices:
-            voices = TTSManger(tts_provider or TTSProvider.LOCAL, console=console).list_voices()
+            voices = TTSManger(tts_provider or TTSProvider.KOKORO, console=console).list_voices()
             console.print("\nAvailable voices:", voices)
             exit(0)
-        tts_man = TTSManger(tts_provider or TTSProvider.LOCAL, voice_name=tts_voice, console=console)
+        tts_man = TTSManger(tts_provider or TTSProvider.KOKORO, voice_name=tts_voice, console=console)
     voice_input_man: VoiceInputManager | None = None
     if voice_input:
         voice_input_man = VoiceInputManager(wake_word="jenny", verbose=debug or True, sanity_check_sentence=False)
@@ -779,9 +780,11 @@ def build_ai_tool_list(
         ai_tools.append(ai_serper_search)
     elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
         ai_tools.append(web_search)  # type: ignore
-
-    if os.environ.get("BRAVE_API_KEY"):
+    elif os.environ.get("BRAVE_API_KEY"):
         ai_tools.append(ai_brave_search)
+
+    if os.environ.get("SERPER_API_KEY"):
+        ai_tools.append(ai_image_search)
 
     if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
         ai_tools.append(ai_reddit_search)
@@ -900,6 +903,8 @@ def agent(
                         question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
                     )
                     chat_history.append(("user", prompt))
+                    if state["tts_man"]:
+                        state["tts_man"].speak("Working on it...")
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -917,7 +922,7 @@ def agent(
                     chat_history.append(("assistant", content))
                     console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
                     if state["tts_man"]:
-                        state["tts_man"].speak(content)
+                        state["tts_man"].speak(summarize_for_tts(content))
                     show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
                 state["voice_input_man"].shutdown()
             else:
@@ -950,7 +955,7 @@ def agent(
 
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
-                    state["tts_man"].speak(content)
+                    state["tts_man"].speak(summarize_for_tts(content))
 
     except Exception as e:
         console.print("[bold red]Error:")
@@ -1061,6 +1066,25 @@ def code_test(
 ) -> None:
     """Used for experiments. DO NOT RUN"""
     state = ctx.obj
+    img = Path("~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg").expanduser()
+    console_err.print(f"Displaying image: {img}", img.exists())
+    # show_image_in_terminal(img, "small", console=console)
+    show_image_in_terminal(img, "medium", console=console)
+    # show_image_in_terminal(img, "large", console=console)
+    # show_image_in_terminal(img, "auto", console=console)
+
+    # content = serper_search("axolotl", type="images", max_results=1, scrape=True, include_images=True)[0]["raw_content"].replace("\n", "")
+    # console_err.print(content)
+    # return
+    # md_url_matcher = r"(!\[.*?\]\(.*?\.(?:gif|jpg|jpeg|png|webp).*?\))"
+    # md_url_matcher = r'(!\[.*?\]\(https?://[^\s]+?\))'
+    # image_matcher = r".+\.(png|gif|jpe?g)"
+
+    # md_links = re.findall(md_url_matcher, content, re.IGNORECASE)
+    # md_links = [link for link in md_links if re.match(image_matcher, link, re.IGNORECASE)]
+    # console_err.print(md_links)
+    # console_err.print(fetch_url_and_convert_to_markdown("https://www.nationalgeographic.com/animals/amphibians/facts/axolotl", include_images=True))
+    return
     # from sandbox import SandboxRun
     #
     # runner = SandboxRun(
@@ -1120,7 +1144,7 @@ def code_test(
             chat_history.append(("assistant", content))
             console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
             if state["tts_man"]:
-                state["tts_man"].speak(content)
+                state["tts_man"].speak(summarize_for_tts(content))
         if state["voice_input_man"]:
             state["voice_input_man"].shutdown()
 

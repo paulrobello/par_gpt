@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import getpass
-import hashlib
 import io
 import os
 import platform
-import threading
+import sys
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
 
 import orjson as json
 import PIL.Image
@@ -21,119 +19,17 @@ import pyfiglet
 import requests
 from par_ai_core.llm_image_utils import image_to_base64
 from par_ai_core.par_logging import console_err
-from par_ai_core.user_agents import get_random_user_agent
+from PIL import Image
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich_pixels import Pixels
+from sixel import converter as sixel_converter
 from strenum import StrEnum
+from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
 
-# from sixel import converter
-# from textual_image.renderable.sixel import query_terminal_support
-from . import __application_binary__
+from par_gpt.cache_manger import cache_manager
 
-
-def get_url_file_suffix(url: str) -> str:
-    """
-    Get url file suffix
-
-    Args:
-        url (str): URL
-
-    Returns:
-        str: File suffix in lowercase with leading dot
-    """
-    parsed_url = urlparse(url)
-    filename = os.path.basename(parsed_url.path)
-    suffix = os.path.splitext(filename)[1].lower()
-    return suffix or ".jpg"
-
-
-class DownloadCache:
-    """Thread-safe download cache manager"""
-
-    def __init__(self, cache_dir: str | Path | None = None) -> None:
-        if not cache_dir:
-            cache_dir = Path(f"~/.{__application_binary__}/cache").expanduser()
-        self.cache_dir = Path(cache_dir)
-        self.lock = threading.Lock()
-
-        with self.lock:
-            if not self.cache_dir.exists():
-                self.cache_dir.mkdir(parents=True, exist_ok=True)
-
-    @staticmethod
-    def key_for_url(url: str) -> str:
-        """
-        Convert url to cache key
-
-        Args:
-            url (str): URL to compute cache key
-
-        Returns:
-            str: Cache key for url
-        """
-        return hashlib.sha1(url.encode()).hexdigest() + "." + get_url_file_suffix(url)
-
-    def get_path(self, url: str) -> Path:
-        """
-        Get path in cache for url
-
-        Args:
-            url (str): URL to compute cache key
-
-        Returns:
-            Path: Path in cache for url
-        """
-        return self.cache_dir / self.key_for_url(url)
-
-    def download(self, url: str, force: bool = False, timeout: int = 10) -> Path:
-        """
-        Return file from cache or download
-
-        Args:
-            url (str): URL
-            force (bool): Force download
-            timeout (int): Timeout in seconds for download
-
-        Returns:
-            Path: Path in cache for url
-
-        Raises:
-            requests.exceptions.RequestException: If download fails
-        """
-        path = self.get_path(url)
-
-        # Check cache first with lock
-        with self.lock:
-            if not force and path.exists():
-                return path
-
-        # Download if needed
-        response = requests.get(
-            url,
-            timeout=timeout,
-            allow_redirects=True,
-            headers={"User-Agent": get_random_user_agent()},
-        )
-        response.raise_for_status()
-
-        # Write to cache with lock
-        with self.lock:
-            path.write_bytes(response.content)
-            return path
-
-    def delete(self, url: str) -> None:
-        """
-        Delete from cache if exists
-
-        Args:
-            url (str): URL
-        """
-        with self.lock:
-            self.get_path(url).unlink(missing_ok=True)
-
-
-download_cache = DownloadCache()
+sixel_supported = sixel_query_terminal_support()
 
 
 def safe_abs_path(res):
@@ -184,71 +80,92 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
     return response.json()
 
 
-def show_image_in_terminal(image_path: str | Path, dimension: str = "auto", console: Console | None = None) -> str:
+def show_image_in_terminal(
+    image_path: str | Path, dimension: str = "auto", no_sixel: bool = False, console: Console | None = None
+) -> str:
     """
     Show image in terminal.
 
     Args:
         image_path (str): Image path or URL
         dimension (str, optional): Image dimension in format of WIDTHxHEIGHT, small, medium, large or auto.
-        console (Console, optional): Console. Defaults to None.
+        no_sixel (bool, optional): Disable use of sixel even if its supported. Defaults to False.
+        console (Console, optional): Console. Defaults to stderr.
 
     Returns:
         str: Status of the operation
+
+    Raises:
+        ValueError: If image_path not specified or invalid.
     """
     if not console:
         console = console_err
     if not image_path:
-        return "Image not found"
+        raise ValueError("Image path or URL is required")
+
     try:
-        image_path = str(image_path)
+        if not isinstance(image_path, str):
+            image_path = str(image_path)
         if image_path.startswith("//"):
             image_path = "https:" + image_path
         if image_path.startswith("http"):
-            image_path = download_cache.download(image_path)
+            image_path = cache_manager.download(image_path)
+
+        image_path = Path(image_path).expanduser()
+        if not image_path.exists():
+            return "Image not found"
 
         if dimension in ["auto", "small", "medium", "large"]:
-            width = console.width
-            height = console.height
+            if sixel_supported:
+                width = console.width * 8
+                height = console.height * 16
+            else:
+                width = console.width * 2
+                height = console.height * 2
             if dimension == "small":
-                width = width // 3
-                height = height // 3
+                width = round(width * 0.25)
+                height = round(height * 0.25)
             elif dimension == "medium":
-                width = width // 2
-                height = height // 2
+                width = round(width * 0.5)
+                height = round(height * 0.5)
             elif dimension == "large":
-                width = width * 2 - 2
-                height = height * 2 - 2
+                width = round(width * 0.75)
+                height = round(height * 0.75)
         else:
             if "x" in dimension:
                 width, height = (int(x) for x in dimension.split("x"))
             else:
                 width = height = int(dimension)
+        if not width or not height:
+            return "Invalid dimension"
 
-        # sixel_supported = query_terminal_support()
-        # if sixel_supported:
-        #     console.print(f"using image size {width} x {height}")
-        #     if dimension == "auto":
-        #         width = None
-        #         height = None
-        #     else:
-        #         r = width / height
-        #         width *= r
-        #         height *= r * 2
-        #         width = int(width)
-        #         height = int(height)
-        #     c = converter.SixelConverter(image_path, w=width, h=height, chromakey=True, alpha_threshold=0, fast=True)
-        #     if console.stderr:
-        #         c.write(sys.stderr)
-        #     else:
-        #         c.write(sys.stdout)
-        # else:
-        dim = width if width < height else height
-        pixels = Pixels.from_image_path(image_path, resize=(dim, dim))
+        image = Image.open(image_path)
+        w, h = image.size
+
+        width_scale = width / w
+        height_scale = height / h
+        scale = min(width_scale, height_scale)
+        new_image_width = round(w * scale)
+        new_image_height = round(h * scale)
+        # console.print(f"Image size {w} x {h} : Console {dimension}: {width} x {height} : {scale}")
+
+        if sixel_supported and not no_sixel:
+            c = sixel_converter.SixelConverter(
+                image_path, w=new_image_width, h=new_image_height, chromakey=True, alpha_threshold=0, fast=True
+            )
+            if console.stderr:
+                c.write(sys.__stderr__)
+            else:
+                c.write(sys.__stdout__)
+
+            return "Image shown in terminal"
+        pixels = Pixels.from_image(image, resize=(new_image_width, new_image_height - 2))
         console.print(pixels)
         return "Image shown in terminal"
     except Exception as e:
         console.print(e)
+        console.print_exception()
+
         return f"Error: {str(e)}"
 
 
@@ -712,3 +629,16 @@ def speak(text: str):
     # duration = time.time() - start_time
     # console_err.print(f"Model {model} completed tts in {duration:.2f} seconds")
     play(audio_bytes)
+
+
+if __name__ == "__main__":
+    sixel_supported = sixel_query_terminal_support()
+    if sixel_supported:
+        print("sixel supported")
+        c = sixel_converter.SixelConverter(
+            Path(
+                "~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg"
+            ).expanduser()  # , w=width, h=height, chromakey=True, alpha_threshold=0, fast=True
+        )
+
+        c.write(console_err.file)

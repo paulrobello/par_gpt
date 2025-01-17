@@ -14,6 +14,7 @@ warnings.simplefilter("ignore", category=LangChainBetaWarning)
 
 clipman.init()
 
+
 __author__ = "Paul Robello"
 __credits__ = ["Paul Robello"]
 __maintainer__ = "Paul Robello"

@@ -21,12 +21,10 @@ dependencies = [
     "prompt-toolkit>=3.0.48",
     "pydantic-core>=2.27.1",
     "pydantic>=2.10.3",
-    "pytesseract>=0.3.13",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "rich>=13.9.4",
     "orjson>=3.10.14",
-    "tabulate>=0.9.0",
     "typer>=0.15.1",
     "git-python>=1.0.3",
     "pathspec>=0.12.1",
@@ -39,7 +37,6 @@ dependencies = [
     "clipman>=3.3.1",
     "par-ai-core",
     "pyfiglet>=1.0.2",
-    "textual-image>=0.7.0",
     "sixel>=0.2.0",
     "feedparser>=6.0.11",
     "docker>=7.1.0",
@@ -53,6 +50,8 @@ dependencies = [
     "sounddevice>=0.5.1",
     "soundfile>=0.13.0",
     "realtimestt>=0.3.93",
+    "kokoro-onnx>=0.2.7",
+    "textual-image>=0.7.0",
 ]
 packages = ["src/par_gpt"]
 
@@ -89,6 +88,8 @@ include = [
     "**/*.png",
     "**/*.md",
     "**/*.tcss",
+    "**/*.onnx",
+    "**/*.json",
 ]
 
 [tool.hatch.build.targets.sdist]
