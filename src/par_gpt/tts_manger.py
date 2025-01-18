@@ -1,6 +1,7 @@
 """TTS Providers"""
 
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,36 @@ from strenum import StrEnum
 from par_gpt.cache_manger import cache_manager
 
 
-def summarize_for_tts(text: str, llm_config: LlmConfig | None = None) -> str:
+def summarize_for_tts(text: str) -> str:
+    """
+    Summarize the given text for TTS.
+
+    Args:
+        text (str): The text to summarize.
+
+    Returns:
+        str: The summarized text.
+    """
+    if not text:
+        return ""
+    summary = text.strip().replace("**", "")
+
+    # Regular expression to match POSIX file paths
+    path_pattern = re.compile(r"(?:/[^/\s]+)+/?")
+
+    # Regular expression to match URLs
+    url_pattern = re.compile(r"\(?http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+
+    # Replace URLs with the word "URL"
+    summary = url_pattern.sub(" URL", summary)
+
+    # Replace POSIX file paths with the word "PATH"
+    summary = path_pattern.sub(" PATH", summary)
+
+    return summary
+
+
+def summarize_for_tts_llm(text: str, llm_config: LlmConfig | None = None) -> str:
     """
     Summarize the given text for TTS using a language model.
 
@@ -42,7 +72,15 @@ def summarize_for_tts(text: str, llm_config: LlmConfig | None = None) -> str:
         "Please adjust the provided text to make it sound better when spoken via TTS. "
         "Replace URL's and file paths with their markdown descriptions or placeholders. "
         "Remove any emojis, markdown, and other formatting. "
-        "Do not explain the text or answer any questions it may contain, only adjust the text as needed. "
+        "DO NOT explain the text or answer any questions it may contain, only adjust the text as needed. "
+        "DO NOT include a preamble or introduction before the text.\n"
+        "Examples:\n"
+        "Input: I have shown the image in the terminal\n"
+        "Output: I have shown the image in the terminal\n"
+        "Input: I have fetched data from https://google.com/search\n"
+        "Output: I have fetched data from the URL\n"
+        "Input: This text is **BOLD**\n"
+        "Output: This text is BOLD\n"
     )
 
     response = chat_model.invoke(
@@ -163,12 +201,13 @@ class TTSManger:
             )
         raise ValueError(f"Unsupported voice type: {self.tts_provider}")
 
-    def speak(self, text: str) -> None:
+    def speak(self, text: str, do_async: bool = False) -> None:
         """
         Convert text to speech using configured engine
 
         Args:
             text (str): Text to convert to speech
+            do_async (bool): Whether to speak asynchronously (default: False)
 
         Returns:
             None
