@@ -44,6 +44,7 @@ from rich.pretty import Pretty
 from rich.prompt import Prompt
 from rich.text import Text
 
+from par_gpt.agent_messages import get_random_message
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
     ai_fetch_hacker_news,
@@ -904,7 +905,7 @@ def agent(
                     )
                     chat_history.append(("user", prompt))
                     if state["tts_man"]:
-                        state["tts_man"].speak("Working on it...")
+                        state["tts_man"].speak(get_random_message(), do_async=True)
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -926,6 +927,9 @@ def agent(
                     show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
                 state["voice_input_man"].shutdown()
             else:
+                if state["tts_man"]:
+                    state["tts_man"].speak(get_random_message(), do_async=True)
+
                 ai_tools, local_modules = build_ai_tool_list(
                     question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
                 )
@@ -1066,10 +1070,17 @@ def code_test(
 ) -> None:
     """Used for experiments. DO NOT RUN"""
     state = ctx.obj
-    img = Path("~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg").expanduser()
-    console_err.print(f"Displaying image: {img}", img.exists())
+    content = """OpenAI has been involved in various partnerships, including an exclusive license of GPT-3 to Microsoft. There are also discussions
+ about potential legal actions by investors due to leadership changes.\n\nFor more detailed information, you can visit OpenAI\'s official website at
+ [OpenAI](https://openai.com/) or check their Wikipedia page for historical context."""
+
+    # console.print(content)
+    console.print(summarize_for_tts(content))
+
+    # img = Path("~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg").expanduser()
+    # console_err.print(f"Displaying image: {img}", img.exists())
     # show_image_in_terminal(img, "small", console=console)
-    show_image_in_terminal(img, "medium", console=console)
+    # show_image_in_terminal(img, "medium", console=console)
     # show_image_in_terminal(img, "large", console=console)
     # show_image_in_terminal(img, "auto", console=console)
 
