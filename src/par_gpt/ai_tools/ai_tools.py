@@ -621,7 +621,7 @@ def execute_code(code: str) -> ExecuteCommandResult:
     Do not assume the output is shown to the user, you must use or show it to the user in the desired format.
 
     Args:
-        code (str): The python code to execute.
+        code (str): The python code to execute. Should NOT be JSON encoded and newlines should not be escaped.
 
     Returns:
         ExecuteCommandResult which will contain the exit code, stdout, and stderr of the executed code.
