@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 import clipman as clipboard
+import orjson as json
 import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
@@ -43,6 +44,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.prompt import Prompt
 from rich.text import Text
+from strenum import StrEnum
 
 from par_gpt.agent_messages import get_random_message
 from par_gpt.ai_tools.ai_tools import (
@@ -89,6 +91,13 @@ console = console_err
 
 
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
+
+
+class LoopMode(StrEnum):
+    """Loop mode options."""
+
+    ONE_SHOT = "one_shot"
+    INFINITE = "infinite"
 
 
 def version_callback(value: bool) -> None:
@@ -271,13 +280,28 @@ def main(
             help="Use voice input.",
         ),
     ] = False,
+    chat_history: Annotated[
+        str | None,
+        typer.Option(
+            "--chat-history",
+            help="Save and or resume chat history from file",
+        ),
+    ] = None,
+    loop_mode: Annotated[
+        LoopMode,
+        typer.Option(
+            "--loop-mode",
+            "-L",
+            help="One shot or infinite mode",
+        ),
+    ] = LoopMode.ONE_SHOT,
     version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
     ] = None,
 ):
     """
-    PAR GPT
+    PAR GPT Global Options
     """
     # console.print(Pretty(ctx.invoked_subcommand))
     if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
@@ -382,6 +406,13 @@ def main(
     if voice_input:
         voice_input_man = VoiceInputManager(wake_word="jenny", verbose=debug or True, sanity_check_sentence=False)
 
+    history_file: Path | None = None
+    if chat_history:
+        if chat_history[0] in [".", "/"]:
+            history_file = Path(chat_history)
+        else:
+            history_file = (Path(".") / chat_history).resolve()
+
     if show_config:
         console.print(
             Panel.fit(
@@ -418,6 +449,12 @@ def main(
                     "\n",
                     ("Context Is Image: ", "cyan"),
                     (f"{context_is_image}", "green"),
+                    "\n",
+                    ("Loop Mode: ", "cyan"),
+                    (f"{loop_mode}", "green"),
+                    "\n",
+                    ("Chat History: ", "cyan"),
+                    (f"{history_file or 'None'}", "green"),
                     "\n",
                     ("TTS: ", "cyan"),
                     (f"{tts}", "green"),
@@ -462,6 +499,8 @@ def main(
         "show_config": show_config,
         "context": context,
         "context_is_image": context_is_image,
+        "loop_mode": loop_mode,
+        "history_file": history_file,
         "tts": tts,
         "tts_provider": tts_provider,
         "tts_voice": tts_voice,
@@ -496,50 +535,68 @@ def llm(
 
     question = state["user_prompt"] or state["context"]
 
-    if not question:
-        console.print("[bold red]No context or user prompt provided. Exiting...")
-        raise typer.Exit(1)
+    chat_history = []
+    history_file: Path | None = state["history_file"]
+    if history_file and history_file.is_file():
+        chat_history = json.loads(history_file.read_bytes() or "[]")
+        console.print("Loaded chat history from:", history_file)
+        if chat_history and chat_history[0][0] == "system":
+            if state["system_prompt"]:
+                chat_history[0][1] = state["system_prompt"]
 
     if state["user_prompt"] and state["context"] and not state["context_is_image"]:
         question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
-
-    question = question.strip()
 
     try:
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
-        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
-            content, result = do_single_llm_call(
-                chat_model=chat_model,
-                user_input=question,
-                system_prompt=state["system_prompt"],
-                no_system_prompt=chat_model.name is not None and chat_model.name.startswith("o1"),
-                env_info=env_info,
-                image=state["context"] if state["context_is_image"] else None,
-                display_format=state["display_format"],
-                debug=state["debug"],
-                console=console,
-                use_tts=state["tts"],
-            )
+        with get_parai_callback(
+            show_end=state["debug"], show_tool_calls=state["debug"], show_pricing=state["pricing"]
+        ) as cb:
+            while True:
+                while not question:
+                    question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
+                    if question.lower() == "exit":
+                        return
 
-            usage_metadata = cb.usage_metadata
+                content, result = do_single_llm_call(
+                    chat_model=chat_model,
+                    user_input=question,
+                    system_prompt=state["system_prompt"],
+                    no_system_prompt=(chat_model.name is not None and chat_model.name.startswith("o1"))
+                    or (len(chat_history) > 0 and chat_history[0][0] == "system"),
+                    env_info=env_info,
+                    image=state["context"] if state["context_is_image"] else None,
+                    display_format=state["display_format"],
+                    debug=state["debug"],
+                    console=console,
+                    use_tts=state["tts"],
+                    chat_history=chat_history,
+                )
+                question = ""
+                chat_history.append(("assistant", content))
+                if history_file:
+                    history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
 
-        if not sys.stdout.isatty():
-            print(content)
+                if not sys.stdout.isatty():
+                    print(content)
 
-        if state["copy_to_clipboard"]:
-            clipboard.copy(content)
-            console.print("[bold green]Copied to clipboard")
+                if state["copy_to_clipboard"]:
+                    clipboard.copy(content)
+                    console.print("[bold green]Copied to clipboard")
 
-        if state["debug"]:
-            console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+                if state["debug"]:
+                    console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
-        show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+                display_formatted_output(content, state["display_format"], console=console)
+                if state["tts_man"]:
+                    state["tts_man"].speak(content)
 
-        display_formatted_output(content, state["display_format"], console=console)
-        if state["tts_man"]:
-            state["tts_man"].speak(content)
+                if state["loop_mode"] != LoopMode.INFINITE:
+                    break
+                if state["loop_mode"] == LoopMode.INFINITE:
+                    show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
 
     except Exception as e:
         console.print("[bold red]Error:")
@@ -871,11 +928,16 @@ def agent(
     if not state["user_prompt"] and len(ctx.args) > 0:
         state["user_prompt"] = ctx.args.pop(0)
 
-    question = state["user_prompt"] or state["context"] or ""
+    chat_history = []
+    history_file: Path | None = state["history_file"]
+    if history_file and history_file.is_file():
+        chat_history = json.loads(history_file.read_bytes() or "[]")
+        console.print("Loaded chat history from:", history_file)
+        if chat_history and chat_history[0][0] == "system":
+            if state["system_prompt"]:
+                chat_history[0][0] = state["system_prompt"]
 
-    if not question and not state["voice_input_man"]:
-        console.print("[bold red]No context or user prompt provided. Exiting...")
-        raise typer.Exit(1)
+    question = state["user_prompt"] or state["context"] or ""
 
     if state["user_prompt"] and state["context"] and not state["context_is_image"]:
         question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
@@ -892,18 +954,16 @@ def agent(
             console=console,
             show_pricing=state["pricing"],
         ) as cb:
-            if state["voice_input_man"]:
-                chat_history = []
-                while True:
-                    prompt = state["voice_input_man"].get_text()
-                    if not prompt:
+            while True:
+                if state["voice_input_man"]:
+                    question = state["voice_input_man"].get_text()
+                    if not question:
                         continue
-                    if prompt.lower().strip() == "exit":
-                        break
+                    if question.lower() == "exit":
+                        return
                     ai_tools, local_modules = build_ai_tool_list(
                         question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
                     )
-                    chat_history.append(("user", prompt))
                     if state["tts_man"]:
                         state["tts_man"].speak(get_random_message(), do_async=True)
                     content, result = do_tool_agent(
@@ -920,39 +980,43 @@ def agent(
                         console=console,
                         use_tts=state["tts"],
                     )
-                    chat_history.append(("assistant", content))
-                    console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
+                else:
+                    while not question:
+                        question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
+                        if question.lower() == "exit":
+                            return
+
+                    ai_tools, local_modules = build_ai_tool_list(
+                        question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
+                    )
+
                     if state["tts_man"]:
-                        state["tts_man"].speak(summarize_for_tts(content))
-                    show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
-                state["voice_input_man"].shutdown()
-            else:
-                if state["tts_man"]:
-                    state["tts_man"].speak(get_random_message(), do_async=True)
+                        state["tts_man"].speak(get_random_message(), do_async=True)
+                    content, result = do_tool_agent(
+                        chat_model=chat_model,
+                        ai_tools=ai_tools,
+                        modules=list(local_modules.keys()),
+                        env_info=env_info,
+                        user_input=question,
+                        image=state["context"] if state["context_is_image"] else None,
+                        system_prompt=state["system_prompt"],
+                        max_iterations=max_iterations,
+                        debug=state["debug"],
+                        chat_history=chat_history,
+                        console=console,
+                        use_tts=state["tts"],
+                    )
+                    question = ""
 
-                ai_tools, local_modules = build_ai_tool_list(
-                    question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
-                )
-                content, result = do_tool_agent(
-                    chat_model=chat_model,
-                    ai_tools=ai_tools,
-                    modules=list(local_modules.keys()),
-                    env_info=env_info,
-                    user_input=question,
-                    image=state["context"] if state["context_is_image"] else None,
-                    system_prompt=state["system_prompt"],
-                    max_iterations=max_iterations,
-                    debug=state["debug"],
-                    console=console,
-                    use_tts=state["tts"],
-                )
+                    if not sys.stdout.isatty():
+                        print(content)
 
-                if not sys.stdout.isatty():
-                    print(content)
+                    if state["copy_to_clipboard"]:
+                        clipboard.copy(content)
+                        console.print("[bold green]Copied to clipboard")
 
-                if state["copy_to_clipboard"]:
-                    clipboard.copy(content)
-                    console.print("[bold green]Copied to clipboard")
+                if history_file:
+                    history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
 
                 if state["debug"]:
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
@@ -961,10 +1025,19 @@ def agent(
                 if state["tts_man"]:
                     state["tts_man"].speak(summarize_for_tts(content))
 
+                if not state["voice_input_man"] and state["loop_mode"] != LoopMode.INFINITE:
+                    break
+
+                if state["loop_mode"] == LoopMode.INFINITE:
+                    show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
+
     except Exception as e:
         console.print("[bold red]Error:")
         console.print(str(e), markup=False)
         raise typer.Exit(code=1)
+    finally:
+        if state["voice_input_man"]:
+            state["voice_input_man"].shutdown()
 
 
 # @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

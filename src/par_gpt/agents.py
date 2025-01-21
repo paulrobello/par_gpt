@@ -46,7 +46,8 @@ def do_single_llm_call(
     if not console:
         console = console_err
 
-    chat_history = chat_history or []
+    if chat_history is None:
+        chat_history = []
     default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
 
     if not no_system_prompt:
@@ -59,11 +60,14 @@ def do_single_llm_call(
 """
         else:
             output_format = get_output_format_prompt(display_format)
-        chat_history.append(
+        if chat_history and chat_history[0][0] == "system":
+            chat_history.pop(0)
+        chat_history.insert(
+            0,
             (
                 "system",
                 (system_prompt or default_system_prompt).strip() + "\n" + output_format,
-            )
+            ),
         )
         if env_info:
             chat_history.append(("user", env_info))
@@ -174,13 +178,15 @@ def do_tool_agent(
 ):
     """Tool agent"""
 
-    chat_history = chat_history or []
-
     if image:
         raise ValueError("Image not supported for tool agent")
 
     if not console:
         console = console_err
+
+    if chat_history is None:
+        chat_history = []
+    chat_history.append(("user", user_input))
 
     has_repl = False
     for tool in ai_tools:
@@ -278,13 +284,12 @@ def do_tool_agent(
     if debug:
         console.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
     result = agent_executor.invoke(args, config=llm_run_manager.get_runnable_config(chat_model.name))
-    # if debug:
-    #     io.print(Panel.fit(Pretty(result), title="GPT Response))
     if isinstance(result["output"], str):
         content = result["output"]
     else:
         content = result["output"][0]["text"]
     content = content.replace("```markdown", "").replace("```", "").strip()
+    chat_history.append(("assistant", content))
     return content, result
 
 
