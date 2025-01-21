@@ -81,3 +81,4 @@ __pypackages__/
 **/.DS_Store
 *.log
 /src/par_gpt/voice_data/
+**/*chat.json
