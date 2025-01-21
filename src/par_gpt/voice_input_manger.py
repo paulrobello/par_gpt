@@ -138,7 +138,7 @@ class VoiceInputManager:
         while self.recorder is not None:
             self.last_transcript = self.process_text(self.recorder.text() or "")
             if self.last_transcript:
-                return self.last_transcript
+                return self.last_transcript.strip()
 
         return ""
 
