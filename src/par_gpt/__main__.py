@@ -284,6 +284,7 @@ def main(
         str | None,
         typer.Option(
             "--chat-history",
+            envvar=f"{__env_var_prefix__}_CHAT_HISTORY",
             help="Save and or resume chat history from file",
         ),
     ] = None,
@@ -292,6 +293,7 @@ def main(
         typer.Option(
             "--loop-mode",
             "-L",
+            envvar=f"{__env_var_prefix__}_LOOP_MODE",
             help="One shot or infinite mode",
         ),
     ] = LoopMode.ONE_SHOT,
