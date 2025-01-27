@@ -128,6 +128,7 @@ par_gpt [OPTIONS]
 --ai-provider          -a      [Ollama|LlamaCpp|OpenAI|Groq|XAI|  
                                 Anthropic|Google|Bedrock|Github|Mistral]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: OpenAI]
 --model                -m      TEXT                                       AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--fallback-models      -b      TEXT                                       Fallback models to use if the specified model is not available.
 --light-model          -l                                                 Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
 --ai-base-url          -b      TEXT                                       Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
 --temperature          -t      FLOAT                                      Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]

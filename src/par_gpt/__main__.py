@@ -125,6 +125,15 @@ def main(
             help="AI model to use for processing. If not specified, a default model will be used.",
         ),
     ] = None,
+    fallback_models: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--fallback-models",
+            "-b",
+            envvar=f"{__env_var_prefix__}_FALLBACK_MODELS",
+            help="Fallback models to use if the specified model is not available.",
+        ),
+    ] = None,
     light_model: Annotated[
         bool,
         typer.Option(
@@ -390,6 +399,7 @@ def main(
     llm_config = LlmConfig(
         provider=ai_provider,
         model_name=model,
+        fallback_models=fallback_models,
         temperature=temperature,
         base_url=ai_base_url,
         streaming=False,
@@ -428,7 +438,13 @@ def main(
                     ("Model: ", "cyan"),
                     (f"{model}", "green"),
                     "\n",
+                    ("Fallback Models: ", "cyan"),
+                    (f"{fallback_models}", "green"),
+                    "\n",
+                    ("Max Context Size: ", "cyan"),
+                    (f"{max_context_size}", "green"),
                     ("AI Provider Base URL: ", "cyan"),
+                    "\n",
                     (f"{ai_base_url or 'default'}", "green"),
                     "\n",
                     ("Temperature: ", "cyan"),
@@ -483,6 +499,8 @@ def main(
         "debug": debug,
         "ai_provider": ai_provider,
         "model": model,
+        "fallback_models": fallback_models,
+        "light_model": light_model,
         "ai_base_url": ai_base_url,
         "pricing": pricing,
         "is_sixel_supported": False,  # query_terminal_support(),
