@@ -208,7 +208,8 @@ def do_tool_agent(
 <instructions>
     <instruction>Think through all the steps needed to answer the question and make a plan before using tools.</instruction>
     <instruction>Answer the users question, try to be concise and brief unless the user requests otherwise.</instruction>
-    <instruction>If an output_instructions section is present follow its instructions</instruction>
+    <instruction>If you need more information or clarification from the user use the `user_prompt` tool.</<instruction>
+    <instruction>If an output_instructions section is present follow its instructions.</instruction>
     <instruction>If a tool returns an error message asking you to stop, do not make any additional requests and use the error message as the final answer.</instruction>
     <instruction>Use tools and the extra_context section to help answer the question.</instruction>
     <instruction>If a tool states its output should be returned directly to user ensure you return it directly to the use without modifications.</instruction>

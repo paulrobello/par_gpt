@@ -22,6 +22,7 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.text import Text
 
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
@@ -651,11 +652,6 @@ def execute_code(code: str) -> ExecuteCommandResult:
         return ExecuteCommandResult(exit_code=1, stdout="", stderr=f"Error: {str(e)}")
 
 
-if __name__ == "__main__":
-    figlet_horizontal("PAR GPT", font="3d-ascii")
-    figlet_vertical("PAR GPT", font="3d-ascii")
-
-
 @tool(parse_docstring=True)
 def ai_list_visible_windows() -> list[VisibleWindow]:
     """
@@ -665,3 +661,24 @@ def ai_list_visible_windows() -> list[VisibleWindow]:
         list[VisibleWindow]: A list of visible windows on the user's screen.
     """
     return list_visible_windows_mac()
+
+
+@tool(parse_docstring=True)
+def user_prompt(prompt: str, default_value: str | None = None, choices: list[str] | None = None) -> str:
+    """
+    Prompt the user for input with a customizable prompt message, and optional default value choices.
+
+    Args:
+        prompt (str): The prompt message to display to the user.
+        default_value (str | None): The default value to use if the user enters nothing.
+        choices (list[str] | None): A list of choices to present to the user. If provided, the user will be asked to select one of the choices.
+
+    Returns:
+        str: The user's input.
+    """
+    return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
+
+
+if __name__ == "__main__":
+    figlet_horizontal("PAR GPT", font="3d-ascii")
+    figlet_vertical("PAR GPT", font="3d-ascii")

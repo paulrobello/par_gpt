@@ -59,6 +59,7 @@ from par_gpt.ai_tools.ai_tools import (
     ai_list_visible_windows,
     ai_serper_search,
     execute_code,
+    user_prompt,
 )
 from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.voice_input_manger import VoiceInputManager
@@ -443,6 +444,7 @@ def main(
                     "\n",
                     ("Max Context Size: ", "cyan"),
                     (f"{max_context_size}", "green"),
+                    "\n",
                     ("AI Provider Base URL: ", "cyan"),
                     "\n",
                     (f"{ai_base_url or 'default'}", "green"),
@@ -776,6 +778,7 @@ def build_ai_tool_list(
     question: str, *, repl: bool = False, code_sandbox: bool = False, yes_to_all: bool = False
 ) -> tuple[list[BaseTool], dict[str, Any]]:
     ai_tools: list[BaseTool] = [
+        user_prompt,
         ai_open_url,
         ai_fetch_url,
         ai_display_image_in_terminal,
