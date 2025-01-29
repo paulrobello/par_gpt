@@ -55,6 +55,7 @@ from par_gpt.ai_tools.ai_tools import (
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
+    ai_image_gen_dali,
     ai_image_search,
     ai_list_visible_windows,
     ai_serper_search,
@@ -879,6 +880,8 @@ def build_ai_tool_list(
         ai_tools.append(ai_fetch_hacker_news)
     if "window" in question_lower:
         ai_tools.append(ai_list_visible_windows)
+    if "image" in question_lower:
+        ai_tools.append(ai_image_gen_dali)
 
     if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
         ai_tools.append(ai_get_weather_current)

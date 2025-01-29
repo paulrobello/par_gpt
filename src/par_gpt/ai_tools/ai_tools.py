@@ -33,6 +33,7 @@ from par_gpt.utils import (
     figlet_vertical,
     get_weather_current,
     get_weather_forecast,
+    image_gen_dali,
     list_visible_windows_mac,
     show_image_in_terminal,
 )
@@ -123,11 +124,14 @@ def ai_copy_to_clipboard(text: str) -> str:
         text: The text to copy to the clipboard.
 
     Returns:
-        "Text copied to clipboard"
+        "Text copied to clipboard" or error message "Error accessing clipboard".
     """
-
-    clipboard.copy(text)
-    return "Text copied to clipboard"
+    try:
+        clipboard.copy(text)
+        return "Text copied to clipboard"
+    except Exception as e:
+        console_err.print(f"Error copying to clipboard: {str(e)}")
+        return "Error accessing clipboard"
 
 
 @tool(parse_docstring=True)
@@ -138,10 +142,13 @@ def ai_copy_from_clipboard() -> str:
     Args:
 
     Returns:
-        Any text that was copied from the clipboard.
+        Any text that was copied from the clipboard or an error message "Error accessing clipboard".
     """
-
-    return clipboard.paste() or ""
+    try:
+        return clipboard.paste() or ""
+    except Exception as e:
+        console_err.print(f"Error accessing clipboard: {str(e)}")
+        return "Error accessing clipboard"
 
 
 @tool(parse_docstring=True)
@@ -682,3 +689,26 @@ def user_prompt(prompt: str, default_value: str | None = None, choices: list[str
 if __name__ == "__main__":
     figlet_horizontal("PAR GPT", font="3d-ascii")
     figlet_vertical("PAR GPT", font="3d-ascii")
+
+
+@tool(parse_docstring=True)
+def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
+    """
+    Generate an image using DALI-3 based on the given prompt.
+    Ensure you return the path to the generated image to the user.
+
+    Args:
+        prompt (str): The prompt to use for generating the image (max 1000 chars).
+        display (bool): Whether to display the generated image in the terminal (default: True).
+
+    Returns:
+        str: The path to the generated image. This should be shown to the user.
+    """
+    image_path = image_gen_dali(
+        prompt,
+        # upgrade_prompt=LlmConfig(LlmProvider.OPENAI, model_name="gpt-4o-mini", temperature=0.9),
+    )
+    if display:
+        show_image_in_terminal(image_path)
+
+    return image_path.as_posix()

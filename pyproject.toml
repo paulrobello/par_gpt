@@ -1,9 +1,32 @@
 [project]
 name = "par_gpt"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Par Gpt"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Paul Robello", email = "probello@gmail.com" }]
+maintainers = [{ name = "Paul Robello", email = "probello@gmail.com" }]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Other Audience",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed"
+]
+keywords = ["ai", "langchain", "openai", "anthropic", "ollama", "llamacpp", "cli", "llm"]
+
 dependencies = [
     "asyncio>=3.4.3",
     "beautifulsoup4>=4.12.3",
@@ -54,6 +77,14 @@ dependencies = [
     "textual-image>=0.7.0",
 ]
 packages = ["src/par_gpt"]
+
+[project.urls]
+Homepage = "https://github.com/paulrobello/par_gpt"
+Documentation = "https://github.com/paulrobello/par_gpt/blob/main/README.md"
+Repository = "https://github.com/paulrobello/par_gpt"
+Issues = "https://github.com/paulrobello/par_gpt/issues"
+Discussions = "https://github.com/paulrobello/par_gpt/discussions"
+Wiki = "https://github.com/paulrobello/par_gpt/wiki"
 
 [project.scripts]
 par_gpt = "par_gpt.__main__:app"

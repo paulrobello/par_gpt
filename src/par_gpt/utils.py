@@ -17,7 +17,9 @@ import orjson as json
 import PIL.Image
 import pyfiglet
 import requests
+from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import image_to_base64
+from par_ai_core.llm_providers import LlmProvider
 from par_ai_core.par_logging import console_err
 from PIL import Image
 from pydantic import BaseModel, Field
@@ -631,14 +633,50 @@ def speak(text: str):
     play(audio_bytes)
 
 
-if __name__ == "__main__":
-    sixel_supported = sixel_query_terminal_support()
-    if sixel_supported:
-        print("sixel supported")
-        c = sixel_converter.SixelConverter(
-            Path(
-                "~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg"
-            ).expanduser()  # , w=width, h=height, chromakey=True, alpha_threshold=0, fast=True
-        )
+def image_gen_dali(
+    prompt: str, model_name: Literal["dall-e-2", "dall-e-3"] = "dall-e-3", upgrade_prompt: LlmConfig | None = None
+) -> Path:
+    from langchain_community.utilities.dalle_image_generator import DallEAPIWrapper
 
-        c.write(console_err.file)
+    if upgrade_prompt:
+        chat = upgrade_prompt.build_chat_model()
+        prompt = str(
+            chat.invoke(
+                [
+                    (
+                        "system",
+                        "Generate a detailed prompt under 800 chars in order to generate an image based on the users description. Only return the updated prompt. Do not include any intro or explanation.",
+                    ),
+                    ("user", prompt),
+                ]
+            ).content
+        )
+        console_err.print(prompt)
+    img_gen = DallEAPIWrapper()
+    img_gen.model_name = model_name
+    image_url = img_gen.run(prompt)
+    return cache_manager.download(image_url)
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv(Path("~/.par_gpt.env").expanduser())
+
+    image_path = image_gen_dali(
+        "Describe a massive bloom of neon glowing jellyfish",
+        upgrade_prompt=LlmConfig(LlmProvider.OPENAI, model_name="gpt-4o-mini", temperature=0.9),
+    )
+    console_err.print(image_path)
+    show_image_in_terminal(image_path)
+
+    # sixel_supported = sixel_query_terminal_support()
+    # if sixel_supported:
+    #     print("sixel supported")
+    #     c = sixel_converter.SixelConverter(
+    #         Path(
+    #             "~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg"
+    #         ).expanduser()  # , w=width, h=height, chromakey=True, alpha_threshold=0, fast=True
+    #     )
+    #
+    #     c.write(console_err.file)
