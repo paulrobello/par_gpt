@@ -186,7 +186,6 @@ def do_tool_agent(
 
     if chat_history is None:
         chat_history = []
-    chat_history.append(("user", user_input))
 
     has_repl = False
     for tool in ai_tools:
@@ -271,6 +270,9 @@ def do_tool_agent(
     if "{agent_scratchpad}" not in prompt:
         prompt += "\n<agent_scratchpad>\n{agent_scratchpad}\n</agent_scratchpad>\n"
     prompt_template = ChatPromptTemplate.from_template(prompt)
+
+    chat_history.append(("user", user_input))
+
     agent = create_tool_calling_agent(chat_model, ai_tools, prompt_template)
     agent_executor = AgentExecutor(
         agent=agent,
