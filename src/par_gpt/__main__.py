@@ -49,6 +49,7 @@ from strenum import StrEnum
 from par_gpt.agent_messages import get_random_message
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
+    ai_capture_window_image,
     ai_fetch_hacker_news,
     ai_fetch_rss,
     ai_figlet,
@@ -84,6 +85,7 @@ from .ai_tools.par_python_repl import ParPythonAstREPLTool
 from .repo.repo import GitRepo
 from .utils import (
     cache_manager,
+    describe_image_with_llm,
     mk_env_context,
     show_image_in_terminal,
 )
@@ -880,6 +882,8 @@ def build_ai_tool_list(
         ai_tools.append(ai_fetch_hacker_news)
     if "window" in question_lower:
         ai_tools.append(ai_list_visible_windows)
+    if "capture" in question_lower or "screenshot" in question_lower:
+        ai_tools.append(ai_capture_window_image)
     if "image" in question_lower:
         ai_tools.append(ai_image_gen_dali)
 
@@ -1169,12 +1173,18 @@ def code_test(
 ) -> None:
     """Used for experiments. DO NOT RUN"""
     state = ctx.obj
-    content = """OpenAI has been involved in various partnerships, including an exclusive license of GPT-3 to Microsoft. There are also discussions
- about potential legal actions by investors due to leadership changes.\n\nFor more detailed information, you can visit OpenAI\'s official website at
- [OpenAI](https://openai.com/) or check their Wikipedia page for historical context."""
 
-    # console.print(content)
-    console.print(summarize_for_tts(content))
+    # console.print(ai_list_visible_windows(None))
+    console.print(
+        describe_image_with_llm("/Users/probello/.par_gpt/cache/58bb5cbd4a3cf22447882d0d88f1552f920c6063.png")
+    )
+
+    #    content = """OpenAI has been involved in various partnerships, including an exclusive license of GPT-3 to Microsoft. There are also discussions
+    # about potential legal actions by investors due to leadership changes.\n\nFor more detailed information, you can visit OpenAI\'s official website at
+    # [OpenAI](https://openai.com/) or check their Wikipedia page for historical context."""
+    #
+    #    # console.print(content)
+    #    console.print(summarize_for_tts(content))
 
     # img = Path("~/.par_gpt/cache/d9bae1270340f598bebe4b5c311c08210ef5cd4a.jpg").expanduser()
     # console_err.print(f"Displaying image: {img}", img.exists())

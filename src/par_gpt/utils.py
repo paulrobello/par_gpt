@@ -18,7 +18,7 @@ import PIL.Image
 import pyfiglet
 import requests
 from par_ai_core.llm_config import LlmConfig
-from par_ai_core.llm_image_utils import image_to_base64
+from par_ai_core.llm_image_utils import image_to_base64, image_to_chat_message, try_get_image_type
 from par_ai_core.llm_providers import LlmProvider
 from par_ai_core.par_logging import console_err
 from PIL import Image
@@ -31,7 +31,10 @@ from textual_image.renderable.sixel import query_terminal_support as sixel_query
 
 from par_gpt.cache_manger import cache_manager
 
-sixel_supported = sixel_query_terminal_support()
+try:
+    sixel_supported = sixel_query_terminal_support()
+except Exception:
+    sixel_supported = False
 
 
 def safe_abs_path(res):
@@ -606,6 +609,37 @@ def capture_window_image(
         return img_bytes.getvalue()
 
     return image_to_base64(img_bytes.getvalue(), "png")
+
+
+def describe_image_with_llm(img: str | Path, llm_config: LlmConfig | None = None) -> str:
+    """
+    Describes the image using a LLM.
+
+    Args:
+        img (str | Path): The image file path or URL.
+
+    Returns:
+        str: A description of the image.
+    """
+    if isinstance(img, str):
+        if not img.startswith("data:image/"):
+            if img.startswith("http"):
+                img = cache_manager.download(img)
+            else:
+                img = Path(img)
+            if not img.is_file():
+                raise ValueError(f"No such file or directory: {img}")
+            img = image_to_base64(img.read_bytes(), try_get_image_type(img))
+    msg = image_to_chat_message(img)
+    chat = (llm_config or LlmConfig(LlmProvider.OPENAI, "gpt-4o")).build_chat_model()
+    return str(
+        chat.invoke(
+            [
+                ("system", "Describe the image in great detail"),
+                ("user", [{"type": "text", "text": "describe the image"}, msg]),
+            ]
+        ).content
+    )
 
 
 def speak(text: str):

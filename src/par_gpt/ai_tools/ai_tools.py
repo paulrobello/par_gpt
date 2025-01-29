@@ -28,7 +28,10 @@ from rich.text import Text
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
     FigletFontName,
+    ImageCaptureOutputType,
     VisibleWindow,
+    capture_window_image,
+    describe_image_with_llm,
     figlet_horizontal,
     figlet_vertical,
     get_weather_current,
@@ -663,11 +666,37 @@ def execute_code(code: str) -> ExecuteCommandResult:
 def ai_list_visible_windows() -> list[VisibleWindow]:
     """
     Get list all visible windows on the user's screen.
+    Use this tool to help find and capture specific window screenshots.
 
     Returns:
         list[VisibleWindow]: A list of visible windows on the user's screen.
     """
     return list_visible_windows_mac()
+
+
+@tool(parse_docstring=True)
+def ai_capture_window_image(
+    app_name: str | None = None, app_title: str | None = None, window_id: int | None = None, describe_image: bool = True
+) -> str:
+    """
+    Captures a screenshot of the specified window
+
+    Args:
+        app_name (str | None): Name of the application to find and capture. Defaults to None = Any.
+        app_title (str | None): Title of the application to find and capture. Defaults to None = Any.
+        window_id (int | None): Window ID of the application to find and capture. Defaults to None = Any.
+        describe_image (bool): Whether to describe the captured image. Defaults to True.
+
+    Returns:
+        if describe_image is True then a description of the image will be returned otherwise thebase64-encoded image data.
+    """
+    img = capture_window_image(
+        app_name=app_name, app_title=app_title, window_id=window_id, output_format=ImageCaptureOutputType.BASE64
+    )
+    if not describe_image:
+        return img
+
+    return describe_image_with_llm(img)
 
 
 @tool(parse_docstring=True)
@@ -686,23 +715,18 @@ def user_prompt(prompt: str, default_value: str | None = None, choices: list[str
     return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
 
 
-if __name__ == "__main__":
-    figlet_horizontal("PAR GPT", font="3d-ascii")
-    figlet_vertical("PAR GPT", font="3d-ascii")
-
-
 @tool(parse_docstring=True)
 def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
     """
     Generate an image using DALI-3 based on the given prompt.
-    Ensure you return the path to the generated image to the user.
+    You MUST return the path to the generated image to the user.
 
     Args:
         prompt (str): The prompt to use for generating the image (max 1000 chars).
         display (bool): Whether to display the generated image in the terminal (default: True).
 
     Returns:
-        str: The path to the generated image. This should be shown to the user.
+        str: The path to the generated image. This MUST be shown to the user.
     """
     image_path = image_gen_dali(
         prompt,
@@ -712,3 +736,8 @@ def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
         show_image_in_terminal(image_path)
 
     return image_path.as_posix()
+
+
+if __name__ == "__main__":
+    figlet_horizontal("PAR GPT", font="3d-ascii")
+    # figlet_vertical("PAR GPT", font="3d-ascii")
