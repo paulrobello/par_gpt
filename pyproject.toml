@@ -75,7 +75,7 @@ dependencies = [
     "kokoro-onnx>=0.2.7",
     "textual-image>=0.7.0",
 ]
-packages = ["src/par_gpt"]
+packages = ["src/par_gpt", "src/sandbox"]
 
 [project.urls]
 Homepage = "https://github.com/paulrobello/par_gpt"
