@@ -111,7 +111,7 @@ dev = [
 path = "src/par_gpt/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/par_gpt"]
+packages = ["src/par_gpt", "src/sandbox"]
 include = [
     "py.typed",
     "**/*.py",
@@ -128,6 +128,7 @@ include = [
 [tool.hatch.build.targets.sdist]
 include = [
     "src/par_gpt",
+    "src/sandbox",
     "LICENSE",
     "README.md",
     "extraction_prompt.md",
