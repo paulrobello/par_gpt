@@ -12,7 +12,10 @@ from langchain_core._api import LangChainBetaWarning
 warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
 warnings.simplefilter("ignore", category=LangChainBetaWarning)
 
-clipman.init()
+try:
+    clipman.init()
+except Exception as _:
+    pass
 
 
 __author__ = "Paul Robello"
