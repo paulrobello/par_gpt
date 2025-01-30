@@ -83,6 +83,15 @@ Or use a package manager:
   brew install portaudio
   ```
 
+### **Install Clang**:
+- **On Linux**:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install clang
+  ```
+
+
+
 ## Installation
 
 ### Source
