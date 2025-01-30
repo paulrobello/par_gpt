@@ -67,7 +67,6 @@ dependencies = [
     "pyautogui>=0.9.54",
     "pywinctl>=0.4.1",
     "opencv-python>=4.10.0.84",
-    "pyobjc>=11.0.0",
     "elevenlabs>=1.50.3",
     "pyttsx3>=2.98",
     "sounddevice>=0.5.1",
@@ -94,6 +93,9 @@ requires = ["hatchling", "wheel"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
+mac = [
+    'pyobjc>=11.0.0 ; platform_system == "Darwin"',
+]
 dev = [
     "build>=1.2.1",
     "twine>=5.1.1",
