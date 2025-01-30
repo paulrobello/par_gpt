@@ -46,6 +46,9 @@ def do_single_llm_call(
     if not console:
         console = console_err
 
+    if not env_info:
+        env_info = ""
+
     if chat_history is None:
         chat_history = []
     default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
@@ -66,11 +69,9 @@ def do_single_llm_call(
             0,
             (
                 "system",
-                (system_prompt or default_system_prompt).strip() + "\n" + output_format,
+                (system_prompt or default_system_prompt).strip() + "\n" + env_info + "\n" + output_format,
             ),
         )
-        if env_info:
-            chat_history.append(("user", env_info))
 
         # Groq does not support images if a system prompt is specified
         if isinstance(chat_model, ChatGroq) and image:
