@@ -5,6 +5,7 @@ This module provides functionality to execute Python code safely in Docker conta
 
 import ast
 import os
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -22,6 +23,7 @@ from docker import DockerClient
 from pydantic import BaseModel
 from RestrictedPython import compile_restricted
 from rich.console import Console
+from strenum import StrEnum
 
 
 @dataclass
@@ -563,3 +565,97 @@ class SandboxRun:
                 # run clean up in a separate thread to avoid blocking the main thread
                 thread = Thread(target=self.remove_files, args=([script_name, requirements_name],))
                 thread.start()
+
+
+class SandboxAction(StrEnum):
+    START = "start"
+    """Start the sandbox."""
+    STOP = "stop"
+    """Stop the sandbox."""
+    BUILD = "build"
+    """Build and run code runner docker sandbox."""
+
+
+def install_sandbox(console: Console | None = None) -> None:
+    """
+    Build and run code runner docker sandbox.
+
+    Args:
+        console: Console object for logging. Defaults to Console(stderr=True).
+
+    Returns:
+        None
+    """
+    console = console or Console(stderr=True)
+    subprocess.run(
+        ["docker", "compose", "up", "-d", "--build", "--force-recreate"],
+        check=True,
+        cwd=Path(__file__).parent / "docker",
+    )
+    console.print("Code runner docker sandbox has been built and started.")
+
+
+def stop_sandbox(container_name: str = "par_gpt_sandbox-python_runner-1", console: Console | None = None) -> bool:
+    """
+    Stop the sandbox.
+
+    Args:
+        container_name: Name of the sandbox container. Defaults to "par_gpt_sandbox-python_runner-1".
+        console: Console object for logging. Defaults to Console(stderr=True).
+
+    Returns:
+        True if the container was successfully stopped, False otherwise.
+    """
+    console = console or Console(stderr=True)
+
+    try:
+        client = docker.from_env()
+        client.ping()
+    except docker.errors.DockerException as e:
+        console.print(f"[red]Failed to connect to Docker daemon. Please make sure Docker is running. {e}")
+        return False
+
+    try:
+        container = client.containers.get(container_name)
+        if container.status != "running":
+            console.print(f"Container {container_name} is already stopped.")
+            return True
+        container.stop()
+        console.print(f"Container {container_name} has been stopped.")
+        return True
+    except docker.errors.NotFound:
+        console.print(f"[red]Container {container_name} not found. You must build it first with --action=build")
+        return True
+
+
+def start_sandbox(container_name: str = "par_gpt_sandbox-python_runner-1", console: Console | None = None) -> bool:
+    """
+    Start the sandbox.
+
+    Args:
+        container_name: Name of the sandbox container. Defaults to "par_gpt_sandbox-python_runner-1".
+        console: Console object for logging. Defaults to Console(stderr=True).
+
+    Returns:
+        True if the container was successfully started, False otherwise.
+    """
+    console = console or Console(stderr=True)
+
+    try:
+        client = docker.from_env()
+        client.ping()
+    except docker.errors.DockerException as e:
+        console.print(f"[red]Failed to connect to Docker daemon. Please make sure Docker is running. {e}")
+        return False
+
+    try:
+        container = client.containers.get(container_name)
+        if container.status == "running":
+            console.print(f"Container {container_name} is already running.")
+            return True
+        container.start()
+        console.print(f"Container {container_name} has been started.")
+        return True
+    except docker.errors.NotFound:
+        console.print(f"[red]Container {container_name} not found. You must build it first with --action=build")
+        return False

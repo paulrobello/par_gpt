@@ -548,10 +548,13 @@ def ai_fetch_rss(url: str, max_items: int = 5) -> str:
     if feed.bozo:
         return f"Error: Unable to parse the RSS feed. {feed.bozo_exception}"
 
-    markdown_content = f"# {feed.feed.title}\n\n"
+    if "title" in feed.feed:
+        markdown_content = f"# {feed.feed.title}\n\n"  # type: ignore
+    else:
+        markdown_content = "# No title found in the RSS feed\n\n"
 
     if "subtitle" in feed.feed:
-        markdown_content += f"{feed.feed.subtitle}\n\n"
+        markdown_content += f"{feed.feed.subtitle}\n\n"  # type: ignore
 
     for i, entry in enumerate(feed.entries[:max_items]):
         # console_err.print(entry)

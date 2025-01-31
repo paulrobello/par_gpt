@@ -65,6 +65,7 @@ from par_gpt.ai_tools.ai_tools import (
 )
 from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.voice_input_manger import VoiceInputManager
+from sandbox import SandboxAction, install_sandbox, start_sandbox, stop_sandbox
 
 from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
@@ -330,7 +331,11 @@ def main(
         raise typer.Exit(1)
 
     if copy_from_clipboard:
-        context_location = clipboard.paste()
+        cv = clipboard.paste()
+        if not cv:
+            console.print("[bold red]Failed to copy from clipboard. Exiting...")
+            raise typer.Exit(1)
+        context_location = cv
         console.print("[bold green]Context copied from clipboard")
 
     context_is_url: bool = context_location.startswith("http")
@@ -1267,6 +1272,27 @@ def code_test(
                 state["tts_man"].speak(summarize_for_tts(content))
         if state["voice_input_man"]:
             state["voice_input_man"].shutdown()
+
+
+@app.command()
+def sandbox(
+    ctx: typer.Context,
+    action: Annotated[
+        SandboxAction,
+        typer.Option(
+            "--action",
+            "-a",
+            help="Sandbox action to perform.",
+        ),
+    ],
+) -> None:
+    """Build and run code runner docker sandbox."""
+    if action == SandboxAction.BUILD:
+        install_sandbox(console=console)
+    elif action == SandboxAction.STOP:
+        stop_sandbox(console=console)
+    elif action == SandboxAction.START:
+        start_sandbox(console=console)
 
 
 if __name__ == "__main__":

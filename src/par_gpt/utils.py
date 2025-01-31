@@ -630,13 +630,13 @@ def describe_image_with_llm(img: str | Path, llm_config: LlmConfig | None = None
             if not img.is_file():
                 raise ValueError(f"No such file or directory: {img}")
             img = image_to_base64(img.read_bytes(), try_get_image_type(img))
-    msg = image_to_chat_message(img)
+    msg = image_to_chat_message(str(img))
     chat = (llm_config or LlmConfig(LlmProvider.OPENAI, "gpt-4o")).build_chat_model()
     return str(
         chat.invoke(
             [
                 ("system", "Describe the image in great detail"),
-                ("user", [{"type": "text", "text": "describe the image"}, msg]),
+                ("user", [{"type": "text", "text": "describe the image"}, msg]),  # type: ignore
             ]
         ).content
     )
