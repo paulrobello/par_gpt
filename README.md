@@ -160,10 +160,11 @@ par_gpt [OPTIONS]
 ```
 show-env          Show environment context.
 llm               Basic LLM mode with no tools.
+agent             Full agent with dynamic tools.
 git               Git commit helper.
 code-review       Review code.
 generate-prompt   Use meta prompting to generate a new prompt.
-agent             Full agent with dynamic tools.
+sandbox           Build and run code runner docker sandbox.
 ```
 
 ### CLI agent Arguments
@@ -172,6 +173,12 @@ agent             Full agent with dynamic tools.
 --show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
 --yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
 --repl                              Enable REPL tool [env var: PARGPT_REPL]
+--code-sandbox     -c               Enable code sandbox tool. Requires a running code sandbox container. [env var: PARGPT_CODE_SANDBOX]
+```
+
+### CLI sandbox Arguments
+```
+--action  -a      [start|stop|build]  Sandbox action to perform. [required]
 ```
 
 ## Environment Variables
@@ -287,12 +294,17 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
 
 ## Code sandbox
 The code sandbox allows the AI agent mode to write and execute code safely contained in a docker container.  
-To use the sandbox you must have `docker` and `make` installed as well as build and run the sandbox container.  
+To use the sandbox you must have `docker` installed as well as build and run the sandbox container.  
 Sandbox setup steps:
+### From code
 ```bash
 git clone https://github.com/paulrobello/par_gpt.git
 cd par_gpt
 make sandbox
+```
+### From installed tool
+```bash
+par_gpt sandbox -a build
 ```
 
 ## Code Review mode

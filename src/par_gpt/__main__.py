@@ -89,6 +89,7 @@ from .utils import (
     describe_image_with_llm,
     mk_env_context,
     show_image_in_terminal,
+    update_pyproject_deps,
 )
 
 app = typer.Typer()
@@ -594,7 +595,7 @@ def llm(
                     chat_model=chat_model,
                     user_input=question,
                     system_prompt=state["system_prompt"],
-                    no_system_prompt=(chat_model.name is not None and chat_model.name.startswith("o1"))
+                    no_system_prompt=(chat_model.name is not None and chat_model.name[:2] in ["o1", "o3"])
                     or (len(chat_history) > 0 and chat_history[0][0] == "system"),
                     env_info=env_info,
                     image=state["context"] if state["context_is_image"] else None,
@@ -946,6 +947,7 @@ def agent(
         bool,
         typer.Option(
             "--code-sandbox",
+            "-c",
             envvar=f"{__env_var_prefix__}_CODE_SANDBOX",
             help="Enable code sandbox tool. Requires a running code sandbox container.",
         ),
@@ -1293,6 +1295,22 @@ def sandbox(
         stop_sandbox(console=console)
     elif action == SandboxAction.START:
         start_sandbox(console=console)
+
+
+@app.command()
+def update_deps(
+    ctx: typer.Context,
+    no_uv_update: Annotated[
+        bool,
+        typer.Option(
+            "--no-uv-update",
+            "-n",
+            help="Dont run 'uv sync -U'",
+        ),
+    ] = False,
+) -> None:
+    """Update python project dependencies."""
+    update_pyproject_deps(do_uv_update=not no_uv_update, console=console)
 
 
 if __name__ == "__main__":

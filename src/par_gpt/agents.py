@@ -343,7 +343,7 @@ def do_prompt_generation_agent(
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
     prompt_template = ChatPromptTemplate.from_template(prompt)
-    if chat_model.name and chat_model.name.startswith("o1"):
+    if chat_model.name and chat_model.name[:2] in ["o1", "o3"]:
         return do_single_llm_call(
             chat_model=chat_model,
             user_input=prompt_template.format(user_input=user_input),

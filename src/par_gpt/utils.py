@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import getpass
+import importlib
 import io
 import os
 import platform
+import subprocess
 import sys
+import tomllib
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
 from io import StringIO
@@ -17,6 +20,9 @@ import orjson as json
 import PIL.Image
 import pyfiglet
 import requests
+import tomli_w
+from packaging.requirements import Requirement
+from packaging.version import parse
 from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import image_to_base64, image_to_chat_message, try_get_image_type
 from par_ai_core.llm_providers import LlmProvider
@@ -617,6 +623,7 @@ def describe_image_with_llm(img: str | Path, llm_config: LlmConfig | None = None
 
     Args:
         img (str | Path): The image file path or URL.
+        llm_config (LlmConfig | None): The LLM configuration. Defaults to None = OpenAI GPT-4o.
 
     Returns:
         str: A description of the image.
@@ -692,17 +699,119 @@ def image_gen_dali(
     return cache_manager.download(image_url)
 
 
+def update_pyproject_deps(do_uv_update: bool = True, console: Console | None = None) -> None:
+    """
+    Update dependencies in pyproject.toml with the latest available versions.
+
+    This function reads the pyproject.toml file (expected to follow PEP 621 with
+    dependencies listed under the [project] table), and for each dependency:
+
+      - Parses the dependency string (e.g. "package[extra]>=1.2.3") using packaging's
+        Requirement class.
+      - Retrieves the latest version from the installed package metadata.
+      - If no version is specified or if the latest version is newer than the specified
+        version, it updates the dependency to use a specifier of the form ">=latest_version".
+
+    The updated TOML data is then written to a new file named "pyproject_new.toml"
+    in the same directory as the original file.
+
+    Args:
+        do_uv_update (bool): Whether to use uv sync to update the packages. Defaults to True.
+        console (Console | None): The console object to use for logging. Defaults to console_err.
+
+    Returns:
+        None
+    """
+    console = console or console_err
+    # Define the path to the pyproject.toml file
+    pyproject_path: Path = Path("pyproject.toml")
+    if not pyproject_path.exists():
+        console_err.print("[red]pyproject.toml not found in the expected location.")
+        return
+
+    if do_uv_update:
+        subprocess.run(["uv", "sync", "-U"], check=True)
+
+    # Read and parse the TOML file using tomllib
+    try:
+        with open(pyproject_path, "rb") as f:
+            toml_data: dict[str, Any] = tomllib.load(f)
+    except Exception as e:
+        console.print(f"[red]Error reading pyproject.toml: {e}")
+        return
+
+    # Locate the dependencies section.
+    # This example assumes dependencies are under the [project] table per PEP 621.
+    project_data: dict[str, Any] | None = toml_data.get("project")
+    if not project_data or "dependencies" not in project_data:
+        console.print("[red]Dependencies section not found under [project] in pyproject.toml.")
+        return
+
+    deps: Any = project_data["dependencies"]
+    if not isinstance(deps, list):
+        console.print("[red]Dependencies should be a list in pyproject.toml.")
+        return
+
+    updated_deps: list[str] = []
+    for dep in deps:
+        try:
+            # Parse the dependency string (which may include extras)
+            req: Requirement = Requirement(dep)
+        except Exception as e:
+            console.print(f"[yellow]Failed to parse dependency '{dep}': {e}. Keeping original.")
+            updated_deps.append(dep)
+            continue
+
+        package_name: str = req.name
+        # Reconstruct the extras string (if any) in a normalized way.
+        extras_str: str = f"[{','.join(sorted(req.extras))}]" if req.extras else ""
+
+        # Try to extract the current version from the specifiers (if provided)
+        current_version: str | None = None
+        for spec in req.specifier:
+            if spec.operator in (">=", ">"):
+                current_version = spec.version
+                break
+
+        # Attempt to get the latest version from package metadata
+        try:
+            metadata = importlib.metadata.metadata(package_name)  # type: ignore
+            latest_version: str = metadata["Version"]
+        except importlib.metadata.PackageNotFoundError:  # type: ignore
+            console.print(f"[yellow]Package {package_name} not found. Keeping original: {dep}")
+            updated_deps.append(dep)
+            continue
+
+        # Determine if an update is needed:
+        # - If there was no version specifier, or
+        # - If the latest version is newer than the current version,
+        # then update the dependency string.
+        if current_version is None or parse(latest_version) > parse(current_version):
+            new_dep: str = f"{package_name}{extras_str}>={latest_version}"
+            updated_deps.append(new_dep)
+            console.print(f"[green]Updated {dep} to {new_dep}")
+        else:
+            updated_deps.append(dep)
+
+    # Update the dependencies list in the TOML data
+    toml_data["project"]["dependencies"] = updated_deps
+
+    # Write the updated TOML data to a new file using tomli_w
+    new_pyproject_path: Path = pyproject_path  # pyproject_path.parent / "pyproject_new.toml"
+    try:
+        with open(new_pyproject_path, "wb") as f:
+            f.write(tomli_w.dumps(toml_data).encode("utf-8"))
+    except Exception as e:
+        console.print(f"[red]Error writing updated {new_pyproject_path.name}: {e}")
+        return
+
+    console.print(f"[green]{new_pyproject_path.name} updated.")
+
+
 if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv(Path("~/.par_gpt.env").expanduser())
-
-    image_path = image_gen_dali(
-        "Describe a massive bloom of neon glowing jellyfish",
-        upgrade_prompt=LlmConfig(LlmProvider.OPENAI, model_name="gpt-4o-mini", temperature=0.9),
-    )
-    console_err.print(image_path)
-    show_image_in_terminal(image_path)
 
     # sixel_supported = sixel_query_terminal_support()
     # if sixel_supported:

@@ -561,7 +561,7 @@ def ai_fetch_rss(url: str, max_items: int = 5) -> str:
         markdown_content += f"## {entry.title}\n"
 
         if "published" in entry:
-            pub_date = datetime.strptime(entry.published, "%a, %d %b %Y %H:%M:%S %z")
+            pub_date = datetime.strptime(entry.published, "%a, %d %b %Y %H:%M:%S %z")  # type: ignore
             markdown_content += f"*Published on: {pub_date.strftime('%Y-%m-%d %H:%M:%S')}*\n\n"
 
         if "summary" in entry:
@@ -697,9 +697,9 @@ def ai_capture_window_image(
         app_name=app_name, app_title=app_title, window_id=window_id, output_format=ImageCaptureOutputType.BASE64
     )
     if not describe_image:
-        return img
+        return img  # type: ignore
 
-    return describe_image_with_llm(img)
+    return describe_image_with_llm(img)  # type: ignore
 
 
 @tool(parse_docstring=True)
