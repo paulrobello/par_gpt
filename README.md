@@ -5,6 +5,9 @@
 A flexible command-line interface for interacting with various AI language models, supporting multiple providers and
 customizable output formats.
 
+PAR GPT has grown into a swiss army tool that help accelerate many tasks I deal with on a daily basis.
+Some features / functions may be kind of niche to things I work on but could be useful to others as well.
+
 **NOTE: This is a very work in progress project and may break at any time.**
 
 ## Features
@@ -33,8 +36,6 @@ customizable output formats.
 - If you want to use audio features you may need portaudio installed
 
 ### **Install ffmpeg**:
-
-> **Note**: *Installation of ffmpeg might not actually be needed to operate RealtimeSTT* <sup> *thanks to jgilbert2017 for pointing this out</sup>
 
 You can download an installer for your OS from the [ffmpeg Website](https://ffmpeg.org/download.html).  
 
@@ -89,7 +90,6 @@ Or use a package manager:
   sudo apt-get update
   sudo apt-get install clang
   ```
-
 
 
 ## Installation
@@ -165,6 +165,7 @@ git               Git commit helper.
 code-review       Review code.
 generate-prompt   Use meta prompting to generate a new prompt.
 sandbox           Build and run code runner docker sandbox.
+update-deps       Update python project dependencies.
 ```
 
 ### CLI agent Arguments
@@ -180,6 +181,12 @@ sandbox           Build and run code runner docker sandbox.
 ```
 --action  -a      [start|stop|build]  Sandbox action to perform. [required]
 ```
+
+### Update deps Arguments
+```
+--no-uv-update  -n        Dont run 'uv sync -U'
+```
+
 
 ## Environment Variables
 
@@ -266,7 +273,9 @@ PARGPT_SHOW_TOOL_CALLS=true
 ## Agent mode
 
 NOTE: Agent mode enables tool use.  
-Some tools require API keys to be available and various keywords in your request to present to be enabled. 
+Some tools require API keys to be available and various keywords in your request to be present to be enabled. 
+Only enabling some tools when keywords are present helps to reduce context and LLM confusion.
+
 If the REPL tool is enabled the Code sandbox tool will not be used.
 
 ### AI Tools
@@ -277,20 +286,36 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
 - Open URL - Opens a URL in the default browser.
 - Fetch URL - Fetches the content of one or more webpages and returns as markdown.
 - Show image in terminal - Displays low resolution image in terminal sized based on terminal dimensions.
-- Figlet - Displays Figlet style text in terminal.
 - Youtube search - Search youtube and get video info.
+  - keywords: youtube
 - Youtube transcript - Get youtube transcript for video.
+  - keywords: youtube
 - Hacker News - Fetch top posts from HackerNews.
+  - keywords: hackernews
 - Git - Allows interaction with local git repos.
+  - keywords: git, commit
 - Tavily search - Search web and get scraped web results.
 - Serper search - Search web using serper.
 - Google search - Search web using google.
 - Brave search - Search web using brave search.
 - Reddit search - Search reddit and get posts and optionally comments.
+  - keywords: reddit
 - Clipboard - Allows copy to and from clipboard.
+  - keywords: clipboard
 - RSS - Fetch RSS feed content.
+  - keywords: rss
 - Weather - Fetch weather info.
+  - keywords: weather, wx
 - Github - Allows creation, publishing to and listing of personal Github repos.
+  - keywords: github
+- List visible windows - Gets info on all visible windows. Can be used for window / screen capture.
+  - keywords: windows
+- Figlet - Displays Figlet style text in terminal.
+  - keywords: figlet
+- Capture Window Image - Capture screenshot of of window or desktop
+  - keywords: capture, screenshot
+- Image Gen - Generate image using Dall-E-3
+  - keywords: image
 
 ## Code sandbox
 The code sandbox allows the AI agent mode to write and execute code safely contained in a docker container.  

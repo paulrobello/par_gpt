@@ -844,7 +844,7 @@ def build_ai_tool_list(
         ai_tools.append(ai_youtube_search)
     if "youtube" in question_lower:
         ai_tools.append(ai_youtube_get_transcript)
-    if "git" in question_lower or "commit" in question_lower:
+    if "git" in question_lower or "commit" in question_lower or "checkout" in question_lower:
         ai_tools.append(git_commit_tool)
 
     # use TavilySearchResults with fallback to serper and google search if api keys are set
@@ -890,7 +890,9 @@ def build_ai_tool_list(
         ai_tools.append(ai_list_visible_windows)
     if "capture" in question_lower or "screenshot" in question_lower:
         ai_tools.append(ai_capture_window_image)
-    if "image" in question_lower:
+    if (
+        is_provider_api_key_set(LlmProvider.OPENAI) or is_provider_api_key_set(LlmProvider.OPENROUTER)
+    ) and "image" in question_lower:
         ai_tools.append(ai_image_gen_dali)
 
     if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):

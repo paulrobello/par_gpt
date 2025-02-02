@@ -25,10 +25,10 @@ from packaging.requirements import Requirement
 from packaging.version import parse
 from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import image_to_base64, image_to_chat_message, try_get_image_type
-from par_ai_core.llm_providers import LlmProvider
+from par_ai_core.llm_providers import LlmProvider, is_provider_api_key_set, provider_base_urls, provider_env_key_names
 from par_ai_core.par_logging import console_err
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from rich.console import Console
 from rich_pixels import Pixels
 from sixel import converter as sixel_converter
@@ -695,6 +695,9 @@ def image_gen_dali(
         console_err.print(prompt)
     img_gen = DallEAPIWrapper()
     img_gen.model_name = model_name
+    if not is_provider_api_key_set(LlmProvider.OPENAI):
+        img_gen.openai_api_key = SecretStr(os.environ[provider_env_key_names[LlmProvider.OPENAI]])
+        img_gen.openai_api_base = provider_base_urls[LlmProvider.OPENAI]
     image_url = img_gen.run(prompt)
     return cache_manager.download(image_url)
 
