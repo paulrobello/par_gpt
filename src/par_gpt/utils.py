@@ -92,7 +92,7 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
 
 
 def show_image_in_terminal(
-    image_path: str | Path, dimension: str = "auto", no_sixel: bool = False, console: Console | None = None
+    image_path: str | Path, dimension: str = "auto", no_sixel: bool = False, transparent: bool = True, console: Console | None = None
 ) -> str:
     """
     Show image in terminal.
@@ -162,7 +162,7 @@ def show_image_in_terminal(
 
         if sixel_supported and not no_sixel:
             c = sixel_converter.SixelConverter(
-                image_path, w=new_image_width, h=new_image_height, chromakey=True, alpha_threshold=0, fast=True
+                image_path, w=new_image_width, h=new_image_height, chromakey=transparent, alpha_threshold=0, fast=True
             )
             if console.stderr:
                 c.write(sys.__stderr__)

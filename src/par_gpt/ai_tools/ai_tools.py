@@ -736,7 +736,7 @@ def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
         # upgrade_prompt=LlmConfig(LlmProvider.OPENAI, model_name="gpt-4o-mini", temperature=0.9),
     )
     if display:
-        show_image_in_terminal(image_path)
+        show_image_in_terminal(image_path, transparent=False)
 
     return image_path.as_posix()
 
