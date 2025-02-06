@@ -28,6 +28,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
+from par_gpt.memory_utils import get_memory_prompt
+
 
 def do_single_llm_call(
     *,
@@ -51,8 +53,11 @@ def do_single_llm_call(
 
     if chat_history is None:
         chat_history = []
-    default_system_prompt = "<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"
 
+    default_system_prompt = """<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"""
+    memories = get_memory_prompt()
+    if memories:
+        default_system_prompt += memories
     if not no_system_prompt:
         if use_tts:
             output_format = """<output_instructions>
@@ -188,6 +193,8 @@ def do_tool_agent(
     if chat_history is None:
         chat_history = []
 
+    memories = get_memory_prompt()
+
     has_repl = False
     for tool in ai_tools:
         if "repl" in tool.name.lower():
@@ -216,6 +223,9 @@ def do_tool_agent(
     <instruction>When doing a web search determine which of the results is best and only download content from that result.</instruction>
     <instruction>When creating code you MUST follow the rules in the code_rules section.</instruction>
 """
+    if memories:
+        default_system_prompt += memories
+
     if has_repl:
         default_system_prompt += """
     <instruction>When using a REPL tool you MUST follow the rules in the repl_rules section.</instruction>

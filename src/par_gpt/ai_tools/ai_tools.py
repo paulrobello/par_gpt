@@ -25,6 +25,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.text import Text
 
+from par_gpt.memory_utils import add_memory_redis, get_memory_user, list_memories_redis, remove_memory_redis
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils import (
     FigletFontName,
@@ -739,6 +740,34 @@ def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
         show_image_in_terminal(image_path, transparent=False)
 
     return image_path.as_posix()
+
+
+@tool(parse_docstring=True)
+def ai_memory_db(op: Literal["list", "add", "remove"], memory: str | None) -> str:
+    """
+    Use this tool to help keep track of user-specific memories.
+
+    Args:
+        op (Literal["list", "add", "remove"]): The operation to perform on the memory (list, add, remove).
+        memory (str | None): The memory to add or remove (if applicable).
+
+    Returns:
+        str: The result of the operation.
+    """
+    if op == "list":
+        return "\n".join(list_memories_redis(get_memory_user()))
+    elif op == "add":
+        if not memory:
+            return "Please provide a memory to add."
+        add_memory_redis(get_memory_user(), memory)
+        return "Memory added successfully."
+    elif op == "remove":
+        if not memory:
+            return "Please provide a memory to remove."
+        remove_memory_redis(get_memory_user(), memory)
+        return "Memory removed successfully."
+    else:
+        return "Invalid operation. Supported operations: list, add, remove"
 
 
 if __name__ == "__main__":

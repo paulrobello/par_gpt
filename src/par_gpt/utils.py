@@ -12,6 +12,7 @@ import sys
 import tomllib
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, datetime
+from functools import lru_cache
 from io import StringIO
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +20,7 @@ from typing import Any, Literal
 import orjson as json
 import PIL.Image
 import pyfiglet
+import redis
 import requests
 import tomli_w
 from packaging.requirements import Requirement
@@ -35,6 +37,7 @@ from sixel import converter as sixel_converter
 from strenum import StrEnum
 from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
 
+from par_gpt import __env_var_prefix__
 from par_gpt.cache_manger import cache_manager
 
 try:
@@ -92,7 +95,11 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
 
 
 def show_image_in_terminal(
-    image_path: str | Path, dimension: str = "auto", no_sixel: bool = False, transparent: bool = True, console: Console | None = None
+    image_path: str | Path,
+    dimension: str = "auto",
+    no_sixel: bool = False,
+    transparent: bool = True,
+    console: Console | None = None,
 ) -> str:
     """
     Show image in terminal.
@@ -809,6 +816,33 @@ def update_pyproject_deps(do_uv_update: bool = True, console: Console | None = N
         return
 
     console.print(f"[green]{new_pyproject_path.name} updated.")
+
+
+@lru_cache(maxsize=1)
+def get_redis_client(host: str | None = None, port: int | None = None, db: int | None = None) -> redis.Redis | None:
+    """
+    Create a Redis client using environment variables or default values.
+
+    Args:
+        host (str | None): The Redis host. Defaults to None.
+        port (int | None): The Redis port. Defaults to None.
+        db (int | None): The Redis database. Defaults to None.
+
+    Returns:
+        redis.Redis | None: The Redis client instance or None if the connection fails.
+    """
+    try:
+        redis_host = (
+            host or os.environ.get(f"{__env_var_prefix__}_REDIS_HOST") or os.environ.get("REDIS_HOST") or "localhost"
+        )
+        redis_port = port or int(
+            os.environ.get(f"{__env_var_prefix__}_REDIS_PORT") or os.environ.get("REDIS_PORT") or "6379"
+        )
+        redis_db = db or int(os.environ.get(f"{__env_var_prefix__}_REDIS_DB") or os.environ.get("REDIS_DB") or "0")
+
+        return redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+    except Exception as _:
+        return None
 
 
 if __name__ == "__main__":

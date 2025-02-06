@@ -90,6 +90,7 @@ dependencies = [
     "pyobjc>=11.0.0 ; platform_system == \"Darwin\"",
     "toml>=0.10.2",
     "tomli-w>=1.2.0",
+    "redis>=5.2.1",
 ]
 packages = [
     "src/par_gpt",

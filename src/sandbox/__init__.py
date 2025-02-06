@@ -576,11 +576,12 @@ class SandboxAction(StrEnum):
     """Build and run code runner docker sandbox."""
 
 
-def install_sandbox(console: Console | None = None) -> None:
+def install_sandbox(container_name: str = "par_gpt_sandbox", console: Console | None = None) -> None:
     """
     Build and run code runner docker sandbox.
 
     Args:
+        container_name: Name of the sandbox container. Defaults to "par_gpt_sandbox".
         console: Console object for logging. Defaults to Console(stderr=True).
 
     Returns:
@@ -589,6 +590,7 @@ def install_sandbox(console: Console | None = None) -> None:
     console = console or Console(stderr=True)
     subprocess.run(
         ["docker", "compose", "up", "-d", "--build", "--force-recreate"],
+        env=os.environ | {"COMPOSE_PROJECT_NAME": container_name},
         check=True,
         cwd=Path(__file__).parent / "docker",
     )

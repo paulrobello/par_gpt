@@ -46,51 +46,49 @@ from rich.prompt import Prompt
 from rich.text import Text
 from strenum import StrEnum
 
+from par_gpt import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from par_gpt.agent_messages import get_random_message
+from par_gpt.agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
 from par_gpt.ai_tools.ai_tools import (
     ai_brave_search,
     ai_capture_window_image,
+    ai_copy_from_clipboard,
+    ai_copy_to_clipboard,
+    ai_display_image_in_terminal,
     ai_fetch_hacker_news,
     ai_fetch_rss,
+    ai_fetch_url,
     ai_figlet,
+    ai_get_weather_current,
+    ai_get_weather_forecast,
     ai_github_create_repo,
     ai_github_list_repos,
     ai_github_publish_repo,
     ai_image_gen_dali,
     ai_image_search,
     ai_list_visible_windows,
-    ai_serper_search,
-    execute_code,
-    user_prompt,
-)
-from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
-from par_gpt.voice_input_manger import VoiceInputManager
-from sandbox import SandboxAction, install_sandbox, start_sandbox, stop_sandbox
-
-from . import __application_binary__, __application_title__, __env_var_prefix__, __version__
-from .agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
-from .ai_tools.ai_tools import (
-    ai_copy_from_clipboard,
-    ai_copy_to_clipboard,
-    ai_display_image_in_terminal,
-    ai_fetch_url,
-    ai_get_weather_current,
-    ai_get_weather_forecast,
+    ai_memory_db,
     ai_open_url,
     ai_reddit_search,
+    ai_serper_search,
     ai_youtube_get_transcript,
     ai_youtube_search,
+    execute_code,
     git_commit_tool,
+    user_prompt,
 )
-from .ai_tools.par_python_repl import ParPythonAstREPLTool
-from .repo.repo import GitRepo
-from .utils import (
+from par_gpt.ai_tools.par_python_repl import ParPythonAstREPLTool
+from par_gpt.repo.repo import GitRepo
+from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
+from par_gpt.utils import (
     cache_manager,
     describe_image_with_llm,
     mk_env_context,
     show_image_in_terminal,
     update_pyproject_deps,
 )
+from par_gpt.voice_input_manger import VoiceInputManager
+from sandbox import SandboxAction, install_sandbox, start_sandbox, stop_sandbox
 
 app = typer.Typer()
 console = console_err
@@ -256,6 +254,33 @@ def main(
             help="Show config",
         ),
     ] = False,
+    user: Annotated[
+        str | None,
+        typer.Option(
+            "--user",
+            "-u",
+            envvar=f"{__env_var_prefix__}_USER",
+            help="User to use for memory and preferences. Defaults to logged in users username.",
+        ),
+    ] = None,
+    redis_host: Annotated[
+        str | None,
+        typer.Option(
+            "--redis-host",
+            "-r",
+            envvar=f"{__env_var_prefix__}_REDIS_HOST",
+            help="Host or ip of redis server. Used for memory functions.",
+        ),
+    ] = "localhost",
+    redis_port: Annotated[
+        int | None,
+        typer.Option(
+            "--redis-port",
+            "-R",
+            envvar=f"{__env_var_prefix__}_REDIS_PORT",
+            help="Redis port number. Used for memory functions.",
+        ),
+    ] = 6379,
     tts: Annotated[
         bool,
         typer.Option(
@@ -321,6 +346,16 @@ def main(
     PAR GPT Global Options
     """
     # console.print(Pretty(ctx.invoked_subcommand))
+
+    if user:
+        os.environ[f"{__env_var_prefix__}_USER"] = user
+
+    if redis_host:
+        os.environ[f"{__env_var_prefix__}_REDIS_HOST"] = redis_host
+
+    if redis_port:
+        os.environ[f"{__env_var_prefix__}_REDIS_PORT"] = str(redis_port)
+
     if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
         key_name = provider_env_key_names[ai_provider]
         if not os.environ.get(key_name):
@@ -485,6 +520,12 @@ def main(
                     ("Chat History: ", "cyan"),
                     (f"{history_file or 'None'}", "green"),
                     "\n",
+                    ("Redis Host: ", "cyan"),
+                    (f"{redis_host or 'default'}", "green"),
+                    "\n",
+                    ("Redis Port: ", "cyan"),
+                    (f"{redis_port or 'default'}", "green"),
+                    "\n",
                     ("TTS: ", "cyan"),
                     (f"{tts}", "green"),
                     "\n",
@@ -532,6 +573,8 @@ def main(
         "context_is_image": context_is_image,
         "loop_mode": loop_mode,
         "history_file": history_file,
+        "redis_host": redis_host,
+        "redis_port": redis_port,
         "tts": tts,
         "tts_provider": tts_provider,
         "tts_voice": tts_voice,
@@ -791,6 +834,7 @@ def build_ai_tool_list(
         ai_open_url,
         ai_fetch_url,
         ai_display_image_in_terminal,
+        ai_memory_db,
         # ai_joke,
     ]  # type: ignore
     question_lower = question.lower()
