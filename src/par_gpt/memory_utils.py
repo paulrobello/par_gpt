@@ -33,6 +33,7 @@ def add_memory_redis(key: str, memory: str | list[str]) -> bool:
             return False
         if isinstance(memory, str):
             memory = [memory]
+        memory = [m.strip() for m in memory]
         r.rpush(key, *memory)
         return True
     except Exception as _:
@@ -85,20 +86,25 @@ def remove_memory_redis(key: str, memory: str) -> bool:
         return False
 
 
-def clear_memories_redis(key: str) -> None:
+def clear_memories_redis(key: str) -> bool:
     """
     Clear all memories associated with a given key from Redis.
 
     Args:
         key (str): The key under which the memories are stored.
+
+    Returns:
+        bool: True if all memories were removed successfully, False otherwise.
     """
     try:
         r = get_redis_client()
         if not r:
-            return
+            return False
         r.delete(key)
+        return True
     except Exception as _:
-        pass
+        # console_err.print(f"Error removing memory from Redis: {e}")
+        return False
 
 
 def get_memory_prompt() -> str:
@@ -113,7 +119,7 @@ def get_memory_prompt() -> str:
         return ""
     return f"""
 <user_info>
-The following are memories you have collected from previous interactions with the user. They may be useful in personalizing responses.
+The following are memories you have collected from previous interactions with the user. They may be useful in fulfilling or personalizing responses.
 <memories>
 {memories}
 </memories>
