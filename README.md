@@ -241,12 +241,22 @@ PARGPT_PRICING=price # none | price | details
 PARGPT_DISPLAY_OUTPUT=md
 PARGPT_DEBUG=false
 PARGPT_SHOW_CONFIG=false
-PARGPT_AGENT_MODE=false # if this is false par_gpt will only use basic LLM completion
 PARGPT_REPL=false # set this to true to allow agent to WRITE and EXECUTE CODE ON HOST MACHINE 
 PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute code in a secure docker container sandbox
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
+
+# REDIS (Currently used for memories)
+PARGPT_REDIS_HOST=localhost
+PARGPT_REDIS_PORT=6379
+PARGPT_REDIS_DB=0
+
+# NEO4J (Just testing)
+PARGPT_NEO4J_HOST=localhost
+PARGPT_NEO4J_PORT=7687
+PARGPT_NEO4J_USER=neo4j
+PARGPT_NEO4J_PASS=neo4j
 ```
 
 ### AI API KEYS
@@ -281,6 +291,13 @@ PARGPT_SHOW_TOOL_CALLS=true
 * LANGCHAIN_API_KEY is required for Langchain / Langsmith tracing. Get a free key
   from https://smith.langchain.com/settings
 
+### Database and Memory
+
+Currently par_gpt has a tool to store and retrieve memory.  
+Memories are stored on a per user basis defaulting to the logged in user but can be overridden.  
+Any memories stored are loaded into context when calling LLMs. 
+Currently Redis is used to store memories but this may change
+
 ## Agent mode
 
 NOTE: Agent mode enables tool use.  
@@ -290,6 +307,7 @@ Only enabling some tools when keywords are present helps to reduce context and L
 If the REPL tool is enabled the Code sandbox tool will not be used.
 
 ### AI Tools
+- Memory - allows storage and retrival of memories in a persistent DB. Currently Redis.
 - REPL - Allows the AI to **WRITE AND EXECUTE CODE ON YOUR SYSTEM**.  
   The REPL tool must be manually enabled. If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
 - Code sandbox - Allows AI to write and execute code in a secure docker sandbox container which must be setup separately.

@@ -16,7 +16,7 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-from par_ai_core.llm_config import LlmConfig
+from par_ai_core.llm_config import LlmConfig, llm_run_manager
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
     image_to_base64,
@@ -82,7 +82,6 @@ from par_gpt.repo.repo import GitRepo
 from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.utils import (
     cache_manager,
-    describe_image_with_llm,
     mk_env_context,
     show_image_in_terminal,
     update_pyproject_deps,
@@ -626,7 +625,11 @@ def llm(
 
         env_info = mk_env_context({}, console)
         with get_parai_callback(
-            show_end=state["debug"], show_tool_calls=state["debug"], show_pricing=state["pricing"]
+            show_end=state["debug"],
+            show_tool_calls=state["debug"],
+            show_pricing=state["pricing"],
+            verbose=state["debug"],
+            console=console,
         ) as cb:
             while True:
                 while not question:
@@ -700,7 +703,13 @@ def git(
     question = question.strip()
 
     try:
-        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"], show_pricing=state["pricing"]):
+        with get_parai_callback(
+            show_end=state["debug"],
+            show_tool_calls=state["debug"],
+            show_pricing=state["pricing"],
+            verbose=state["debug"],
+            console=console,
+        ):
             repo = GitRepo(llm_config=state["llm_config"])
             if not repo.is_dirty():
                 console.print("[bold yellow]No changes to commit. Exiting...")
@@ -739,7 +748,9 @@ def code_review(
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
-        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
+        with get_parai_callback(
+            show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
+        ) as cb:
             content, result = do_code_review_agent(
                 chat_model=chat_model,
                 user_input=question,
@@ -795,7 +806,9 @@ def generate_prompt(
     try:
         chat_model = state["llm_config"].build_chat_model()
 
-        with get_parai_callback(show_end=state["debug"], show_tool_calls=state["debug"]) as cb:
+        with get_parai_callback(
+            show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
+        ) as cb:
             content, result = do_prompt_generation_agent(
                 chat_model=chat_model,
                 user_input=question,
@@ -1034,8 +1047,9 @@ def agent(
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"] or show_tool_calls,
-            console=console,
             show_pricing=state["pricing"],
+            verbose=state["debug"],
+            console=console,
         ) as cb:
             while True:
                 if state["voice_input_man"]:
@@ -1220,17 +1234,91 @@ def aider(
     # coder.run(question)
 
 
+@app.command()
+def sandbox(
+    ctx: typer.Context,
+    action: Annotated[
+        SandboxAction,
+        typer.Option(
+            "--action",
+            "-a",
+            help="Sandbox action to perform.",
+        ),
+    ],
+) -> None:
+    """Build and run code runner docker sandbox."""
+    if action == SandboxAction.BUILD:
+        install_sandbox(console=console)
+    elif action == SandboxAction.STOP:
+        stop_sandbox(console=console)
+    elif action == SandboxAction.START:
+        start_sandbox(console=console)
+
+
+@app.command()
+def update_deps(
+    ctx: typer.Context,
+    no_uv_update: Annotated[
+        bool,
+        typer.Option(
+            "--no-uv-update",
+            "-n",
+            help="Dont run 'uv sync -U'",
+        ),
+    ] = False,
+) -> None:
+    """Update python project dependencies."""
+    update_pyproject_deps(do_uv_update=not no_uv_update, console=console)
+
+
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def code_test(
     ctx: typer.Context,
 ) -> None:
     """Used for experiments. DO NOT RUN"""
     state = ctx.obj
+    if not state["user_prompt"] and len(ctx.args) > 0:
+        state["user_prompt"] = ctx.args.pop(0)
 
+    if not state["user_prompt"]:
+        console.print("[bold red]No user prompt provided. Exiting...")
+        raise typer.Exit(1)
+
+    from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
+
+    chat_model = state["llm_config"].build_chat_model()
+
+    with get_parai_callback(
+        show_end=state["debug"],
+        show_tool_calls=True,
+        console=console,
+        show_pricing=PricingDisplay.DETAILS,
+        verbose=state["debug"],
+    ):
+        graph = Neo4jGraph(
+            url=f"""bolt://{os.environ.get(f"{__env_var_prefix__}_NEO4J_HOST") or "localhost"}:{os.environ.get(f"{__env_var_prefix__}_NEO4J_PORT") or "7687"}""",
+            username=os.environ.get(f"{__env_var_prefix__}_NEO4J_USER"),
+            password=os.environ.get(f"{__env_var_prefix__}_NEO4J_PASS"),
+            enhanced_schema=True,
+        )
+        # console.print(graph.schema)
+
+        runnable_config = llm_run_manager.get_runnable_config(chat_model.name)
+        chain = GraphCypherQAChain.from_llm(
+            chat_model,
+            graph=graph,
+            verbose=True,
+            allow_dangerous_requests=True,
+            config=runnable_config,
+            # qa_llm_kwargs={"config": runnable_config)},
+            # cypher_llm_kwargs = {"config": runnable_config}
+        )
+        ret = chain.invoke({"query": state["user_prompt"]}, config=runnable_config)
+        console.print(ret)
     # console.print(ai_list_visible_windows(None))
-    console.print(
-        describe_image_with_llm("/Users/probello/.par_gpt/cache/58bb5cbd4a3cf22447882d0d88f1552f920c6063.png")
-    )
+    # console.print(
+    #     describe_image_with_llm("/Users/probello/.par_gpt/cache/58bb5cbd4a3cf22447882d0d88f1552f920c6063.png")
+    # )
 
     #    content = """OpenAI has been involved in various partnerships, including an exclusive license of GPT-3 to Microsoft. There are also discussions
     # about potential legal actions by investors due to leadership changes.\n\nFor more detailed information, you can visit OpenAI\'s official website at
@@ -1295,7 +1383,9 @@ def code_test(
         )
     )
 
-    with get_parai_callback(show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS):
+    with get_parai_callback(
+        show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS, verbose=state["debug"], console=console
+    ):
         while state["voice_input_man"] is not None:
             prompt = state["voice_input_man"].get_text()
             if not prompt:
@@ -1320,43 +1410,6 @@ def code_test(
                 state["tts_man"].speak(summarize_for_tts(content))
         if state["voice_input_man"]:
             state["voice_input_man"].shutdown()
-
-
-@app.command()
-def sandbox(
-    ctx: typer.Context,
-    action: Annotated[
-        SandboxAction,
-        typer.Option(
-            "--action",
-            "-a",
-            help="Sandbox action to perform.",
-        ),
-    ],
-) -> None:
-    """Build and run code runner docker sandbox."""
-    if action == SandboxAction.BUILD:
-        install_sandbox(console=console)
-    elif action == SandboxAction.STOP:
-        stop_sandbox(console=console)
-    elif action == SandboxAction.START:
-        start_sandbox(console=console)
-
-
-@app.command()
-def update_deps(
-    ctx: typer.Context,
-    no_uv_update: Annotated[
-        bool,
-        typer.Option(
-            "--no-uv-update",
-            "-n",
-            help="Dont run 'uv sync -U'",
-        ),
-    ] = False,
-) -> None:
-    """Update python project dependencies."""
-    update_pyproject_deps(do_uv_update=not no_uv_update, console=console)
 
 
 if __name__ == "__main__":
