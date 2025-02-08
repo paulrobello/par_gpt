@@ -1309,6 +1309,8 @@ def code_test(
             graph=graph,
             verbose=True,
             allow_dangerous_requests=True,
+            validate_cypher=True,
+            # use_function_response=True,
             config=runnable_config,
             # qa_llm_kwargs={"config": runnable_config)},
             # cypher_llm_kwargs = {"config": runnable_config}
