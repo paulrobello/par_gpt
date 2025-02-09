@@ -82,6 +82,7 @@ from par_gpt.repo.repo import GitRepo
 from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.utils import (
     cache_manager,
+    github_publish_repo,
     mk_env_context,
     show_image_in_terminal,
     update_pyproject_deps,
@@ -1269,6 +1270,30 @@ def update_deps(
 ) -> None:
     """Update python project dependencies."""
     update_pyproject_deps(do_uv_update=not no_uv_update, console=console)
+
+
+@app.command(name="pub-repo-gh")
+def publish_repo_github(
+    ctx: typer.Context,
+    repo_name: Annotated[
+        str | None,
+        typer.Option(
+            "--repo-name",
+            "-r",
+            help="Name of the repository. (Defaults to repo root folder name)",
+        ),
+    ] = None,
+    public: Annotated[
+        bool,
+        typer.Option(
+            "--public",
+            "-p",
+            help="Publish as public repo.",
+        ),
+    ] = False,
+) -> None:
+    """Create and publish a github repository using current local git repo as source."""
+    github_publish_repo(repo_name, public=public)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

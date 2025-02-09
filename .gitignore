@@ -70,6 +70,7 @@ __pypackages__/
 **/.venv
 **/.env
 **/.idea
+**/.vscode
 /config.json
 /output/
 /history.json

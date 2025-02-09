@@ -13,7 +13,6 @@ from typing import Any, Literal, cast
 import clipman as clipboard
 import feedparser
 import requests
-from git import Remote
 from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
 from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
@@ -26,7 +25,7 @@ from rich.prompt import Prompt
 from rich.text import Text
 
 from par_gpt.memory_utils import add_memory_redis, get_memory_user, list_memories_redis, remove_memory_redis
-from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
+from par_gpt.repo.repo import GitRepo
 from par_gpt.utils import (
     FigletFontName,
     ImageCaptureOutputType,
@@ -37,6 +36,7 @@ from par_gpt.utils import (
     figlet_vertical,
     get_weather_current,
     get_weather_forecast,
+    github_publish_repo,
     image_gen_dali,
     list_visible_windows_mac,
     show_image_in_terminal,
@@ -451,58 +451,19 @@ def ai_github_create_repo(repo_name: str | None = None, private: bool = True) ->
 
 
 @tool(parse_docstring=True)
-def ai_github_publish_repo(repo_name: str | None = None, private: bool = True) -> str:
+def ai_github_publish_repo(repo_name: str | None = None, public: bool = False) -> str:
     """
     Create a new GitHub repository and push current repo to it.
     If an error message is returned stop and make it your final response.
 
     Args:
         repo_name (str): The name of the repository (default: the name of the current working directory)
-        private (bool): Whether the repository should be private (default: True)
+        public (bool): Whether the repository should be public (default: False)
 
     Returns:
         str: The URL of the newly created repository or Error message
     """
-    if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
-        return "Error: GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set."
-
-    repo: GitRepo
-    try:
-        repo = GitRepo()
-        if repo.is_dirty():
-            # console_err.print("Repo is dirty. Please commit changes before publishing.")
-            return "Error: Repo is dirty. Please commit changes before publishing."
-    except ANY_GIT_ERROR as e:
-        console_err.print(e)
-        return "Error: GIT repository not found. Please create a repository first."
-
-    try:
-        if repo.repo.remote("origin") is not None:
-            console_err.print("Error: Remote origin already exists for this repository. Aborting.")
-            return "Error: Remote origin already exists for this repository. Aborting."
-    except ANY_GIT_ERROR as _:
-        pass
-
-    auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
-    g = Github(auth=auth)
-    repo_name = repo_name or Path(repo.repo.git_dir).parent.stem.lower().replace(" ", "-")
-
-    # console_err.print(f"Creating repository: {repo_name}")
-    gh_repo = cast(AuthenticatedUser, g.get_user()).create_repo(repo_name, private=private)  # type: ignore
-    remote = repo.create_remote("origin", gh_repo.ssh_url)
-    if not isinstance(remote, Remote):
-        # console_err.print(f"Error: {remote}")
-        return f"Error: {remote}"
-
-    try:
-        remote.push(f"HEAD:{gh_repo.default_branch}")
-        repo.repo.git.branch(f"--set-upstream-to=origin/{gh_repo.default_branch}", gh_repo.default_branch)
-    except ANY_GIT_ERROR as e:
-        console_err.print(f"Error pushing to remote: {e}")
-        return (
-            f"GitHub repo created {gh_repo.html_url} but there was an error pushing to the remote. Error Message: {e}"
-        )
-    return gh_repo.html_url
+    return github_publish_repo(repo_name, public)
 
 
 @tool(parse_docstring=True)

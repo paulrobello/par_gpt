@@ -17,8 +17,13 @@ from par_ai_core.llm_utils import llm_config_from_env
 from pathspec import PathSpec
 from rich.console import Console
 
-from .. import __env_var_prefix__
-from ..utils import safe_abs_path
+from par_gpt import __env_var_prefix__
+
+
+def safe_abs_path(res):
+    """Gives an abs path, which safely returns a full (not 8.3) windows path"""
+    return str(Path(res).resolve())
+
 
 commit_system = """
 You are an expert software engineer that generates concise, one-line Git commit messages based on the provided diffs.

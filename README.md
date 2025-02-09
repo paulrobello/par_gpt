@@ -177,6 +177,7 @@ code-review       Review code.
 generate-prompt   Use meta prompting to generate a new prompt.
 sandbox           Build and run code runner docker sandbox.
 update-deps       Update python project dependencies.
+pub-repo-gh       Create and publish a github repository using current local git repo as source.
 ```
 
 ### CLI agent Arguments
@@ -196,6 +197,12 @@ update-deps       Update python project dependencies.
 ### Update deps Arguments
 ```
 --no-uv-update  -n        Dont run 'uv sync -U'
+```
+
+### Publish Repo to Github
+```
+--repo-name  -r      TEXT  Name of the repository. (Defaults to repo root folder name)
+--public     -p            Publish as public repo.
 ```
 
 
