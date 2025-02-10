@@ -356,7 +356,7 @@ def main(
     if redis_port:
         os.environ[f"{__env_var_prefix__}_REDIS_PORT"] = str(redis_port)
 
-    if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK]:
+    if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK, LlmProvider.LITELLM]:
         key_name = provider_env_key_names[ai_provider]
         if not os.environ.get(key_name):
             console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
