@@ -219,6 +219,12 @@ XAI_API_KEY=
 GOOGLE_API_KEY=
 MISTRAL_API_KEY=
 GITHUB_TOKEN=
+OPENROUTER_API_KEY=
+DEEPSEEK_API_KEY=
+# Used by Bedrock
+AWS_PROFILE=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
 
 # Search
 GOOGLE_CSE_ID=
@@ -275,6 +281,8 @@ PARGPT_NEO4J_PASS=neo4j
 * XAI_API_KEY is required for XAI. Get a free key from https://x.ai/api
 * GROQ_API_KEY is required for Groq. Get a free key from https://console.groq.com/
 * MISTRAL_API_KEY is required for Mistral. Get a free key from https://console.mistral.ai/
+* OPENROUTER_KEY is required for OpenRouter. Get a key from https://openrouter.ai/
+* DEEPSEEK_API_KEY is required for Deepseek. Get a key from https://platform.deepseek.com/
 * AWS_PROFILE or AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are used for Bedrock authentication. The environment must
   already be authenticated with AWS.
 * No key required to use with Ollama or LlamaCpp.
@@ -447,6 +455,8 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.7.0:
+  - Updated PAR AI CORE: Now supports Deepseek and LiteLLM
 - Version 0.6.0:
   - Added support for TTS output
   - Added screenshot support

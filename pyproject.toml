@@ -65,12 +65,11 @@ dependencies = [
     "pathspec>=0.12.1",
     "numpy>=1.26.4",
     "matplotlib>=3.10.0",
-    "faker>=35.2.0",
+    "faker>=36.0.0",
     "rich-pixels>=3.0.1",
     "keyring>=25.6.0",
     "pygithub>=2.5.0",
     "clipman>=3.3.1",
-    "par-ai-core>=0.1.14",
     "pyfiglet>=1.0.2",
     "sixel>=0.2.0",
     "feedparser>=6.0.11",
@@ -91,6 +90,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "redis>=5.2.1",
     "langchain-neo4j>=0.3.0",
+    "par-ai-core>=0.1.15",
 ]
 packages = [
     "src/par_gpt",
