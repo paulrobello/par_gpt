@@ -90,7 +90,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "redis>=5.2.1",
     "langchain-neo4j>=0.3.0",
-    "par-ai-core>=0.1.15",
+    "par-ai-core>=0.1.16",
 ]
 packages = [
     "src/par_gpt",

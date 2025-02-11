@@ -939,11 +939,11 @@ wheels = [
 
 [[package]]
 name = "flatbuffers"
-version = "25.1.24"
+version = "25.2.10"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/64/20/c380c311843318b577650286b2c7eaaac3a011fb982df0050bdbd7e453c5/flatbuffers-25.1.24.tar.gz", hash = "sha256:e0f7b7d806c0abdf166275492663130af40c11f89445045fbef0aa3c9a8643ad", size = 22155 }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/30/eb5dce7994fc71a2f685d98ec33cc660c0a5887db5610137e60d8cbc4489/flatbuffers-25.2.10.tar.gz", hash = "sha256:97e451377a41262f8d9bd4295cc836133415cc03d8cb966410a4af92eb00d26e", size = 22170 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/e2/b066e6e02d67bf5261a6d7539648c6da3365cc9eff3eb6d82009595d84d9/flatbuffers-25.1.24-py2.py3-none-any.whl", hash = "sha256:1abfebaf4083117225d0723087ea909896a34e3fec933beedb490d595ba24145", size = 30955 },
+    { url = "https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl", hash = "sha256:ebba5f4d5ea615af3f7fd70fc310636fbb2bbd1f566ac0a23d98dd412de50051", size = 30953 },
 ]
 
 [[package]]
@@ -3172,7 +3172,7 @@ wheels = [
 
 [[package]]
 name = "par-ai-core"
-version = "0.1.15"
+version = "0.1.16"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -3213,9 +3213,9 @@ dependencies = [
     { name = "webdriver-manager" },
     { name = "youtube-transcript-api" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/23/98/daa7ee1fd108e95a97cc30ee4c1f23884736e44430086c277b677e08b1f5/par_ai_core-0.1.15.tar.gz", hash = "sha256:6a37ff362502687326f7cfd7140665418f85d5a58a8853c05c86a12a6be663d9", size = 113071 }
+sdist = { url = "https://files.pythonhosted.org/packages/05/25/53fdc3729bf3c2e1c2b002e01c1f558a5fd792a398e1759519d56bce2c53/par_ai_core-0.1.16.tar.gz", hash = "sha256:26ade88c168473d90e4072e4a55259bb4dbf5994a12509ae6600e0ee7758c8e7", size = 113117 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/0f/b9df73bc146142bd5b1bca3edfacb544139e3fbbd00111943eb7277781be/par_ai_core-0.1.15-py3-none-any.whl", hash = "sha256:20eaeee007ad563e2b9efdc5fbeceaadf48de09939f8e163cf7c283aadeb0e27", size = 152150 },
+    { url = "https://files.pythonhosted.org/packages/6e/62/8b6f23a4f6018cc83f50dc4dcd767b0a4ae1982cb4f76baa6f7f9bb23590/par_ai_core-0.1.16-py3-none-any.whl", hash = "sha256:0619dd1cc926d5b73175af02da7065742934e253528e5ead052c0b5b2725b055", size = 152209 },
 ]
 
 [[package]]
@@ -3316,7 +3316,7 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.11.0.86" },
     { name = "orjson", specifier = ">=3.10.15" },
     { name = "pandas", specifier = ">=2.2.3" },
-    { name = "par-ai-core", specifier = ">=0.1.15" },
+    { name = "par-ai-core", specifier = ">=0.1.16" },
     { name = "pathspec", specifier = ">=0.12.1" },
     { name = "prompt-toolkit", specifier = ">=3.0.50" },
     { name = "pyautogui", specifier = ">=0.9.54" },
