@@ -51,7 +51,7 @@ dependencies = [
     "langchain-experimental>=0.3.4",
     "langchain-google-community[drive,gmail]>=2.0.4",
     "langchain>=0.3.18",
-    "langgraph>=0.2.70",
+    "langgraph>=0.2.71",
     "pandas>=2.2.3",
     "prompt-toolkit>=3.0.50",
     "pydantic-core>=2.27.2",
@@ -65,7 +65,7 @@ dependencies = [
     "pathspec>=0.12.1",
     "numpy>=1.26.4",
     "matplotlib>=3.10.0",
-    "faker>=36.0.0",
+    "faker>=36.1.0",
     "rich-pixels>=3.0.1",
     "keyring>=25.6.0",
     "pygithub>=2.5.0",
@@ -78,7 +78,7 @@ dependencies = [
     "pyautogui>=0.9.54",
     "pywinctl>=0.4.1",
     "opencv-python>=4.11.0.86",
-    "elevenlabs>=1.50.7",
+    "elevenlabs>=1.51.0",
     "pyttsx3>=2.98",
     "sounddevice>=0.5.1",
     "soundfile>=0.13.1",
@@ -90,7 +90,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "redis>=5.2.1",
     "langchain-neo4j>=0.3.0",
-    "par-ai-core>=0.1.16",
+    "par-ai-core>=0.1.17",
 ]
 packages = [
     "src/par_gpt",
@@ -168,3 +168,7 @@ exclude = [
     "*.so",
     "*.dylib",
 ]
+
+[tool.uv.sources.par-ai-core]
+path = "../par_ai_core"
+editable = true
