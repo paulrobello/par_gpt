@@ -90,7 +90,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "redis>=5.2.1",
     "langchain-neo4j>=0.3.0",
-    "par-ai-core>=0.1.17",
+    "par-ai-core>=0.1.20",
 ]
 packages = [
     "src/par_gpt",
@@ -168,7 +168,3 @@ exclude = [
     "*.so",
     "*.dylib",
 ]
-
-[tool.uv.sources.par-ai-core]
-path = "../par_ai_core"
-editable = true
