@@ -1293,7 +1293,7 @@ def publish_repo_github(
     ] = False,
 ) -> None:
     """Create and publish a github repository using current local git repo as source."""
-    github_publish_repo(repo_name, public=public)
+    console.print(github_publish_repo(repo_name, public=public))
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
