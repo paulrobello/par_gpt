@@ -1,4 +1,3 @@
-import json
 import os
 import re
 from collections.abc import Callable
@@ -32,6 +31,7 @@ class ObsidianError(Exception):
         super().__init__(message)
         self.code = code
         self.data = data
+
 
 class ObsidianClient:
     """
@@ -392,8 +392,8 @@ class ObsidianClient:
             A list of search result dictionaries.
         """
         # Determine if this is a tag search.
-        query_str = json.dumps(query)
-        is_tag_search = '"contains"' in query_str and '"#"' in query_str
+        # query_str = json.dumps(query)
+        # is_tag_search = '"contains"' in query_str and '"#"' in query_str
         headers = {
             "Content-Type": "application/vnd.olrapi.jsonlogic+json",
             "Accept": "application/vnd.olrapi.note+json",

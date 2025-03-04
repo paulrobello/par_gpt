@@ -16,7 +16,7 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-from par_ai_core.llm_config import LlmConfig, llm_run_manager
+from par_ai_core.llm_config import LlmConfig, ReasoningEffort, llm_run_manager
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
     image_to_base64,
@@ -217,9 +217,25 @@ def main(
             "--max-context-size",
             "-M",
             envvar=f"{__env_var_prefix__}_MAX_CONTEXT_SIZE",
-            help="Maximum context size when provider supports it. 0 = default.",
+            help="Maximum context size when provider supports it. 0 = default. This must be set to more than reasoning_budget if reasoning_budget is set.",
         ),
     ] = 0,
+    reasoning_effort: Annotated[
+        ReasoningEffort | None,
+        typer.Option(
+            "--reasoning-effort",
+            envvar=f"{__env_var_prefix__}_REASONING_EFFORT",
+            help="Reasoning effort level to use for o1 and o3 models.",
+        ),
+    ] = None,
+    reasoning_budget: Annotated[
+        int | None,
+        typer.Option(
+            "--reasoning-budget",
+            envvar=f"{__env_var_prefix__}_REASONING_BUDGET",
+            help="Maximum context size for reasoning.",
+        ),
+    ] = None,
     copy_to_clipboard: Annotated[
         bool,
         typer.Option(
@@ -451,6 +467,8 @@ def main(
         user_agent_appid=user_agent_appid,
         num_ctx=max_context_size or None,
         env_prefix=__env_var_prefix__,
+        reasoning_effort=reasoning_effort,
+        reasoning_budget=reasoning_budget,
     ).set_env()
     tts_man: TTSManger | None = None
     if tts:
@@ -488,6 +506,12 @@ def main(
                     "\n",
                     ("Max Context Size: ", "cyan"),
                     (f"{max_context_size}", "green"),
+                    "\n",
+                    ("Reasoning Effort: ", "cyan"),
+                    (f"{reasoning_effort}", "green"),
+                    "\n",
+                    ("Reasoning Budget: ", "cyan"),
+                    (f"{reasoning_budget}", "green"),
                     "\n",
                     ("AI Provider Base URL: ", "cyan"),
                     "\n",
@@ -566,6 +590,8 @@ def main(
         "system_prompt": system_prompt,
         "user_prompt": user_prompt,
         "max_context_size": max_context_size,
+        "reasoning_effort": reasoning_effort,
+        "reasoning_budget": reasoning_budget,
         "copy_to_clipboard": copy_to_clipboard,
         "copy_from_clipboard": copy_from_clipboard,
         "show_config": show_config,
@@ -638,7 +664,7 @@ def llm(
                     if question.lower() == "exit":
                         return
 
-                content, result = do_single_llm_call(
+                content, thinking, result = do_single_llm_call(
                     chat_model=chat_model,
                     user_input=question,
                     system_prompt=state["system_prompt"],
@@ -666,6 +692,9 @@ def llm(
 
                 if state["debug"]:
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
+
+                if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+                    console.print(Panel(thinking, title="thinking", style="cyan"))
 
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
@@ -752,7 +781,7 @@ def code_review(
         with get_parai_callback(
             show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
         ) as cb:
-            content, result = do_code_review_agent(
+            content, thinking, result = do_code_review_agent(
                 chat_model=chat_model,
                 user_input=question,
                 system_prompt=state["system_prompt"],
@@ -775,6 +804,9 @@ def code_review(
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+
+        if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+            console.print(Panel(thinking, title="thinking", style="cyan"))
 
         display_formatted_output(content, state["display_format"], console=console)
     except Exception as e:
@@ -810,7 +842,7 @@ def generate_prompt(
         with get_parai_callback(
             show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
         ) as cb:
-            content, result = do_prompt_generation_agent(
+            content, thinking, result = do_prompt_generation_agent(
                 chat_model=chat_model,
                 user_input=question,
                 system_prompt=state["system_prompt"],
@@ -831,6 +863,9 @@ def generate_prompt(
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
+
+        if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+            console.print(Panel(thinking, title="thinking", style="cyan"))
 
         display_formatted_output(content, state["display_format"], console=console)
 
@@ -1420,7 +1455,7 @@ def code_test(
             if prompt.lower().strip() == "exit":
                 break
             chat_history.append(("user", prompt))
-            content, result = do_single_llm_call(
+            content, thinking, result = do_single_llm_call(
                 chat_model=chat_model,
                 user_input=prompt,
                 image=None,
@@ -1432,6 +1467,9 @@ def code_test(
                 console=console,
             )
             chat_history.append(("assistant", content))
+            if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+                console.print(Panel(thinking, title="thinking", style="cyan"))
+
             console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
             if state["tts_man"]:
                 state["tts_man"].speak(summarize_for_tts(content))

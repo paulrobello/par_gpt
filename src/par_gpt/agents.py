@@ -44,7 +44,7 @@ def do_single_llm_call(
     debug: bool,
     console: Console | None = None,
     use_tts: bool = False,
-) -> tuple[str, BaseMessage]:
+) -> tuple[str, str, BaseMessage]:
     if not console:
         console = console_err
 
@@ -93,9 +93,23 @@ def do_single_llm_call(
     if debug:
         console.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
     result = chat_model.invoke(chat_history, config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
-    content = str(result.content).replace("```markdown", "").replace("```", "").strip()
-    result.content = content
-    return content, result
+    console.print(result)
+    content = ""
+    thinking = ""
+    if isinstance(result.content, str):
+        content = result.content.replace("```markdown", "").replace("```", "").strip()
+    elif isinstance(result.content, list):
+        for item in result.content:
+            if isinstance(item, str):
+                content += item.replace("```markdown", "").replace("```", "").strip() + "\n"
+            elif isinstance(item, dict):
+                if "text" in item:
+                    content += item["text"].replace("```markdown", "").replace("```", "").strip() + "\n"
+                if "thinking" in item:
+                    thinking += item["thinking"] + "\n"
+
+    result.content = content.strip()
+    return content, thinking, result
 
 
 # not currently used
@@ -316,7 +330,7 @@ def do_code_review_agent(
     display_format: DisplayOutputFormat,
     debug: bool = True,
     console: Console | None = None,
-) -> tuple[str, BaseMessage]:
+) -> tuple[str, str, BaseMessage]:
     """Code Agent"""
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "prompt_bug_analysis.xml").read_text(
@@ -348,7 +362,7 @@ def do_prompt_generation_agent(
     system_prompt: str | None,
     debug: bool = True,
     console: Console | None = None,
-) -> tuple[str, BaseMessage]:
+) -> tuple[str, str, BaseMessage]:
     """Prompt Agent"""
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")

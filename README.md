@@ -259,6 +259,8 @@ PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
 PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
 PARGPT_SHOW_TOOL_CALLS=true
+PARGPT_REASONING_EFFORT=medium # used by o1 and o3 reasoning models
+PARGPT_REASONING_BUDGET=0 # used by sonnet 3.7 to enable reasoning mode. 1024 minimum
 
 # REDIS (Currently used for memories)
 PARGPT_REDIS_HOST=localhost
@@ -455,6 +457,8 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.7.1:
+  - Updated PAR AI CORE: Now supports OpenAI Reasoning Effort and Anthropic Reasoning token budget
 - Version 0.7.0:
   - Updated PAR AI CORE: Now supports Deepseek and LiteLLM
 - Version 0.6.0:
