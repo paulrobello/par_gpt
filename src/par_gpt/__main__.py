@@ -1331,6 +1331,47 @@ def publish_repo_github(
     console.print(github_publish_repo(repo_name, public=public))
 
 
+@app.command()
+def tinify(
+    ctx: typer.Context,
+    image_file: Annotated[
+        str,
+        typer.Option(
+            "--image",
+            "-i",
+            help="Image to tinify",
+        ),
+    ],
+    output_file: Annotated[
+        str | None,
+        typer.Option(
+            "--output-image",
+            "-o",
+            help="File to save compressed image to. Defaults to image_file.",
+        ),
+    ] = None,
+) -> None:
+    """Compress image using tinify."""
+    image_path = Path(image_file)
+    if not image_path.exists():
+        console.print("[bold red]Image not found")
+        raise typer.Exit(1)
+    if image_path.suffix.lower() not in [".png", ".jpg", ".webp"]:
+        console.print("[bold red]Only png, jpg, and webp images are supported")
+        raise typer.Exit(1)
+
+    import tinify
+
+    tinify.key = os.environ["TINIFY_KEY"]  # type: ignore
+    output_path = Path(output_file) if output_file else image_path
+
+    source = tinify.from_file(image_path)  # type: ignore
+    source.to_file(output_path)
+    compression_ratio = output_path.stat().st_size / image_path.stat().st_size
+    reduction_percentage = (1 - compression_ratio) * 100
+    console.print(f"Tinified image saved to {output_path} with a reduction of {reduction_percentage:.2f}%")
+
+
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def code_test(
     ctx: typer.Context,

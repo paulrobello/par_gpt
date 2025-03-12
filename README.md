@@ -178,6 +178,7 @@ generate-prompt   Use meta prompting to generate a new prompt.
 sandbox           Build and run code runner docker sandbox.
 update-deps       Update python project dependencies.
 pub-repo-gh       Create and publish a github repository using current local git repo as source.
+tinify            Compress image using tinify.
 ```
 
 ### CLI agent Arguments
@@ -205,6 +206,11 @@ pub-repo-gh       Create and publish a github repository using current local git
 --public     -p            Publish as public repo.
 ```
 
+### Tinify arguments
+```
+--image         -i      TEXT  Image to tinify [default: None] [required]
+--output-image  -o      TEXT  File to save compressed image to. Defaults to image_file.
+```
 
 ## Environment Variables
 
@@ -240,6 +246,7 @@ REDDIT_CLIENT_SECRET=
 # Misc api
 WEATHERAPI_KEY=
 GITHUB_PERSONAL_ACCESS_TOKEN=
+TINIFY_KEY=
 
 ### Tracing (optional)
 LANGCHAIN_TRACING_V2=false
@@ -307,6 +314,7 @@ PARGPT_NEO4J_PASS=neo4j
 * WEATHERAPI_KEY is required for weather. Get a free key from https://www.weatherapi.com/
 * LANGCHAIN_API_KEY is required for Langchain / Langsmith tracing. Get a free key
   from https://smith.langchain.com/settings
+* TINIFY_KEY is required to use the tinify images compression tools
 
 ### Database and Memory
 
@@ -457,6 +465,8 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.8.0:
+  - Added the tinify image compression command
 - Version 0.7.1:
   - Updated PAR AI CORE: Now supports OpenAI Reasoning Effort and Anthropic Reasoning token budget
 - Version 0.7.0:
