@@ -40,6 +40,7 @@ from par_ai_core.utils import (
     has_stdin_content,
 )
 from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.prompt import Prompt
@@ -78,6 +79,7 @@ from par_gpt.ai_tools.ai_tools import (
     user_prompt,
 )
 from par_gpt.ai_tools.par_python_repl import ParPythonAstREPLTool
+from par_gpt.profiling.profile_tools import ProfileAnalysisError, process_profile
 from par_gpt.repo.repo import GitRepo
 from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
 from par_gpt.utils import (
@@ -1339,7 +1341,7 @@ def tinify(
         typer.Option(
             "--image",
             "-i",
-            help="Image to tinify",
+            help="Image to tinify.",
         ),
     ],
     output_file: Annotated[
@@ -1370,6 +1372,55 @@ def tinify(
     compression_ratio = output_path.stat().st_size / image_path.stat().st_size
     reduction_percentage = (1 - compression_ratio) * 100
     console.print(f"Tinified image saved to {output_path} with a reduction of {reduction_percentage:.2f}%")
+
+
+@app.command()
+def pi_profile(
+    ctx: typer.Context,
+    profile_json: Annotated[
+        str,
+        typer.Option(
+            "--profile_json",
+            "-p",
+            help="JSON report to examine.",
+        ),
+    ],
+    module: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--module",
+            "-m",
+            help="Module to include in analysis. Can be specified more than once.",
+        ),
+    ] = None,
+    output: Annotated[
+        str | None,
+        typer.Option(
+            "--output",
+            "-o",
+            help="File to save markdown to. Defaults to screen.",
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        typer.Option(
+            "--limit",
+            "-l",
+            help="Max number of functions to include.",
+        ),
+    ] = 15,
+) -> None:
+    """Convert Pyinstrument json report to markdown"""
+
+    try:
+        report = process_profile(profile_path=profile_json, modules_in_scope=module, output_path=output, limit=limit)
+        if output:
+            console.print(f"[bold green]Success:[/] Profile summary written to {output}")
+        else:
+            console.print(Markdown(report))
+    except ProfileAnalysisError as e:
+        console.print(f"[bold red]Error:[/] {e}")
+        sys.exit(1)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

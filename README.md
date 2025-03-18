@@ -179,6 +179,7 @@ sandbox           Build and run code runner docker sandbox.
 update-deps       Update python project dependencies.
 pub-repo-gh       Create and publish a github repository using current local git repo as source.
 tinify            Compress image using tinify.
+pi-profile        Convert Pyinstrument json report to markdown
 ```
 
 ### CLI agent Arguments
@@ -208,8 +209,16 @@ tinify            Compress image using tinify.
 
 ### Tinify arguments
 ```
---image         -i      TEXT  Image to tinify [default: None] [required]
+--image         -i      TEXT  Image to tinify. [default: None] [required]
 --output-image  -o      TEXT  File to save compressed image to. Defaults to image_file.
+```
+
+## Pyinstrument (pi-profile) arguments
+```
+--profile_json  -p      TEXT     JSON report to examine. [default: None] [required]
+--module        -m      TEXT     Module to include in analysis. Can be specified more than once. [default: None]
+--output        -o      TEXT     File to save markdown to. Defaults to screen. [default: None]
+--limit         -l      INTEGER  Max number of functions to include. [default: 15]
 ```
 
 ## Environment Variables
