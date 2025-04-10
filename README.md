@@ -474,6 +474,8 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.10.0:
+  - Fixed sixel error on windows
 - Version 0.8.0:
   - Added the tinify image compression command
 - Version 0.7.1:
