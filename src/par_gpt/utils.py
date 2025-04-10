@@ -35,7 +35,6 @@ from PIL import Image
 from pydantic import BaseModel, Field, SecretStr
 from rich.console import Console
 from rich_pixels import Pixels
-from sixel import converter as sixel_converter
 from strenum import StrEnum
 from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
 
@@ -44,6 +43,7 @@ from par_gpt.cache_manger import cache_manager
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 
 try:
+    from sixel import converter as sixel_converter
     sixel_supported = sixel_query_terminal_support()
 except Exception:
     sixel_supported = False
