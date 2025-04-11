@@ -90,7 +90,7 @@ dependencies = [
     "tomli-w>=1.2.0",
     "redis>=5.2.1",
     "langchain-neo4j>=0.4.0",
-    "par-ai-core>=0.1.22",
+    "par-ai-core>=0.1.25",
     "tinify>=1.6.0",
     "langchain-mcp-adapters>=0.0.7",
 ]

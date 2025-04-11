@@ -93,7 +93,7 @@ def do_single_llm_call(
     if debug:
         console.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
     result = chat_model.invoke(chat_history, config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
-    console.print(result)
+    # console.print(result)
     content = ""
     thinking = ""
     if isinstance(result.content, str):
