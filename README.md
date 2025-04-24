@@ -487,6 +487,8 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.11.0:
+  - Added new stardew subcommand for creating pixel art avatar variations
 - Version 0.10.0:
   - Fixed sixel error on windows
 - Version 0.8.0:
