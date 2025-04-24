@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import importlib
 import os
 import re
@@ -16,6 +17,7 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
+from openai import OpenAI
 from par_ai_core.llm_config import LlmConfig, ReasoningEffort, llm_run_manager
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
@@ -45,6 +47,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.prompt import Prompt
 from rich.text import Text
+from rich_pixels import Pixels
 from strenum import StrEnum
 
 from par_gpt import __application_binary__, __application_title__, __env_var_prefix__, __version__
@@ -1421,6 +1424,131 @@ def pi_profile(
     except ProfileAnalysisError as e:
         console.print(f"[bold red]Error:[/] {e}")
         sys.exit(1)
+
+
+@app.command()
+def stardew(
+    ctx: typer.Context,
+    prompt: Annotated[
+        str,
+        typer.Option(..., "-p", "--prompt", help="User request for avatar variation."),
+    ],
+    system_prompt: Annotated[
+        str,
+        typer.Option("-S", "--system-prompt", envvar=f"{__env_var_prefix__}_SD_SYSTEM_PROMPT", help="System prompt to use"),
+    ] = "Make this character {user_prompt}. ensure you maintain the pixel art style.",
+    src: Annotated[
+        Path | None,
+        typer.Option(
+            "-s",
+            "--src",
+            envvar=f"{__env_var_prefix__}_SD_SRC_IMAGE",
+            help="Source image to use as reference.",
+        ),
+    ] = None,
+    out_folder: Annotated[
+        Path | None,
+        typer.Option(
+            "-O",
+            "--out-folder",
+            envvar=f"{__env_var_prefix__}_SD_OUT_FOLDER",
+            help="Output folder for generated images.",
+        ),
+    ] = None,
+    out: Annotated[
+        str | None,
+        typer.Option(
+            "-o",
+            "--out",
+            help="Output image name.",
+        ),
+    ] = None,
+    display: Annotated[
+        bool,
+        typer.Option(
+            "-d",
+            "--display",
+            envvar=f"{__env_var_prefix__}_SD_DISPLAY_IMAGE",
+            help="Display resulting image in the terminal.",
+        ),
+    ] = False,
+) -> None:
+    """Generate pixel art avatar variation."""
+    state = ctx.obj
+
+    DEFAULT_SRC: Path = Path(__file__).parent / "img" / "stardew-image-base.jpeg"
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise typer.BadParameter("OPENAI_API_KEY environment variable not set")
+
+    try:
+        client = OpenAI(api_key=api_key)
+
+        # Determine source image path
+        src_path = src if src else DEFAULT_SRC
+        if not src_path.exists():
+            raise typer.BadParameter(f"Source image not found: {src_path}")
+
+        # Build the AI prompt
+        ai_prompt = system_prompt.format(user_prompt=prompt)
+        if state["debug"]:
+            console.print(ai_prompt)
+
+        image_file = src_path.open("rb")
+
+        try:
+            console.print("[bold green]Generating image, this can take up to a minute...[/bold green]")
+            # Call the image edit API
+            response = client.images.edit(
+                model="gpt-image-1",
+                image=image_file,
+                prompt=ai_prompt,
+                size="1024x1024",
+                quality="auto",
+            )
+        finally:
+            image_file.close()
+
+        if state["debug"]:
+            console.print(Pretty(response))
+
+        if not response.data or not len(response.data) or not response.data[0].b64_json:
+            raise ValueError("no b64_json in response")
+
+        image_base64 = response.data[0].b64_json
+        img_data = base64.b64decode(image_base64)
+
+        # Determine output file name
+        if out:
+            out_path = Path(out)
+        else:
+            safe_name = re.sub(r"[^a-z0-9_]", "_", prompt.lower())
+            out_path = Path(f"{safe_name}.png")
+
+        if out_folder and not out_path.is_absolute():
+            out_path = out_folder / out_path
+
+        # Write the image file
+        with out_path.open("wb") as f:
+            f.write(img_data)
+
+        console.print(f"[bold green]Image saved to {out_path}[/bold green]")
+
+        # Display in terminal if requested
+        if display:
+            dim: int = min(console.width, console.height * 2 - 5)
+            pixels = Pixels.from_image_path(out_path, (dim, dim))  # type: ignore[call-arg]
+            console.print(pixels)
+
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        if state["debug"]:
+            # Print more detailed error information in debug mode
+            import traceback
+
+            console.print(traceback.format_exc())
+        raise typer.Exit(code=1)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})

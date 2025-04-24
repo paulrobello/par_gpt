@@ -179,7 +179,8 @@ sandbox           Build and run code runner docker sandbox.
 update-deps       Update python project dependencies.
 pub-repo-gh       Create and publish a github repository using current local git repo as source.
 tinify            Compress image using tinify.
-pi-profile        Convert Pyinstrument json report to markdown
+pi-profile        Convert Pyinstrument json report to markdown.
+stardew           Generate pixel art avatar variation.
 ```
 
 ### CLI agent Arguments
@@ -219,6 +220,18 @@ pi-profile        Convert Pyinstrument json report to markdown
 --module        -m      TEXT     Module to include in analysis. Can be specified more than once. [default: None]
 --output        -o      TEXT     File to save markdown to. Defaults to screen. [default: None]
 --limit         -l      INTEGER  Max number of functions to include. [default: 15]
+```
+
+## Stardew arguments
+```
+--prompt         -p      TEXT  User request for avatar variation. [default: None] [required]
+--system-prompt  -S      TEXT  System prompt to use
+                               [env var: PARGPT_SD_SYSTEM_PROMPT]
+                               [default: Make this character {user_prompt}. ensure you maintain the pixel art style.]
+--src            -s      PATH  Source image to use as reference. [env var: PARGPT_SD_SRC_IMAGE] [default: None]
+--out-folder     -O      PATH  Output folder for generated images. [env var: PARGPT_SD_OUT_FOLDER] [default: None]
+--out            -o      TEXT  Output image name. [default: None]
+--display        -d            Display resulting image in the terminal. [env var: PARGPT_SD_DISPLAY_IMAGE]
 ```
 
 ## Environment Variables
