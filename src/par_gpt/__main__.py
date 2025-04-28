@@ -17,8 +17,7 @@ import typer
 from dotenv import load_dotenv
 from langchain_community.tools import TavilySearchResults
 from langchain_core.tools import BaseTool
-from openai import OpenAI
-from par_ai_core.llm_config import LlmConfig, ReasoningEffort, llm_run_manager
+from par_ai_core.llm_config import LlmConfig, LlmMode, ReasoningEffort, llm_run_manager
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
     image_to_base64,
@@ -444,7 +443,10 @@ def main(
                 context = Path(context_location).read_text(encoding="utf-8").strip()
 
     if not model:
-        if light_model:
+        if ctx.invoked_subcommand in ['stardew']:
+            model = "gpt-image-1"
+            model_type = "image-gen"
+        elif light_model:
             model = provider_light_models[ai_provider]
             model_type = "light"
         else:
@@ -463,6 +465,7 @@ def main(
     if ai_base_url == "none":
         ai_base_url = provider_base_urls[ai_provider]
     llm_config = LlmConfig(
+        mode=LlmMode.BASE if ctx.invoked_subcommand in ['stardew'] else LlmMode.CHAT,
         provider=ai_provider,
         model_name=model,
         fallback_models=fallback_models,
@@ -1478,12 +1481,16 @@ def stardew(
 
     DEFAULT_SRC: Path = Path(__file__).parent / "img" / "stardew-image-base.jpeg"
 
+    from openai import OpenAI  #, AzureOpenAI
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise typer.BadParameter("OPENAI_API_KEY environment variable not set")
 
     try:
         client = OpenAI(api_key=api_key)
+        # client = AzureOpenAI(azure_deployment="gpt-image-1",api_version="2025-03-01-preview")
+        # client = state["llm_config"].build_llm_model()  # type: ignore
 
         # Determine source image path
         src_path = src if src else DEFAULT_SRC
