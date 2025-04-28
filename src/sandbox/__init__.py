@@ -588,11 +588,17 @@ def install_sandbox(container_name: str = "par_gpt_sandbox", console: Console | 
         None
     """
     console = console or Console(stderr=True)
+    dir = Path(__file__).parent / "docker"
+    env_file = dir / ".env"
+    if not env_file.exists():
+        console.print(f"Creating empty .env file: {env_file.as_posix()} ...")
+        env_file.write_text("")
+
     subprocess.run(
         ["docker", "compose", "up", "-d", "--build", "--force-recreate"],
         env=os.environ | {"COMPOSE_PROJECT_NAME": container_name},
         check=True,
-        cwd=Path(__file__).parent / "docker",
+        cwd=dir
     )
     console.print("Code runner docker sandbox has been built and started.")
 
