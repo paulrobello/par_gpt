@@ -134,37 +134,39 @@ par_gpt [OPTIONS]
 ### Global Options
 
 ```
---ai-provider          -a      [Ollama|LlamaCpp|OpenRouter|OpenAI|Google|Github|XAI|Anthropic|Groq|Mistral|Bedrock]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: OpenAI]
---model                -m      TEXT                                                                                  AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
---fallback-models      -b      TEXT                                                                                  Fallback models to use if the specified model is not available. [env var: PARGPT_FALLBACK_MODELS] [default: None]
---light-model          -l                                                                                            Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
---ai-base-url          -b      TEXT                                                                                  Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
---temperature          -t      FLOAT                                                                                 Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
---user-agent-appid     -U      TEXT                                                                                  Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
---pricing              -p      [none|price|details]                                                                  Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
---display-output       -d      [none|plain|md|csv|json]                                                              Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
---context-location     -f      TEXT                                                                                  Location of context to use for processing.
---system-prompt        -s      TEXT                                                                                  System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
---user-prompt          -u      TEXT                                                                                  User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
---max-context-size     -M      INTEGER                                                                               Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
---copy-to-clipboard    -c                                                                                            Copy output to clipboard
---copy-from-clipboard  -C                                                                                            Copy context or context location from clipboard
---debug                -D                                                                                            Enable debug mode [env var: PARGPT_DEBUG]
---show-config          -S                                                                                            Show config [env var: PARGPT_SHOW_CONFIG]
---user                 -u      TEXT                                                                                  User to use for memory and preferences. [env var: PARGPT_USER] [default: ogged in users username]
---redis-host           -r      TEXT                                                                                  Host or ip of redis server. Used for memory functions. [env var: PARGPT_REDIS_HOST] [default: localhost]
---redis-port           -R      INTEGER                                                                               Redis port number. Used for memory functions. [env var: PARGPT_REDIS_PORT] [default: 6379]
---tts                  -T                                                                                            Use TTS for LLM response. [env var: PARGPT_TTS]
---tts-provider                 [local|kokoro|elevenlabs|openai]                                                      Provider to use for TTS. Defaults to kokoro [env var: PARGPT_TTS_PROVIDER] [default: None]
---tts-voice                    TEXT                                                                                  Voice to use for TTS. Depends on TTS provider chosen. [env var: PARGPT_TTS_VOICE] [default: None]
---tts-list-voices                                                                                                    List voices for selected TTS provider.
---voice-input                                                                                                        Use voice input.
---chat-history                 TEXT                                                                                  Save and or resume chat history from file [env var: PARGPT_CHAT_HISTORY] [default: None]
---loop-mode            -L      [one_shot|infinite]                                                                   One shot or infinite mode [env var: PARGPT_LOOP_MODE] [default: one_shot]
---version              -v
---install-completion                                                                                                 Install completion for the current shell.
---show-completion                                                                                                    Show completion for the current shell, to copy it or customize the installation.
---help                                                                                                               Show this message and exit.
+--ai-provider           -a      [Ollama|LlamaCpp|OpenRouter|OpenAI|Google|Github|XAI|Anthropic|Groq|Mistral|Bedrock|LiteLLM]  AI provider to use for processing [env var: PARGPT_AI_PROVIDER] [default: OpenAI]
+--model                 -m      TEXT                                                                                         AI model to use for processing. If not specified, a default model will be used. [env var: PARGPT_MODEL] [default: None]
+--fallback-models       -B      TEXT (multiple)                                                                              Fallback models to use if the specified model is not available. [env var: PARGPT_FALLBACK_MODELS] [default: None]
+--light-model           -l                                                                                                   Use a light model for processing. If not specified, a default model will be used. [env var: PARGPT_LIGHT_MODEL]
+--ai-base-url           -b      TEXT                                                                                         Override the base URL for the AI provider. [env var: PARGPT_AI_BASE_URL] [default: None]
+--temperature           -t      FLOAT                                                                                        Temperature to use for processing. If not specified, a default temperature will be used. [env var: PARGPT_TEMPERATURE] [default: 0.5]
+--user-agent-appid      -U      TEXT                                                                                         Extra data to include in the User-Agent header for the AI provider. [env var: PARGPT_USER_AGENT_APPID] [default: None]
+--pricing               -p      [none|price|details]                                                                         Enable pricing summary display [env var: PARGPT_PRICING] [default: none]
+--display-output        -d      [none|plain|md|csv|json]                                                                     Display output in terminal (none, plain, md, csv, or json) [env var: PARGPT_DISPLAY_OUTPUT] [default: md]
+--context-location      -f      TEXT                                                                                         Location of context to use for processing.
+--system-prompt         -s      TEXT                                                                                         System prompt to use for processing. If not specified, a default system prompt will be used. [default: None]
+--user-prompt           -u      TEXT                                                                                         User prompt to use for processing. If not specified, a default user prompt will be used. [default: None]
+--max-context-size      -M      INTEGER                                                                                      Maximum context size when provider supports it. 0 = default. [env var: PARGPT_MAX_CONTEXT_SIZE] [default: 0]
+--reasoning-effort              [low|medium|high]                                                                            Reasoning effort level to use for o1 and o3 models. [env var: PARGPT_REASONING_EFFORT]
+--reasoning-budget              INTEGER                                                                                      Maximum context size for reasoning. [env var: PARGPT_REASONING_BUDGET]
+--copy-to-clipboard     -c                                                                                                   Copy output to clipboard
+--copy-from-clipboard   -C                                                                                                   Copy context or context location from clipboard
+--debug                 -D                                                                                                   Enable debug mode [env var: PARGPT_DEBUG]
+--show-config           -S                                                                                                   Show config [env var: PARGPT_SHOW_CONFIG]
+--user                  -P      TEXT                                                                                         User to use for memory and preferences. [env var: PARGPT_USER] [default: logged in user's username]
+--redis-host            -r      TEXT                                                                                         Host or ip of redis server. Used for memory functions. [env var: PARGPT_REDIS_HOST] [default: localhost]
+--redis-port            -R      INTEGER                                                                                      Redis port number. Used for memory functions. [env var: PARGPT_REDIS_PORT] [default: 6379]
+--tts                   -T                                                                                                   Use TTS for LLM response. [env var: PARGPT_TTS]
+--tts-provider                  [local|kokoro|elevenlabs|openai]                                                             Provider to use for TTS. Defaults to kokoro [env var: PARGPT_TTS_PROVIDER] [default: None]
+--tts-voice                     TEXT                                                                                        Voice to use for TTS. Depends on TTS provider chosen. [env var: PARGPT_TTS_VOICE] [default: None]
+--tts-list-voices                                                                                                            List voices for selected TTS provider.
+--voice-input                                                                                                                Use voice input.
+--chat-history                  TEXT                                                                                        Save and or resume chat history from file [env var: PARGPT_CHAT_HISTORY] [default: None]
+--loop-mode             -L      [one_shot|infinite]                                                                         One shot or infinite mode [env var: PARGPT_LOOP_MODE] [default: one_shot]
+--version               -v                                                                                                   Show version and exit.
+--install-completion                                                                                                         Install completion for the current shell.
+--show-completion                                                                                                            Show completion for the current shell, to copy it or customize the installation.
+--help                                                                                                                       Show this message and exit.
 ```
 
 ### CLI Commands
@@ -199,7 +201,7 @@ stardew           Generate pixel art avatar variation.
 
 ### Update deps Arguments
 ```
---no-uv-update  -n        Dont run 'uv sync -U'
+--no-uv-update  -n        Don't run 'uv sync -U'
 ```
 
 ### Publish Repo to Github
