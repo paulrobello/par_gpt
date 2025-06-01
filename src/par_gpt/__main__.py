@@ -137,7 +137,7 @@ def main(
         list[str] | None,
         typer.Option(
             "--fallback-models",
-            "-b",
+            "-B",
             envvar=f"{__env_var_prefix__}_FALLBACK_MODELS",
             help="Fallback models to use if the specified model is not available.",
         ),
@@ -278,7 +278,7 @@ def main(
         str | None,
         typer.Option(
             "--user",
-            "-u",
+            "-P",
             envvar=f"{__env_var_prefix__}_USER",
             help="User to use for memory and preferences. Defaults to logged in users username.",
         ),
