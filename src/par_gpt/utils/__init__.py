@@ -24,6 +24,19 @@ from par_gpt.utils.security_warnings import (
     warn_environment_modification,
     warn_subprocess_operation,
 )
+from par_gpt.utils.timing import (
+    TimingData,
+    TimingRegistry,
+    clear_timings,
+    disable_timing,
+    enable_timing,
+    get_timing_summary,
+    is_timing_enabled,
+    print_timing_summary,
+    time_operation,
+    timed,
+    timer,
+)
 
 # Note: Functions from original utils.py are NOT imported here to avoid circular imports
 # Files that need these functions should implement basic versions directly
@@ -61,4 +74,16 @@ __all__ = [
     "warn_command_execution",
     "warn_environment_modification",
     "warn_subprocess_operation",
+    # Timing utilities
+    "TimingData",
+    "TimingRegistry",
+    "clear_timings",
+    "disable_timing",
+    "enable_timing",
+    "get_timing_summary",
+    "is_timing_enabled",
+    "print_timing_summary",
+    "time_operation",
+    "timed",
+    "timer",
 ]

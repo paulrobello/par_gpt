@@ -847,6 +847,7 @@ def capture_window_image_mac(
 
         # Import PIL locally inside the function
         from PIL import Image
+
         screenshot = Image.open(temp_image.name)
         if not output_format or output_format == ImageCaptureOutputType.PIL:
             return screenshot
@@ -995,6 +996,7 @@ def capture_screen_image_mac(
 
         # Import PIL locally inside the function
         from PIL import Image
+
         screenshot = Image.open(temp_image.name)
         if not output_format or output_format == ImageCaptureOutputType.PIL:
             return screenshot

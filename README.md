@@ -167,6 +167,8 @@ par_gpt [OPTIONS]
 --voice-input                                                                                                                Use voice input.
 --chat-history                  TEXT                                                                                        Save and or resume chat history from file [env var: PARGPT_CHAT_HISTORY] [default: None]
 --loop-mode             -L      [one_shot|infinite]                                                                         One shot or infinite mode [env var: PARGPT_LOOP_MODE] [default: one_shot]
+--show-times                                                                                                                 Show timing information for various operations [env var: PARGPT_SHOW_TIMES]
+--show-times-detailed                                                                                                        Show detailed timing information with hierarchical breakdown [env var: PARGPT_SHOW_TIMES_DETAILED]
 --version               -v                                                                                                   Show version and exit.
 --install-completion                                                                                                         Install completion for the current shell.
 --show-completion                                                                                                            Show completion for the current shell, to copy it or customize the installation.
@@ -296,6 +298,10 @@ PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mo
 PARGPT_SHOW_TOOL_CALLS=1 # comment out or remove this line to hide tool calls
 PARGPT_REASONING_EFFORT=medium # used by o1 and o3 reasoning models
 PARGPT_REASONING_BUDGET=0 # used by sonnet 3.7 to enable reasoning mode. 1024 minimum
+
+# Performance Monitoring
+# PARGPT_SHOW_TIMES=1 # uncomment to show timing summary by default
+# PARGPT_SHOW_TIMES_DETAILED=1 # uncomment to show detailed timing breakdown by default
 
 # REDIS (Currently used for memories)
 PARGPT_REDIS_HOST=localhost
@@ -444,6 +450,69 @@ PAR GPT implements comprehensive security measures to protect against common vul
 
 For detailed security implementation, see [PATH_SECURITY_SUMMARY.md](PATH_SECURITY_SUMMARY.md).
 
+## Performance Monitoring
+
+PAR GPT includes built-in timing utilities to help analyze performance and identify bottlenecks across different operations.
+
+### Timing Options
+
+- **`--show-times`** - Display a summary table with operation timings, counts, averages, and grand total
+- **`--show-times-detailed`** - Show hierarchical timing breakdown with nested operations and metadata
+
+### What Gets Timed
+
+The timing system tracks key performance areas:
+
+- **Startup Operations**: Environment loading, LLM configuration setup, context processing
+- **LLM Operations**: Chat model building, LLM invoke calls, agent executor calls  
+- **Tool Loading**: Core tools loading, conditional tool loading based on keywords
+- **Agent Operations**: Tool execution, multi-step agent workflows
+
+### Example Output
+
+**Simple Summary (`--show-times`):**
+```
+                  Timing Summary                   
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┓
+┃ Operation        ┃ Total Time ┃ Count ┃ Average ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━┩
+│ llm_invoke       │     5.327s │     1 │  5.327s │
+│ build_chat_model │     0.070s │     1 │  0.070s │
+│ llm_config_setup │     0.000s │     1 │  0.000s │
+├──────────────────┼────────────┼───────┼─────────┤
+│ Grand Total      │     5.397s │     3 │  1.799s │
+└──────────────────┴────────────┴───────┴─────────┘
+```
+
+**Detailed View (`--show-times-detailed`):**
+```
+Timing Details (Grand Total: 5.397s, 3 operations)
+├── llm_config_setup: 0.000s
+├── build_chat_model: 0.070s
+└── llm_invoke: 5.327s (model=gpt-4o)
+```
+
+### Environment Variables
+
+Timing can also be enabled via environment variables:
+- `PARGPT_SHOW_TIMES=1` - Enable basic timing summary
+- `PARGPT_SHOW_TIMES_DETAILED=1` - Enable detailed timing view
+
+### Usage Examples
+
+```bash
+# Show timing summary for LLM operations
+echo "Analyze performance" | par_gpt --show-times llm
+
+# Show detailed timing for agent operations with tools
+echo "Search web and analyze results" | par_gpt --show-times-detailed agent
+
+# Combine with other debugging options
+par_gpt --show-times --debug --pricing details agent "complex task"
+```
+
+The timing information helps identify performance bottlenecks, optimize workflows, and understand the execution profile of different PAR GPT operations.
+
 ## Code sandbox
 The code sandbox allows the AI agent mode to write and execute code safely contained in a docker container.  
 To use the sandbox you must have `docker` installed as well as build and run the sandbox container.  
@@ -499,6 +568,16 @@ par_gpt --show-config --pricing details git 'commit current changes'
 
 # copy commit message for current changes to clipboard using agent mode
 par_gpt -t 0 --debug agent 'create a commit messages that would be relevant to the changes in the current repository and copy to clipboard'
+
+# Performance monitoring examples
+# Show timing summary for LLM operations
+echo "Analyze this complex problem" | par_gpt --show-times llm
+
+# Show detailed timing breakdown for agent operations
+par_gpt --show-times-detailed agent 'search for latest AI news and summarize findings'
+
+# Combine timing with other debugging options
+par_gpt --show-times --debug --pricing details agent 'complex research task'
 
 # get details for new Macbook M4 Max (this will use web search and web scrape tools)
 par_gpt agent 'get me the details for the new Macbook M4 Max'
@@ -559,6 +638,11 @@ par_gpt agent "tell me a joke"  # clean startup, no Redis errors
     - Heavy imports (PIL, Redis, GitHub APIs) now loaded only when needed
     - Conditional tool loading based on keywords and requirements
     - Module-level imports moved to function-level for better performance
+  - **Performance Monitoring**: Added comprehensive timing utilities for performance analysis
+    - `--show-times` CLI option for summary timing table with grand total
+    - `--show-times-detailed` CLI option for hierarchical timing breakdown
+    - Tracks startup, LLM operations, tool loading, and agent execution times
+    - Rich-formatted output with operation counts, averages, and metadata
   - **Redis Memory Control**: Added optional Redis memory system with smart defaults
     - **Disabled by default** - No Redis server required for basic functionality
     - `--enable-redis` CLI flag and `PARGPT_ENABLE_REDIS` environment variable

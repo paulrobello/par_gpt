@@ -386,6 +386,22 @@ def main(
             help="One shot or infinite mode",
         ),
     ] = LoopMode.ONE_SHOT,
+    show_times: Annotated[
+        bool,
+        typer.Option(
+            "--show-times",
+            envvar=f"{__env_var_prefix__}_SHOW_TIMES",
+            help="Show timing information for various operations",
+        ),
+    ] = False,
+    show_times_detailed: Annotated[
+        bool,
+        typer.Option(
+            "--show-times-detailed",
+            envvar=f"{__env_var_prefix__}_SHOW_TIMES_DETAILED",
+            help="Show detailed timing information with hierarchical breakdown",
+        ),
+    ] = False,
     version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
@@ -398,6 +414,12 @@ def main(
     from par_gpt.utils.redis_manager import set_redis_enabled
 
     set_redis_enabled(enable_redis)
+
+    # Initialize timing system if requested
+    if show_times or show_times_detailed:
+        from par_gpt.utils.timing import enable_timing, timer
+
+        enable_timing()
 
     # console.print(Pretty(ctx.invoked_subcommand))
 
@@ -513,26 +535,51 @@ def main(
     context_is_image = False
     if context_location:
         console.print("[bold green]Detecting if context is an image...")
-        if context_is_url:
-            try:
-                image_type = try_get_image_type(context_location)
-                console.print(f"[bold green]Image type {image_type} detected.")
-                image_path = cache_manager.download(context_location)
-                context = image_to_base64(image_path.read_bytes(), image_type)
-                context_is_image = True
-                show_image_in_terminal(image_path)
-            except UnsupportedImageTypeError as _:
-                context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
+        if show_times or show_times_detailed:
+            from par_gpt.utils.timing import timer
+
+            with timer("context_processing"):
+                if context_is_url:
+                    try:
+                        image_type = try_get_image_type(context_location)
+                        console.print(f"[bold green]Image type {image_type} detected.")
+                        image_path = cache_manager.download(context_location)
+                        context = image_to_base64(image_path.read_bytes(), image_type)
+                        context_is_image = True
+                        show_image_in_terminal(image_path)
+                    except UnsupportedImageTypeError as _:
+                        context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
+                else:
+                    try:
+                        image_type = try_get_image_type(context_location)
+                        console.print(f"[bold green]Image type {image_type} detected.")
+                        image_path = Path(context_location)
+                        context = image_to_base64(image_path.read_bytes(), image_type)
+                        context_is_image = True
+                        show_image_in_terminal(image_path)
+                    except UnsupportedImageTypeError as _:
+                        context = Path(context_location).read_text(encoding="utf-8").strip()
         else:
-            try:
-                image_type = try_get_image_type(context_location)
-                console.print(f"[bold green]Image type {image_type} detected.")
-                image_path = Path(context_location)
-                context = image_to_base64(image_path.read_bytes(), image_type)
-                context_is_image = True
-                show_image_in_terminal(image_path)
-            except UnsupportedImageTypeError as _:
-                context = Path(context_location).read_text(encoding="utf-8").strip()
+            if context_is_url:
+                try:
+                    image_type = try_get_image_type(context_location)
+                    console.print(f"[bold green]Image type {image_type} detected.")
+                    image_path = cache_manager.download(context_location)
+                    context = image_to_base64(image_path.read_bytes(), image_type)
+                    context_is_image = True
+                    show_image_in_terminal(image_path)
+                except UnsupportedImageTypeError as _:
+                    context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
+            else:
+                try:
+                    image_type = try_get_image_type(context_location)
+                    console.print(f"[bold green]Image type {image_type} detected.")
+                    image_path = Path(context_location)
+                    context = image_to_base64(image_path.read_bytes(), image_type)
+                    context_is_image = True
+                    show_image_in_terminal(image_path)
+                except UnsupportedImageTypeError as _:
+                    context = Path(context_location).read_text(encoding="utf-8").strip()
 
     if not model:
         if ctx.invoked_subcommand in ["stardew"]:
@@ -556,20 +603,40 @@ def main(
 
     if ai_base_url == "none":
         ai_base_url = provider_base_urls[ai_provider]
-    llm_config = LlmConfig(
-        mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
-        provider=ai_provider,
-        model_name=model,
-        fallback_models=fallback_models,
-        temperature=temperature,
-        base_url=ai_base_url,
-        streaming=False,
-        user_agent_appid=user_agent_appid,
-        num_ctx=max_context_size or None,
-        env_prefix=__env_var_prefix__,
-        reasoning_effort=reasoning_effort,
-        reasoning_budget=reasoning_budget,
-    ).set_env()
+
+    if show_times or show_times_detailed:
+        from par_gpt.utils.timing import timer
+
+        with timer("llm_config_setup"):
+            llm_config = LlmConfig(
+                mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
+                provider=ai_provider,
+                model_name=model,
+                fallback_models=fallback_models,
+                temperature=temperature,
+                base_url=ai_base_url,
+                streaming=False,
+                user_agent_appid=user_agent_appid,
+                num_ctx=max_context_size or None,
+                env_prefix=__env_var_prefix__,
+                reasoning_effort=reasoning_effort,
+                reasoning_budget=reasoning_budget,
+            ).set_env()
+    else:
+        llm_config = LlmConfig(
+            mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
+            provider=ai_provider,
+            model_name=model,
+            fallback_models=fallback_models,
+            temperature=temperature,
+            base_url=ai_base_url,
+            streaming=False,
+            user_agent_appid=user_agent_appid,
+            num_ctx=max_context_size or None,
+            env_prefix=__env_var_prefix__,
+            reasoning_effort=reasoning_effort,
+            reasoning_budget=reasoning_budget,
+        ).set_env()
     tts_man: TTSManger | None = None
     if tts:
         if tts_list_voices:
@@ -733,6 +800,8 @@ def main(
         "tts_voice": tts_voice,
         "tts_man": tts_man,
         "voice_input_man": voice_input_man,
+        "show_times": show_times,
+        "show_times_detailed": show_times_detailed,
     }
 
     ctx.obj = state
@@ -775,7 +844,14 @@ def llm(
         question = "\n<context>\n" + state["context"] + "\n</context>\n" + question
 
     try:
-        chat_model = state["llm_config"].build_chat_model()
+        # Time the chat model building
+        if state.get("show_times") or state.get("show_times_detailed"):
+            from par_gpt.utils.timing import timer
+
+            with timer("build_chat_model"):
+                chat_model = state["llm_config"].build_chat_model()
+        else:
+            chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
         with get_parai_callback(
@@ -836,6 +912,12 @@ def llm(
         console.print("[bold red]Error:")
         console.print(str(e), markup=False)
         raise typer.Exit(code=1)
+    finally:
+        # Show timing information if requested
+        if state.get("show_times") or state.get("show_times_detailed"):
+            from par_gpt.utils.timing import print_timing_summary
+
+            print_timing_summary(detailed=state.get("show_times_detailed", False))
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -1081,7 +1163,14 @@ def agent(
 
     question = question.strip()
     try:
-        chat_model = state["llm_config"].build_chat_model()
+        # Time the chat model building
+        if state.get("show_times") or state.get("show_times_detailed"):
+            from par_gpt.utils.timing import timer
+
+            with timer("build_chat_model"):
+                chat_model = state["llm_config"].build_chat_model()
+        else:
+            chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
 
@@ -1184,6 +1273,12 @@ def agent(
     finally:
         if state["voice_input_man"]:
             state["voice_input_man"].shutdown()
+
+        # Show timing information if requested
+        if state.get("show_times") or state.get("show_times_detailed"):
+            from par_gpt.utils.timing import print_timing_summary
+
+            print_timing_summary(detailed=state.get("show_times_detailed", False))
 
 
 # @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
