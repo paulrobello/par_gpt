@@ -159,6 +159,7 @@ par_gpt [OPTIONS]
 --user                  -P      TEXT                                                                                         User to use for memory and preferences. [env var: PARGPT_USER] [default: logged in user's username]
 --redis-host            -r      TEXT                                                                                         Host or ip of redis server. Used for memory functions. [env var: PARGPT_REDIS_HOST] [default: localhost]
 --redis-port            -R      INTEGER                                                                                      Redis port number. Used for memory functions. [env var: PARGPT_REDIS_PORT] [default: 6379]
+--enable-redis                                                                                                               Enable Redis memory functionality. [env var: PARGPT_ENABLE_REDIS]
 --tts                   -T                                                                                                   Use TTS for LLM response. [env var: PARGPT_TTS]
 --tts-provider                  [local|kokoro|elevenlabs|openai]                                                             Provider to use for TTS. Defaults to kokoro [env var: PARGPT_TTS_PROVIDER] [default: None]
 --tts-voice                     TEXT                                                                                        Voice to use for TTS. Depends on TTS provider chosen. [env var: PARGPT_TTS_VOICE] [default: None]
@@ -286,13 +287,13 @@ PARGPT_AI_PROVIDER=OpenAI
 PARGPT_MODEL=# if blank, strong model default will be used
 PARGPT_PRICING=price # none | price | details
 PARGPT_DISPLAY_OUTPUT=md
-PARGPT_DEBUG=false
-PARGPT_SHOW_CONFIG=false
-PARGPT_REPL=false # set this to true to allow agent to WRITE and EXECUTE CODE ON HOST MACHINE 
-PARGPT_CODE_SANDBOX=false # set this to true to allow agent to write and execute code in a secure docker container sandbox
+# PARGPT_DEBUG=1 # uncomment to enable debug mode
+# PARGPT_SHOW_CONFIG=1 # uncomment to show config by default
+# PARGPT_REPL=1 # uncomment to allow agent to WRITE and EXECUTE CODE ON HOST MACHINE 
+# PARGPT_CODE_SANDBOX=1 # uncomment to allow agent to write and execute code in a secure docker container sandbox
 PARGPT_MAX_ITERATIONS=5 # maximum number of iterations to allow when in agent mode. Tool calls require iterations
-PARGPT_YES_TO_ALL=false # set this to true to skip all confirmation prompts
-PARGPT_SHOW_TOOL_CALLS=true
+# PARGPT_YES_TO_ALL=1 # uncomment to skip all confirmation prompts
+PARGPT_SHOW_TOOL_CALLS=1 # comment out or remove this line to hide tool calls
 PARGPT_REASONING_EFFORT=medium # used by o1 and o3 reasoning models
 PARGPT_REASONING_BUDGET=0 # used by sonnet 3.7 to enable reasoning mode. 1024 minimum
 
@@ -300,6 +301,7 @@ PARGPT_REASONING_BUDGET=0 # used by sonnet 3.7 to enable reasoning mode. 1024 mi
 PARGPT_REDIS_HOST=localhost
 PARGPT_REDIS_PORT=6379
 PARGPT_REDIS_DB=0
+PARGPT_ENABLE_REDIS=1 # set to 1 to enable Redis memory functionality, comment out or omit to disable (default: disabled)
 
 # NEO4J (Just testing)
 PARGPT_NEO4J_HOST=localhost
@@ -345,10 +347,20 @@ PARGPT_NEO4J_PASS=neo4j
 
 ### Database and Memory
 
-Currently par_gpt has a tool to store and retrieve memory.  
-Memories are stored on a per user basis defaulting to the logged in user but can be overridden.  
-Any memories stored are loaded into context when calling LLMs. 
-Currently Redis is used to store memories but this may change
+PAR GPT includes an optional memory system for storing and retrieving persistent memories across sessions.  
+Memories are stored on a per-user basis (defaulting to the logged-in user) and are automatically loaded into context when calling LLMs.
+
+**Redis Memory System**:
+- **Disabled by default** - No Redis server required for basic functionality
+- **Optional functionality** - Enable with `--enable-redis` flag or `PARGPT_ENABLE_REDIS=1` environment variable
+- **Smart loading** - Memory tool (`ai_memory_db`) only available when Redis is enabled
+- **Graceful fallback** - Applications runs normally without Redis, no connection errors
+- **Per-user storage** - Memories isolated by username, customizable with `--user` option
+
+To use memory functionality:
+1. Install and start a Redis server
+2. Enable with `--enable-redis` flag or set `PARGPT_ENABLE_REDIS=1` in your environment
+3. The `ai_memory_db` tool will become available in agent mode for storing/retrieving memories
 
 ## Agent mode
 
@@ -359,7 +371,7 @@ Only enabling some tools when keywords are present helps to reduce context and L
 If the REPL tool is enabled the Code sandbox tool will not be used.
 
 ### AI Tools
-- Memory - allows storage and retrival of memories in a persistent DB. Currently Redis.
+- Memory (`ai_memory_db`) - Allows storage and retrieval of memories in Redis (optional, requires `--enable-redis`).
 - REPL - Allows the AI to **WRITE AND EXECUTE CODE ON YOUR SYSTEM**.  
   The REPL tool must be manually enabled. If the REPL tool is used it will prompt you before executing the code. Unless you specify --yes-to-all.
 - Code sandbox - Allows AI to write and execute code in a secure docker sandbox container which must be setup separately.
@@ -532,9 +544,28 @@ par_gpt agent "take a screenshot of my screen"
 
 # capture specific display in multi-monitor setup
 par_gpt agent "capture screenshot of display 2"
+
+# use memory functionality (requires Redis server and --enable-redis flag)
+par_gpt --enable-redis agent "remember that I prefer concise responses"
+par_gpt --enable-redis agent "what do you remember about my preferences?"
+
+# default behavior (no Redis required, memory tool not available)
+par_gpt agent "tell me a joke"  # clean startup, no Redis errors
 ```
 
 ## What's New
+- Version 0.12.1:
+  - **Performance Optimization**: Implemented lazy loading for AI tools, reducing startup time by ~10%
+    - Heavy imports (PIL, Redis, GitHub APIs) now loaded only when needed
+    - Conditional tool loading based on keywords and requirements
+    - Module-level imports moved to function-level for better performance
+  - **Redis Memory Control**: Added optional Redis memory system with smart defaults
+    - **Disabled by default** - No Redis server required for basic functionality
+    - `--enable-redis` CLI flag and `PARGPT_ENABLE_REDIS` environment variable
+    - Graceful fallback when Redis unavailable, no connection errors
+    - Memory tool (`ai_memory_db`) only loads when Redis enabled
+  - **Improved Startup Experience**: Clean startup without Redis connection errors
+  - **Better Resource Management**: Tools and dependencies loaded on-demand
 - Version 0.12.0:
   - **New Screen Capture Tools**: Added comprehensive screen capture functionality with multi-monitor support
     - `ai_list_available_screens` - Detects all connected displays (physical and virtual)

@@ -27,7 +27,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.pretty import Pretty
 
-from par_gpt.memory_utils import get_memory_prompt
+# Memory utils import moved inside functions to prevent Redis connection when disabled
 from par_gpt.utils import get_console
 
 
@@ -54,6 +54,9 @@ def do_single_llm_call(
         chat_history = []
 
     default_system_prompt = """<purpose>You are a helpful assistant. Try to be concise and brief unless the user requests otherwise. If an output_instructions section is provided, follow its instructions for output.</purpose>"""
+    # Import memory utils here to avoid Redis connection when Redis is disabled
+    from par_gpt.memory_utils import get_memory_prompt
+
     memories = get_memory_prompt()
     if memories:
         default_system_prompt += memories
@@ -203,6 +206,9 @@ def do_tool_agent(
 
     if chat_history is None:
         chat_history = []
+
+    # Import memory utils here to avoid Redis connection when Redis is disabled
+    from par_gpt.memory_utils import get_memory_prompt
 
     memories = get_memory_prompt()
 

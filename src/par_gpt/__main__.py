@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 import base64
-import importlib
 import os
 import re
 import sys
 from io import StringIO
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import Annotated, cast
 
 import clipman as clipboard
 import orjson as json
 import typer
 from dotenv import load_dotenv
-from langchain_community.tools import TavilySearchResults
-from langchain_core.tools import BaseTool
+
+# Most langchain imports moved to lazy_tool_loader.py for performance
 from par_ai_core.llm_config import LlmConfig, LlmMode, ReasoningEffort, llm_run_manager
 from par_ai_core.llm_image_utils import (
     UnsupportedImageTypeError,
@@ -40,50 +39,23 @@ from par_ai_core.utils import (
     get_file_list_for_context,
     has_stdin_content,
 )
-from par_ai_core.web_tools import fetch_url_and_convert_to_markdown, web_search
+from par_ai_core.web_tools import fetch_url_and_convert_to_markdown
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.prompt import Prompt
 from rich.text import Text
-from rich_pixels import Pixels
+
+# rich_pixels moved to where it's needed for better startup performance
 from strenum import StrEnum
 
 from par_gpt import __application_binary__, __application_title__, __env_var_prefix__, __version__
 from par_gpt.agent_messages import get_random_message
 from par_gpt.agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
-from par_gpt.ai_tools.ai_tools import (
-    ai_brave_search,
-    ai_capture_screen_image,
-    ai_capture_window_image,
-    ai_copy_from_clipboard,
-    ai_copy_to_clipboard,
-    ai_display_image_in_terminal,
-    ai_fetch_hacker_news,
-    ai_fetch_rss,
-    ai_fetch_url,
-    ai_figlet,
-    ai_get_weather_current,
-    ai_get_weather_forecast,
-    ai_github_create_repo,
-    ai_github_list_repos,
-    ai_github_publish_repo,
-    ai_image_gen_dali,
-    ai_image_search,
-    ai_list_available_screens,
-    ai_list_visible_windows,
-    ai_memory_db,
-    ai_open_url,
-    ai_reddit_search,
-    ai_serper_search,
-    ai_youtube_get_transcript,
-    ai_youtube_search,
-    execute_code,
-    git_commit_tool,
-    user_prompt,
-)
-from par_gpt.ai_tools.par_python_repl import ParPythonAstREPLTool
+
+# AI tools are now loaded lazily via lazy_tool_loader.py to improve startup time
 from par_gpt.cache_manager import cache_manager
+from par_gpt.lazy_tool_loader import build_ai_tool_list
 from par_gpt.profiling.profile_tools import ProfileAnalysisError, process_profile
 from par_gpt.repo.repo import GitRepo
 from par_gpt.tts_manager import TTSManger, TTSProvider, summarize_for_tts
@@ -146,6 +118,7 @@ app = typer.Typer()
 console = console_err
 
 
+# Load environment variables before CLI parsing so .env file affects argument defaults
 load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
 
 
@@ -349,6 +322,14 @@ def main(
             help="Redis port number. Used for memory functions.",
         ),
     ] = 6379,
+    enable_redis: Annotated[
+        bool,
+        typer.Option(
+            "--enable-redis",
+            envvar=f"{__env_var_prefix__}_ENABLE_REDIS",
+            help="Enable Redis memory functionality.",
+        ),
+    ] = False,
     tts: Annotated[
         bool,
         typer.Option(
@@ -413,6 +394,11 @@ def main(
     """
     PAR GPT Global Options
     """
+    # Set Redis enabled flag early to prevent connection attempts when disabled
+    from par_gpt.utils.redis_manager import set_redis_enabled
+
+    set_redis_enabled(enable_redis)
+
     # console.print(Pretty(ctx.invoked_subcommand))
 
     if user:
@@ -687,6 +673,9 @@ def main(
                     ("Redis Port: ", "cyan"),
                     (f"{redis_port or 'default'}", "green"),
                     "\n",
+                    ("Redis Enabled: ", "cyan"),
+                    (f"{enable_redis}", "green"),
+                    "\n",
                     ("TTS: ", "cyan"),
                     (f"{tts}", "green"),
                     "\n",
@@ -738,6 +727,7 @@ def main(
         "history_file": history_file,
         "redis_host": redis_host,
         "redis_port": redis_port,
+        "enable_redis": enable_redis,
         "tts": tts,
         "tts_provider": tts_provider,
         "tts_voice": tts_voice,
@@ -1012,144 +1002,7 @@ def generate_prompt(
         raise typer.Exit(code=1)
 
 
-def build_ai_tool_list(
-    question: str, *, repl: bool = False, code_sandbox: bool = False, yes_to_all: bool = False
-) -> tuple[list[BaseTool], dict[str, Any]]:
-    ai_tools: list[BaseTool] = [
-        user_prompt,
-        ai_open_url,
-        ai_fetch_url,
-        ai_display_image_in_terminal,
-        ai_memory_db,
-        # ai_joke,
-    ]  # type: ignore
-    question_lower = question.lower()
-
-    if repl:
-        module_names = [
-            "os",
-            "sys",
-            "re",
-            "json",
-            "time",
-            "datetime",
-            "random",
-            "string",
-            "pathlib",
-            "requests",
-            "git",
-            "pandas",
-            "faker",
-            "numpy",
-            "matplotlib",
-            "bs4",
-            "html2text",
-            "pydantic",
-            "clipman",
-            "pyfiglet",
-            "rich",
-            # "rich.console",
-            "rich.panel",
-            "rich.markdown",
-            "rich.pretty",
-            "rich.table",
-            "rich.text",
-            "rich.color",
-        ]
-        local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
-
-        ai_tools.append(
-            ParPythonAstREPLTool(prompt_before_exec=not yes_to_all, show_exec_code=True, locals=local_modules),
-        )
-    else:
-        local_modules = {}
-
-    if not repl and code_sandbox:
-        ai_tools.append(execute_code)
-
-    if "figlet" in question_lower:
-        ai_tools.append(ai_figlet)
-
-    if os.environ.get("GOOGLE_API_KEY") and "youtube" in question_lower:
-        ai_tools.append(ai_youtube_search)
-    if "youtube" in question_lower:
-        ai_tools.append(ai_youtube_get_transcript)
-    if "git" in question_lower or "commit" in question_lower or "checkout" in question_lower:
-        ai_tools.append(git_commit_tool)
-
-    # use TavilySearchResults with fallback to serper and google search if api keys are set
-    if os.environ.get("TAVILY_API_KEY"):
-        import warnings
-
-        # Suppress deprecation warning for TavilySearchResults
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            try:
-                from langchain_core._api import LangChainDeprecationWarning
-
-                warnings.simplefilter("ignore", LangChainDeprecationWarning)
-            except ImportError:
-                pass
-
-            ai_tools.append(
-                TavilySearchResults(
-                    max_results=3,
-                    include_answer=True,
-                    topic="news",  # type: ignore
-                    name="tavily_news_results_json",
-                    description="Search news and current events",
-                )
-            )
-            ai_tools.append(
-                TavilySearchResults(
-                    max_results=3,
-                    include_answer=True,
-                    name="tavily_search_results_json",
-                    description="General search for content not directly related to current events",
-                )
-            )
-    elif os.environ.get("SERPER_API_KEY"):
-        ai_tools.append(ai_serper_search)
-    elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
-        ai_tools.append(web_search)  # type: ignore
-    elif os.environ.get("BRAVE_API_KEY"):
-        ai_tools.append(ai_brave_search)
-
-    if os.environ.get("SERPER_API_KEY"):
-        ai_tools.append(ai_image_search)
-
-    if os.environ.get("REDDIT_CLIENT_ID") and os.environ.get("REDDIT_CLIENT_SECRET"):
-        ai_tools.append(ai_reddit_search)
-
-    if "clipboard" in question_lower:
-        ai_tools.append(ai_copy_to_clipboard)
-        ai_tools.append(ai_copy_from_clipboard)
-    if "rss" in question_lower:
-        ai_tools.append(ai_fetch_rss)
-    if "hackernews" in question_lower:
-        ai_tools.append(ai_fetch_hacker_news)
-    if "window" in question_lower:
-        ai_tools.append(ai_list_visible_windows)
-    if "screen" in question_lower or "display" in question_lower:
-        ai_tools.append(ai_list_available_screens)
-    if "capture" in question_lower or "screenshot" in question_lower:
-        ai_tools.append(ai_capture_window_image)
-        ai_tools.append(ai_capture_screen_image)
-    if (
-        is_provider_api_key_set(LlmProvider.OPENAI) or is_provider_api_key_set(LlmProvider.OPENROUTER)
-    ) and "image" in question_lower:
-        ai_tools.append(ai_image_gen_dali)
-
-    if os.environ.get("WEATHERAPI_KEY") and ("weather" in question_lower or " wx " in question_lower):
-        ai_tools.append(ai_get_weather_current)
-        ai_tools.append(ai_get_weather_forecast)
-    if os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN") and "github" in question_lower:
-        ai_tools.append(ai_github_list_repos)
-        ai_tools.append(ai_github_create_repo)
-        ai_tools.append(ai_github_publish_repo)
-
-    console.print(Panel.fit(", ".join([tool.name for tool in ai_tools]), title="AI Tools"))
-    return ai_tools, local_modules
+# build_ai_tool_list function moved to lazy_tool_loader.py for improved startup performance
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -1247,7 +1100,11 @@ def agent(
                     if question.lower() == "exit":
                         return
                     ai_tools, local_modules = build_ai_tool_list(
-                        question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
+                        question,
+                        repl=repl,
+                        code_sandbox=code_sandbox,
+                        yes_to_all=yes_to_all,
+                        enable_redis=state["enable_redis"],
                     )
                     if state["tts_man"]:
                         state["tts_man"].speak(get_random_message(), do_async=True)
@@ -1272,7 +1129,11 @@ def agent(
                             return
 
                     ai_tools, local_modules = build_ai_tool_list(
-                        question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
+                        question,
+                        repl=repl,
+                        code_sandbox=code_sandbox,
+                        yes_to_all=yes_to_all,
+                        enable_redis=state["enable_redis"],
                     )
 
                     if state["tts_man"]:
@@ -1755,6 +1616,8 @@ def stardew(
 
         # Display in terminal if requested
         if display:
+            from rich_pixels import Pixels
+
             dim: int = min(console.width, console.height * 2 - 5)
             pixels = Pixels.from_image_path(out_path, (dim, dim))  # type: ignore[call-arg]
             console.print(pixels)

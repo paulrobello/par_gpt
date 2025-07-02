@@ -110,6 +110,12 @@ def get_memory_prompt() -> str:
     Returns:
         str: A formatted prompt containing the memories.
     """
+    # Check if Redis is enabled before attempting to get memories
+    from par_gpt.utils.redis_manager import is_redis_enabled
+
+    if not is_redis_enabled():
+        return ""
+
     memories = ("\n".join(list_memories_redis(get_memory_user()))).strip()
     if not memories:
         return ""

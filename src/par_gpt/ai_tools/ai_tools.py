@@ -24,7 +24,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.text import Text
 
-from par_gpt.memory_utils import add_memory_redis, get_memory_user, list_memories_redis, remove_memory_redis
+# Memory utils imports moved inside ai_memory_db function to prevent Redis connection when disabled
 from par_gpt.repo.repo import GitRepo
 from par_gpt.utils import get_console
 
@@ -925,6 +925,9 @@ def ai_memory_db(op: Literal["list", "add", "remove"], memory: str | None) -> st
     Returns:
         str: The result of the operation.
     """
+    # Import memory utils here to avoid Redis connection when Redis is disabled
+    from par_gpt.memory_utils import add_memory_redis, get_memory_user, list_memories_redis, remove_memory_redis
+
     if op == "list":
         return "\n".join(list_memories_redis(get_memory_user()))
     elif op == "add":

@@ -17,36 +17,26 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import orjson as json
-import PIL.Image
-import pyfiglet
-import redis
-import requests
+
+# Heavy imports moved inside functions for better startup performance
+import requests  # Keep requests as it's commonly used
 import tomli_w
-from git import Remote
-from github import Auth, AuthenticatedUser, Github
 from packaging.requirements import Requirement
 from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import image_to_base64, image_to_chat_message, try_get_image_type
 from par_ai_core.llm_providers import LlmProvider, is_provider_api_key_set, provider_base_urls, provider_env_key_names
 from par_ai_core.par_logging import console_err
-from PIL import Image
 from pydantic import BaseModel, Field, SecretStr
 from rich.console import Console
-from rich_pixels import Pixels
 from strenum import StrEnum
-from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
 
+# Heavy imports (PIL, rich_pixels, sixel) moved inside functions
 from par_gpt import __env_var_prefix__
 from par_gpt.cache_manager import cache_manager
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 from par_gpt.utils.path_security import PathSecurityError, validate_relative_path
 
-try:
-    from sixel import converter as sixel_converter
-
-    sixel_supported = sixel_query_terminal_support()
-except Exception:
-    sixel_supported = False
+# Sixel imports moved inside show_image_in_terminal function
 
 
 def get_weather_current(location: str, timeout: int = 10) -> dict[str, Any]:
@@ -114,6 +104,22 @@ def show_image_in_terminal(
     Raises:
         ValueError: If image_path not specified or invalid.
     """
+    # Import heavy dependencies locally for better startup performance
+    try:
+        from PIL import Image
+        from rich_pixels import Pixels
+        from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
+
+        try:
+            from sixel import converter as sixel_converter
+
+            sixel_supported = sixel_query_terminal_support()
+        except Exception:
+            sixel_supported = False
+    except ImportError:
+        # Fallback if dependencies not available
+        return "Image display dependencies not available"
+
     if not console:
         console = console_err
     if not image_path:
@@ -321,6 +327,11 @@ def figlet_vertical(
     Notes:
         Calling this tool will send its output directly to the terminal. You do not need to capture the output.
     """
+    # Import pyfiglet locally for better startup performance
+    try:
+        import pyfiglet
+    except ImportError:
+        return "pyfiglet not available"
 
     if not console:
         console = console_err
@@ -380,6 +391,11 @@ def figlet_horizontal(
     Notes:
         Calling this tool will send its output directly to the terminal. You do not need to capture the output.
     """
+    # Import pyfiglet locally for better startup performance
+    try:
+        import pyfiglet
+    except ImportError:
+        return "pyfiglet not available"
 
     if not console:
         console = console_err
@@ -751,7 +767,7 @@ def capture_window_image_mac(
     window_id: int | None = None,
     output_format: ImageCaptureOutputType | None = None,
     skip_confirmation: bool = False,
-) -> PIL.Image.Image | bytes | str:
+):
     """
     Captures a screenshot of the specified window on macOS and saves it as a PNG image.
     You must specify at least one of app_name, app_title or window_id.
@@ -829,7 +845,9 @@ def capture_window_image_mac(
                 f"Failed to capture screenshot of app '{app_name}' / title '{app_title}' / window ID '{window_id}'"
             )
 
-        screenshot = PIL.Image.open(temp_image.name)
+        # Import PIL locally inside the function
+        from PIL import Image
+        screenshot = Image.open(temp_image.name)
         if not output_format or output_format == ImageCaptureOutputType.PIL:
             return screenshot
 
@@ -850,7 +868,7 @@ def capture_window_image(
     window_id: int | None = None,
     output_format: ImageCaptureOutputType | None = None,
     skip_confirmation: bool = False,
-) -> PIL.Image.Image | bytes | str:
+):
     """
     Captures a screenshot of the specified window and saves it as a PNG image.
     You must specify at least one of app_name, app_title or window_id.
@@ -919,7 +937,7 @@ def capture_screen_image_mac(
     screen_id: int | None = None,
     output_format: ImageCaptureOutputType | None = None,
     skip_confirmation: bool = False,
-) -> PIL.Image.Image | bytes | str:
+):
     """
     Captures a screenshot of the specified screen/display on macOS.
 
@@ -975,7 +993,9 @@ def capture_screen_image_mac(
         if ret != 0:
             raise ValueError(f"Failed to capture screenshot of display {screen_id}")
 
-        screenshot = PIL.Image.open(temp_image.name)
+        # Import PIL locally inside the function
+        from PIL import Image
+        screenshot = Image.open(temp_image.name)
         if not output_format or output_format == ImageCaptureOutputType.PIL:
             return screenshot
 
@@ -992,7 +1012,7 @@ def capture_screen_image(
     screen_id: int | None = None,
     output_format: ImageCaptureOutputType | None = None,
     skip_confirmation: bool = False,
-) -> PIL.Image.Image | bytes | str:
+):
     """
     Captures a screenshot of the specified screen/display.
 
@@ -1332,7 +1352,7 @@ def update_pyproject_deps(
 @lru_cache(maxsize=1)
 def get_redis_client(
     *, host: str | None = None, port: int | None = None, db: int | None = None, password: str | None = None
-) -> redis.Redis | None:
+):
     """
     Create a Redis client using environment variables or default values.
 
@@ -1345,6 +1365,12 @@ def get_redis_client(
     Returns:
         redis.Redis | None: The Redis client instance or None if the connection fails.
     """
+    # Import redis locally for better startup performance
+    try:
+        import redis
+    except ImportError:
+        return None
+
     try:
         redis_host = (
             host or os.environ.get(f"{__env_var_prefix__}_REDIS_HOST") or os.environ.get("REDIS_HOST") or "localhost"
@@ -1374,6 +1400,13 @@ def github_publish_repo(repo_name: str | None = None, public: bool = False) -> s
     Returns:
         str: The URL of the newly created repository or Error message
     """
+    # Import github dependencies locally for better startup performance
+    try:
+        from git import Remote
+        from github import Auth, AuthenticatedUser, Github
+    except ImportError:
+        return "Error: GitHub dependencies not available"
+
     if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
         return "Error: GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set."
 

@@ -160,13 +160,44 @@ def with_redis_fallback(default: Any = None) -> Callable[[F], F]:
     return decorator
 
 
-# Global Redis manager instance
+# Global Redis manager instance and enable flag
 _redis_manager: RedisOperationManager | None = None
+_redis_enabled: bool = True
+
+
+def set_redis_enabled(enabled: bool) -> None:
+    """Set whether Redis is globally enabled."""
+    global _redis_enabled
+    _redis_enabled = enabled
+
+
+def is_redis_enabled() -> bool:
+    """Check if Redis is globally enabled."""
+    return _redis_enabled
 
 
 def get_redis_manager() -> RedisOperationManager:
     """Get the global Redis manager instance."""
     global _redis_manager
+    if not _redis_enabled:
+        # Return a dummy manager that never connects when Redis is disabled
+        class DisabledRedisManager:
+            def get_client(self):
+                return None
+
+            def redis_operation(self, operation_name="Redis operation"):
+                from contextlib import nullcontext
+
+                return nullcontext(None)
+
+            def safe_execute(self, func, default=None, *args, **kwargs):
+                return default
+
+            def close(self):
+                pass
+
+        return DisabledRedisManager()  # type: ignore
+
     if _redis_manager is None:
         _redis_manager = RedisOperationManager()
     return _redis_manager
