@@ -83,3 +83,4 @@ __pypackages__/
 *.log
 /src/par_gpt/voice_data/
 **/*chat.json
+/todos.md

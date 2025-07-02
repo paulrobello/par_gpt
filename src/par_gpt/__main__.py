@@ -443,7 +443,7 @@ def main(
                 context = Path(context_location).read_text(encoding="utf-8").strip()
 
     if not model:
-        if ctx.invoked_subcommand in ['stardew']:
+        if ctx.invoked_subcommand in ["stardew"]:
             model = "gpt-image-1"
             model_type = "image-gen"
         elif light_model:
@@ -465,7 +465,7 @@ def main(
     if ai_base_url == "none":
         ai_base_url = provider_base_urls[ai_provider]
     llm_config = LlmConfig(
-        mode=LlmMode.BASE if ctx.invoked_subcommand in ['stardew'] else LlmMode.CHAT,
+        mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
         provider=ai_provider,
         model_name=model,
         fallback_models=fallback_models,
@@ -1310,9 +1310,52 @@ def update_deps(
             help="Dont run 'uv sync -U'",
         ),
     ] = False,
+    dev_only: Annotated[
+        bool,
+        typer.Option(
+            "--dev-only",
+            "-d",
+            help="Update only dev dependencies",
+        ),
+    ] = False,
+    main_only: Annotated[
+        bool,
+        typer.Option(
+            "--main-only",
+            "-m",
+            help="Update only main dependencies",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-r",
+            help="Preview changes without applying them",
+        ),
+    ] = False,
+    skip_packages: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--skip",
+            "-s",
+            help="Additional packages to skip during update",
+        ),
+    ] = None,
 ) -> None:
     """Update python project dependencies."""
-    update_pyproject_deps(do_uv_update=not no_uv_update, console=console)
+    if dev_only and main_only:
+        console.print("[bold red]Cannot specify both --dev-only and --main-only")
+        raise typer.Exit(1)
+
+    update_pyproject_deps(
+        do_uv_update=not no_uv_update,
+        console=console,
+        dev_only=dev_only,
+        main_only=main_only,
+        dry_run=dry_run,
+        skip_packages=skip_packages,
+    )
 
 
 @app.command(name="pub-repo-gh")
@@ -1438,7 +1481,9 @@ def stardew(
     ],
     system_prompt: Annotated[
         str,
-        typer.Option("-S", "--system-prompt", envvar=f"{__env_var_prefix__}_SD_SYSTEM_PROMPT", help="System prompt to use"),
+        typer.Option(
+            "-S", "--system-prompt", envvar=f"{__env_var_prefix__}_SD_SYSTEM_PROMPT", help="System prompt to use"
+        ),
     ] = "Make this character {user_prompt}. ensure you maintain the pixel art style.",
     src: Annotated[
         Path | None,
@@ -1481,7 +1526,7 @@ def stardew(
 
     DEFAULT_SRC: Path = Path(__file__).parent / "img" / "stardew-image-base.jpeg"
 
-    from openai import OpenAI  #, AzureOpenAI
+    from openai import OpenAI  # , AzureOpenAI
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:

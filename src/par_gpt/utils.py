@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import getpass
-import importlib
 import io
 import os
 import platform
@@ -26,7 +25,6 @@ import tomli_w
 from git import Remote
 from github import Auth, AuthenticatedUser, Github
 from packaging.requirements import Requirement
-from packaging.version import parse
 from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_image_utils import image_to_base64, image_to_chat_message, try_get_image_type
 from par_ai_core.llm_providers import LlmProvider, is_provider_api_key_set, provider_base_urls, provider_env_key_names
@@ -44,6 +42,7 @@ from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
 
 try:
     from sixel import converter as sixel_converter
+
     sixel_supported = sixel_query_terminal_support()
 except Exception:
     sixel_supported = False
@@ -707,40 +706,63 @@ def image_gen_dali(
     return cache_manager.download(image_url)
 
 
-def update_pyproject_deps(do_uv_update: bool = True, console: Console | None = None) -> None:
+def update_pyproject_deps(
+    do_uv_update: bool = True,
+    console: Console | None = None,
+    dev_only: bool = False,
+    main_only: bool = False,
+    dry_run: bool = False,
+    skip_packages: list[str] | None = None,
+) -> None:
     """
-    Update dependencies in pyproject.toml with the latest available versions.
+    Update dependencies in pyproject.toml with the currently installed versions.
 
-    This function reads the pyproject.toml file (expected to follow PEP 621 with
-    dependencies listed under the [project] table), and for each dependency:
-
-      - Parses the dependency string (e.g. "package[extra]>=1.2.3") using packaging's
-        Requirement class.
-      - Retrieves the latest version from the installed package metadata.
-      - If no version is specified or if the latest version is newer than the specified
-        version, it updates the dependency to use a specifier of the form ">=latest_version".
-
-    The updated TOML data is then written to a new file named "pyproject_new.toml"
-    in the same directory as the original file.
+    This function:
+      1. Runs 'uv sync -U' to update packages to latest compatible versions
+      2. Gets the list of installed packages from UV
+      3. Updates pyproject.toml to match the installed versions
 
     Args:
-        do_uv_update (bool): Whether to use uv sync to update the packages. Defaults to True.
-        console (Console | None): The console object to use for logging. Defaults to console_err.
+        do_uv_update (bool): Whether to use uv sync to update packages. Defaults to True.
+        console (Console | None): Console object for logging. Defaults to console_err.
+        dev_only (bool): Update only dev dependencies. Defaults to False.
+        main_only (bool): Update only main dependencies. Defaults to False.
+        dry_run (bool): Preview changes without applying them. Defaults to False.
+        skip_packages (list[str] | None): Additional packages to skip. Defaults to None.
 
     Returns:
         None
     """
     console = console or console_err
-    # Define the path to the pyproject.toml file
     pyproject_path: Path = Path("pyproject.toml")
+
     if not pyproject_path.exists():
-        console_err.print("[red]pyproject.toml not found in the expected location.")
+        console.print("[red]pyproject.toml not found in the expected location.")
         return
 
-    if do_uv_update:
-        subprocess.run(["uv", "sync", "-U"], check=True)
+    # Step 1: Update packages with UV if requested
+    if do_uv_update and not dry_run:
+        console.print("[cyan]Running 'uv sync -U' to update packages...")
+        try:
+            subprocess.run(["uv", "sync", "-U"], check=True)
+            console.print("[green]Successfully updated packages with UV")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Error: uv sync failed: {e}")
+            return
 
-    # Read and parse the TOML file using tomllib
+    # Step 2: Get installed package versions from UV
+    console.print("[cyan]Getting installed package versions from UV...")
+    try:
+        result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True, check=True)
+        installed_packages = json.loads(result.stdout)
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        console.print(f"[red]Error getting installed packages: {e}")
+        return
+
+    # Create a mapping of package names to versions (case-insensitive)
+    installed_versions: dict[str, str] = {pkg["name"].lower(): pkg["version"] for pkg in installed_packages}
+
+    # Read and parse the TOML file
     try:
         with open(pyproject_path, "rb") as f:
             toml_data: dict[str, Any] = tomllib.load(f)
@@ -748,72 +770,119 @@ def update_pyproject_deps(do_uv_update: bool = True, console: Console | None = N
         console.print(f"[red]Error reading pyproject.toml: {e}")
         return
 
-    # Locate the dependencies section.
-    # This example assumes dependencies are under the [project] table per PEP 621.
-    project_data: dict[str, Any] | None = toml_data.get("project")
-    if not project_data or "dependencies" not in project_data:
-        console.print("[red]Dependencies section not found under [project] in pyproject.toml.")
-        return
+    def process_dependencies(deps: list[str], section_name: str) -> list[str]:
+        """Process a list of dependencies and return updated versions."""
+        updated_deps: list[str] = []
 
-    deps: Any = project_data["dependencies"]
-    if not isinstance(deps, list):
-        console.print("[red]Dependencies should be a list in pyproject.toml.")
-        return
+        # Packages that often have compatibility issues - skip these
+        skip_list = {
+            "pydantic",  # Often has breaking changes with pydantic-core
+            "pydantic-core",  # Must match pydantic version
+            # Add more problematic packages as needed
+        }
+        # Add user-specified packages to skip
+        if skip_packages:
+            skip_list.update(skip_packages)
 
-    updated_deps: list[str] = []
-    for dep in deps:
-        try:
-            # Parse the dependency string (which may include extras)
-            req: Requirement = Requirement(dep)
-        except Exception as e:
-            console.print(f"[yellow]Failed to parse dependency '{dep}': {e}. Keeping original.")
-            updated_deps.append(dep)
-            continue
+        for dep in deps:
+            try:
+                req: Requirement = Requirement(dep)
+            except Exception as e:
+                console.print(f"[yellow]Failed to parse dependency '{dep}': {e}. Keeping original.")
+                updated_deps.append(dep)
+                continue
 
-        package_name: str = req.name
-        # Reconstruct the extras string (if any) in a normalized way.
-        extras_str: str = f"[{','.join(sorted(req.extras))}]" if req.extras else ""
+            package_name: str = req.name
+            package_name_lower: str = package_name.lower()
 
-        # Try to extract the current version from the specifiers (if provided)
-        current_version: str | None = None
-        for spec in req.specifier:
-            if spec.operator in (">=", ">"):
-                current_version = spec.version
-                break
+            # Preserve extras and markers
+            extras_str: str = f"[{','.join(sorted(req.extras))}]" if req.extras else ""
+            marker_str: str = f" ; {req.marker}" if req.marker else ""
 
-        # Attempt to get the latest version from package metadata
-        try:
-            metadata = importlib.metadata.metadata(package_name)  # type: ignore
-            latest_version: str = metadata["Version"]
-        except importlib.metadata.PackageNotFoundError:  # type: ignore
-            console.print(f"[yellow]Package {package_name} not found. Keeping original: {dep}")
-            updated_deps.append(dep)
-            continue
+            # Skip packages in skip list
+            if package_name in skip_list:
+                console.print(f"[yellow]{section_name}: Skipping {package_name} (in skip list)")
+                updated_deps.append(dep)
+                continue
 
-        # Determine if an update is needed:
-        # - If there was no version specifier, or
-        # - If the latest version is newer than the current version,
-        # then update the dependency string.
-        if current_version is None or parse(latest_version) > parse(current_version):
-            new_dep: str = f"{package_name}{extras_str}>={latest_version}"
-            updated_deps.append(new_dep)
-            console.print(f"[green]Updated {dep} to {new_dep}")
+            # Get installed version
+            installed_version = installed_versions.get(package_name_lower)
+
+            if installed_version is None:
+                console.print(
+                    f"[yellow]{section_name}: {package_name} not found in installed packages. Keeping original: {dep}"
+                )
+                updated_deps.append(dep)
+                continue
+
+            # Extract current version constraint
+            current_version: str | None = None
+            for spec in req.specifier:
+                if spec.operator in (">=", ">", "=="):
+                    current_version = spec.version
+                    break
+
+            # Check if update is needed
+            if current_version != installed_version:
+                new_dep = f"{package_name}{extras_str}>={installed_version}{marker_str}"
+                updated_deps.append(new_dep)
+                console.print(f"[green]{section_name}: Updated {dep} to {new_dep}")
+            else:
+                updated_deps.append(dep)
+                console.print(f"[blue]{section_name}: {dep} already matches installed version")
+
+        return updated_deps
+
+    changes_made = False
+
+    # Process main dependencies
+    if not dev_only:
+        project_data: dict[str, Any] | None = toml_data.get("project")
+        if project_data and "dependencies" in project_data:
+            deps: Any = project_data["dependencies"]
+            if isinstance(deps, list):
+                console.print("\n[cyan]Processing main dependencies...")
+                updated_deps = process_dependencies(deps, "Main")
+                if not dry_run:
+                    toml_data["project"]["dependencies"] = updated_deps
+                changes_made = True
+            else:
+                console.print("[yellow]Main dependencies should be a list in pyproject.toml.")
         else:
-            updated_deps.append(dep)
+            console.print("[yellow]Main dependencies section not found under [project].")
 
-    # Update the dependencies list in the TOML data
-    toml_data["project"]["dependencies"] = updated_deps
+    # Process dev dependencies
+    if not main_only:
+        dependency_groups: dict[str, Any] | None = toml_data.get("dependency-groups")
+        if dependency_groups and "dev" in dependency_groups:
+            dev_deps: Any = dependency_groups["dev"]
+            if isinstance(dev_deps, list):
+                console.print("\n[cyan]Processing dev dependencies...")
+                updated_dev_deps = process_dependencies(dev_deps, "Dev")
+                if not dry_run:
+                    toml_data["dependency-groups"]["dev"] = updated_dev_deps
+                changes_made = True
+            else:
+                console.print("[yellow]Dev dependencies should be a list in pyproject.toml.")
+        else:
+            console.print("[yellow]Dev dependencies section not found under [dependency-groups].")
 
-    # Write the updated TOML data to a new file using tomli_w
-    new_pyproject_path: Path = pyproject_path  # pyproject_path.parent / "pyproject_new.toml"
-    try:
-        with open(new_pyproject_path, "wb") as f:
-            f.write(tomli_w.dumps(toml_data).encode("utf-8"))
-    except Exception as e:
-        console.print(f"[red]Error writing updated {new_pyproject_path.name}: {e}")
+    if not changes_made:
+        console.print("[yellow]No dependencies found to process.")
         return
 
-    console.print(f"[green]{new_pyproject_path.name} updated.")
+    if dry_run:
+        console.print("\n[cyan]Dry run completed. No changes were made to pyproject.toml.")
+        return
+
+    # Write the updated TOML data
+    try:
+        with open(pyproject_path, "wb") as f:
+            f.write(tomli_w.dumps(toml_data).encode("utf-8"))
+        console.print("\n[green]pyproject.toml updated successfully.")
+    except Exception as e:
+        console.print(f"[red]Error writing updated pyproject.toml: {e}")
+        return
 
 
 @lru_cache(maxsize=1)

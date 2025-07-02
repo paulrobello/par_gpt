@@ -598,7 +598,7 @@ def install_sandbox(container_name: str = "par_gpt_sandbox", console: Console | 
         ["docker", "compose", "up", "-d", "--build", "--force-recreate"],
         env=os.environ | {"COMPOSE_PROJECT_NAME": container_name},
         check=True,
-        cwd=dir
+        cwd=dir,
     )
     console.print("Code runner docker sandbox has been built and started.")
 
