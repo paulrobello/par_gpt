@@ -81,17 +81,18 @@ from par_gpt.ai_tools.ai_tools import (
     user_prompt,
 )
 from par_gpt.ai_tools.par_python_repl import ParPythonAstREPLTool
+from par_gpt.cache_manager import cache_manager
 from par_gpt.profiling.profile_tools import ProfileAnalysisError, process_profile
 from par_gpt.repo.repo import GitRepo
-from par_gpt.tts_manger import TTSManger, TTSProvider, summarize_for_tts
-from par_gpt.utils import (
-    cache_manager,
-    github_publish_repo,
-    mk_env_context,
-    show_image_in_terminal,
-    update_pyproject_deps,
+from par_gpt.tts_manager import TTSManger, TTSProvider, summarize_for_tts
+from par_gpt.utils import github_publish_repo, mk_env_context, show_image_in_terminal, update_pyproject_deps
+from par_gpt.utils.path_security import (
+    PathSecurityError,
+    sanitize_filename,
+    validate_relative_path,
+    validate_within_base,
 )
-from par_gpt.voice_input_manger import VoiceInputManager
+from par_gpt.voice_input_manager import VoiceInputManager
 from sandbox import SandboxAction, install_sandbox, start_sandbox, stop_sandbox
 
 app = typer.Typer()
@@ -398,7 +399,21 @@ def main(
     if context_is_url:
         console.print("[bold green]Context is URL and will be fetched...")
 
-    context_is_file: bool = not context_is_url and "\n" not in context_location and Path(context_location).is_file()
+    # Validate context_location for path traversal before checking if it's a file
+    context_is_file: bool = False
+    if not context_is_url and "\n" not in context_location:
+        try:
+            # Check for path traversal attempts
+            if "../" in context_location or "..\\" in context_location:
+                console.print("[red]Error: Path traversal detected in context location[/red]")
+                raise typer.Exit(1)
+            # For relative paths, validate them
+            if not Path(context_location).is_absolute():
+                validate_relative_path(context_location, max_depth=5)
+            context_is_file = Path(context_location).is_file()
+        except PathSecurityError as e:
+            console.print(f"[red]Error: Invalid context path: {e}[/red]")
+            raise typer.Exit(1) from e
     if context_is_file:
         console.print("[bold green]Context is file and will be read...")
 
@@ -491,10 +506,33 @@ def main(
 
     history_file: Path | None = None
     if chat_history:
-        if chat_history[0] in [".", "/"]:
-            history_file = Path(chat_history)
-        else:
-            history_file = (Path(".") / chat_history).resolve()
+        # Validate chat history path for security
+        try:
+            # Sanitize the filename to prevent dangerous characters
+            safe_history_name = sanitize_filename(chat_history)
+
+            # Check for path traversal in the original input
+            if "../" in chat_history or "..\\" in chat_history:
+                console.print("[red]Error: Path traversal detected in chat history path[/red]")
+                raise typer.Exit(1)
+
+            # For absolute paths starting with . or /, validate them
+            if chat_history[0] in [".", "/"]:
+                try:
+                    # Validate relative paths
+                    if not chat_history.startswith("/"):
+                        validate_relative_path(chat_history, max_depth=3)
+                    history_file = Path(chat_history)
+                except PathSecurityError as e:
+                    console.print(f"[red]Error: Invalid chat history path: {e}[/red]")
+                    raise typer.Exit(1) from e
+            else:
+                # For non-path-like names, treat as filename in current directory
+                # Use the sanitized version for safety
+                history_file = (Path(".") / safe_history_name).resolve()
+        except Exception as e:
+            console.print(f"[red]Error processing chat history path: {e}[/red]")
+            raise typer.Exit(1) from e
 
     if show_config:
         console.print(
@@ -1417,7 +1455,7 @@ def tinify(
     output_path = Path(output_file) if output_file else image_path
 
     source = tinify.from_file(image_path)  # type: ignore
-    source.to_file(output_path)
+    source.to_file(str(output_path))
     compression_ratio = output_path.stat().st_size / image_path.stat().st_size
     reduction_percentage = (1 - compression_ratio) * 100
     console.print(f"Tinified image saved to {output_path} with a reduction of {reduction_percentage:.2f}%")
@@ -1571,15 +1609,37 @@ def stardew(
         image_base64 = response.data[0].b64_json
         img_data = base64.b64decode(image_base64)
 
-        # Determine output file name
+        # Determine output file name with security validation
         if out:
-            out_path = Path(out)
+            try:
+                # Validate the output path for security
+                if "../" in out or "..\\" in out:
+                    console.print("[red]Error: Path traversal detected in output path[/red]")
+                    raise typer.Exit(1)
+
+                # Sanitize the filename
+                safe_out = sanitize_filename(out)
+                out_path = Path(safe_out)
+
+                # For relative paths, validate them
+                if not out_path.is_absolute():
+                    validate_relative_path(str(out_path), max_depth=3)
+
+            except PathSecurityError as e:
+                console.print(f"[red]Error: Invalid output path: {e}[/red]")
+                raise typer.Exit(1) from e
         else:
             safe_name = re.sub(r"[^a-z0-9_]", "_", prompt.lower())
             out_path = Path(f"{safe_name}.png")
 
+        # Validate the final output path if using out_folder
         if out_folder and not out_path.is_absolute():
-            out_path = out_folder / out_path
+            try:
+                # Ensure the output path stays within the specified folder
+                out_path = validate_within_base(out_path, out_folder)
+            except PathSecurityError as e:
+                console.print(f"[red]Error: Output path escapes designated folder: {e}[/red]")
+                raise typer.Exit(1) from e
 
         # Write the image file
         with out_path.open("wb") as f:

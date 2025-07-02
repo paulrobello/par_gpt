@@ -34,6 +34,7 @@ from par_gpt.utils import (
     describe_image_with_llm,
     figlet_horizontal,
     figlet_vertical,
+    get_console,
     get_weather_current,
     get_weather_forecast,
     github_publish_repo,
@@ -134,7 +135,7 @@ def ai_copy_to_clipboard(text: str) -> str:
         clipboard.copy(text)
         return "Text copied to clipboard"
     except Exception as e:
-        console_err.print(f"Error copying to clipboard: {str(e)}")
+        get_console().print(f"Error copying to clipboard: {str(e)}")
         return "Error accessing clipboard"
 
 
@@ -151,7 +152,7 @@ def ai_copy_from_clipboard() -> str:
     try:
         return clipboard.paste() or ""
     except Exception as e:
-        console_err.print(f"Error accessing clipboard: {str(e)}")
+        get_console().print(f"Error accessing clipboard: {str(e)}")
         return "Error accessing clipboard"
 
 

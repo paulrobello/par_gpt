@@ -17,6 +17,25 @@ from threading import Thread
 from typing import Any
 from uuid import uuid4
 
+# Import path security utilities
+try:
+    from par_gpt.utils.path_security import PathSecurityError, sanitize_filename
+except ImportError:
+    # Fallback if path security module is not available
+    class PathSecurityError(Exception):
+        pass
+
+    def sanitize_filename(filename: str, replacement: str = "_") -> str:
+        """Basic filename sanitization fallback."""
+        import re
+
+        # Remove dangerous characters
+        sanitized = re.sub(r'[<>:"|?*\x00-\x1f]', replacement, filename)
+        sanitized = sanitized.replace("..", replacement)
+        sanitized = sanitized.replace("/", replacement).replace("\\", replacement)
+        return sanitized[:255]  # Limit length
+
+
 import docker
 import docker.errors
 from docker import DockerClient
@@ -410,9 +429,16 @@ class SandboxRun:
                 extracted_file = tar.extractfile(file_info)
                 if extracted_file:
                     if dest_file_name:
+                        # Sanitize destination filename to prevent path traversal
+                        safe_dest_name = sanitize_filename(dest_file_name)
+                        if not safe_dest_name or safe_dest_name != dest_file_name:
+                            print(
+                                f"Warning: Destination filename '{dest_file_name}' was sanitized to '{safe_dest_name}'"
+                            )
+
                         # Write the content to a file in the system's temp folder
                         temp_dir = tempfile.gettempdir()
-                        dest_path = os.path.join(temp_dir, dest_file_name)
+                        dest_path = os.path.join(temp_dir, safe_dest_name)
 
                         with open(dest_path, "wb") as f:
                             f.write(extracted_file.read())
@@ -441,19 +467,24 @@ class SandboxRun:
         """
         container = self.client.containers.get(self.container_name)
 
-        temp_script_path = os.path.join("/tmp", file_name)
+        # Sanitize the filename to prevent path traversal
+        safe_file_name = sanitize_filename(file_name)
+        if not safe_file_name or safe_file_name != file_name:
+            print(f"Warning: Filename '{file_name}' was sanitized to '{safe_file_name}'")
+
+        temp_script_path = os.path.join("/tmp", safe_file_name)
 
         with open(temp_script_path, "w") as file:
             file.write(content)
 
         tar_stream = BytesIO()
         with tarfile.open(fileobj=tar_stream, mode="w") as tar:
-            tar.add(temp_script_path, arcname=file_name)
+            tar.add(temp_script_path, arcname=safe_file_name)
         tar_stream.seek(0)
 
         exec_result = container.put_archive(path="/code/", data=tar_stream)
         if exec_result:
-            return SandboxRunResult(status=True, message=file_name)
+            return SandboxRunResult(status=True, message=safe_file_name)
 
         return SandboxRunResult(status=False, message=f"Failed to copy {file_name} to container.")
 

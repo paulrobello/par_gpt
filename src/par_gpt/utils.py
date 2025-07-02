@@ -37,8 +37,9 @@ from strenum import StrEnum
 from textual_image.renderable.sixel import query_terminal_support as sixel_query_terminal_support
 
 from par_gpt import __env_var_prefix__
-from par_gpt.cache_manger import cache_manager
+from par_gpt.cache_manager import cache_manager
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
+from par_gpt.utils.path_security import PathSecurityError, validate_relative_path
 
 try:
     from sixel import converter as sixel_converter
@@ -126,6 +127,19 @@ def show_image_in_terminal(
         if image_path.startswith("http"):
             image_path = cache_manager.download(image_path)
 
+        # Validate path for security before using it
+        image_path_str = str(image_path)
+        try:
+            # Check for path traversal attempts
+            if "../" in image_path_str or "..\\" in image_path_str:
+                raise PathSecurityError("Path traversal detected in image path")
+            # For relative paths, validate them
+            if not Path(image_path_str).is_absolute():
+                validate_relative_path(image_path_str, max_depth=5)
+        except PathSecurityError as e:
+            console.print(f"[red]Security error: {e}[/red]")
+            return "Security error: Invalid image path"
+
         image_path = Path(image_path).expanduser()
         if not image_path.exists():
             return "Image not found"
@@ -208,6 +222,19 @@ def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None, con
     extra_context_text = ""
 
     if isinstance(extra_context, Path):
+        # Validate the path for security
+        try:
+            extra_context_str = str(extra_context)
+            # Check for path traversal attempts
+            if "../" in extra_context_str or "..\\" in extra_context_str:
+                raise PathSecurityError("Path traversal detected in extra context path")
+            # For relative paths, validate them
+            if not extra_context.is_absolute():
+                validate_relative_path(extra_context_str, max_depth=5)
+        except PathSecurityError as e:
+            console.print(f"[red]Security error: {e}[/red]")
+            raise ValueError(f"Invalid extra context path: {e}") from e
+
         if not extra_context.is_file():
             raise ValueError(f"Extra context file not found or is not a file: {extra_context}")
         try:
@@ -666,7 +693,7 @@ def speak(text: str):
     voice = "XB0fDUnXU5powFXDhCwa"  # Charlotte
     elevenlabs_client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
-    audio_generator = elevenlabs_client.generate(
+    audio_generator = elevenlabs_client.generate(  # type: ignore
         text=text,
         voice=voice,
         model=model,

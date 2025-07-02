@@ -15,6 +15,20 @@ from typing import Any
 from rich.console import Console
 from rich.markdown import Markdown
 
+# Import path security utilities
+try:
+    from par_gpt.utils.path_security import PathSecurityError, validate_relative_path
+except ImportError:
+    # Fallback if path security module is not available
+    class PathSecurityError(Exception):
+        pass
+
+    def validate_relative_path(path: str, max_depth: int = 10) -> Path:
+        """Basic path validation fallback."""
+        if "../" in path or "..\\" in path:
+            raise PathSecurityError("Path traversal detected")
+        return Path(path)
+
 
 def is_in_scope(node: dict[str, Any], modules_in_scope: list[str]) -> bool:
     """
@@ -128,9 +142,19 @@ def process_profile(
     Raises:
         ProfileAnalysisError: If errors occur during analysis
     """
-    # Convert to Path object if string
+    # Convert to Path object if string with security validation
     if isinstance(profile_path, str):
-        profile_path = Path(profile_path)
+        # Validate the path for security
+        try:
+            # Check for path traversal attempts
+            if "../" in profile_path or "..\\" in profile_path:
+                raise PathSecurityError("Path traversal detected in profile path")
+            # For relative paths, validate them
+            if not Path(profile_path).is_absolute():
+                validate_relative_path(profile_path, max_depth=5)
+            profile_path = Path(profile_path)
+        except PathSecurityError as e:
+            raise ProfileAnalysisError(f"Invalid profile path: {e}") from e
 
     # Validate profile JSON file exists
     if not profile_path.exists():

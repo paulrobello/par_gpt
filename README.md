@@ -17,6 +17,9 @@ Some features / functions may be kind of niche to things I work on but could be 
 * Support for multiple AI providers (OpenAI, Anthropic, Groq, Google, Ollama, Bedrock)
 * Support for custom output formats Markdown, CSV, etc.
 * Support for custom context sources stdin, file, url, and web search
+* **Comprehensive security features** with path traversal protection and secure file operations
+* **Memory management** with optimized resource cleanup and caching
+* **Docker sandbox support** for safe code execution
 
 ## Technology
 
@@ -395,6 +398,36 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
 - Image Gen - Generate image using Dall-E-3
   - keywords: image
 
+## Security Features
+
+PAR GPT implements comprehensive security measures to protect against common vulnerabilities:
+
+### Path Traversal Protection
+- **Comprehensive validation** of all user-provided file paths
+- **Directory traversal prevention** using regex patterns and path resolution
+- **Filename sanitization** to remove dangerous characters and reserved names
+- **Base directory enforcement** to ensure paths stay within allowed directories
+- **Cross-platform compatibility** for Windows and Unix systems
+
+### File Operation Security
+- **Secure file validation** for all read/write operations
+- **Content type validation** for uploaded files and downloads
+- **Atomic file operations** with backup and restore capabilities
+- **Size limits** enforced on file operations to prevent resource exhaustion
+
+### Code Execution Safety
+- **Docker sandbox isolation** for AI-generated code execution
+- **User confirmation prompts** for potentially dangerous operations
+- **Input validation** and sanitization for all external inputs
+- **Memory management** with proper resource cleanup and limits
+
+### Environment Security
+- **Secure credential handling** using Pydantic SecretStr
+- **Environment variable validation** and type checking
+- **API key protection** from logs and debug output
+
+For detailed security implementation, see [PATH_SECURITY_SUMMARY.md](PATH_SECURITY_SUMMARY.md).
+
 ## Code sandbox
 The code sandbox allows the AI agent mode to write and execute code safely contained in a docker container.  
 To use the sandbox you must have `docker` installed as well as build and run the sandbox container.  
@@ -489,6 +522,12 @@ par_gpt code_review
 ```
 
 ## What's New
+- Version 0.12.0:
+  - **Major Security Update**: Implemented comprehensive path traversal protection across all file operations
+  - **Memory Management**: Fixed critical audio processing memory leaks with resource cleanup
+  - **Code Quality**: Centralized utility classes and improved type safety
+  - **Configuration**: Secure environment variable handling with Pydantic and SecretStr
+  - **File Security**: All file operations now validate user-provided paths to prevent directory traversal attacks
 - Version 0.11.0:
   - Added new stardew subcommand for creating pixel art avatar variations
 - Version 0.10.0:

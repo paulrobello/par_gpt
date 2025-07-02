@@ -1,7 +1,10 @@
-"""TTS Providers"""
+"""TTS Providers with proper memory management and resource cleanup."""
 
 import os
 import re
+import weakref
+from collections.abc import Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +23,7 @@ from par_ai_core.utils import timer_block
 from rich.console import Console
 from strenum import StrEnum
 
-from par_gpt.cache_manger import cache_manager
+from par_gpt.cache_manager import cache_manager
 
 
 def summarize_for_tts(text: str) -> str:
@@ -100,7 +103,7 @@ class TTSProvider(StrEnum):
 
 
 class TTSManger:
-    """Manages text-to-speech (TTS) using local, or Cloud APIs."""
+    """Manages text-to-speech (TTS) using local, or Cloud APIs with proper memory management."""
 
     def __init__(
         self,
@@ -122,10 +125,15 @@ class TTSManger:
         self.console = console or console_err
         self.verbose = verbose
         self.speed = speed
+        self.engine: Any = None
+        self._audio_streams: list[Any] = []  # Track audio streams for cleanup
 
         # Get voice configuration
         self.tts_provider = tts_provider
         self.voice_name = ""
+
+        # Register cleanup on deletion
+        weakref.finalize(self, self._cleanup_resources)
 
         self.console.print(f"🔊 Initializing {self.tts_provider} TTS engine")
         with timer_block(f"🔊 Initialization of {self.tts_provider} TTS engine complete", console=self.console):
@@ -238,12 +246,25 @@ class TTSManger:
                     input=text,
                 )
                 audio_data = np.frombuffer(response.content, dtype=np.int16)
-                sd.play(audio_data, samplerate=int(24 * 1024 * self.speed), blocking=True)
+
+                # Play with proper cleanup
+                try:
+                    sd.play(audio_data, samplerate=int(24 * 1024 * self.speed), blocking=True)
+                finally:
+                    # Ensure audio buffer is released
+                    del audio_data
+
             elif self.tts_provider == TTSProvider.KOKORO:
                 import sounddevice as sd
 
                 samples, sample_rate = self.engine.create(text, voice=self.voice_name, speed=self.speed, lang="en-us")  # type: ignore
-                sd.play(samples, sample_rate, blocking=True)
+
+                # Play with proper cleanup
+                try:
+                    sd.play(samples, sample_rate, blocking=True)
+                finally:
+                    # Ensure audio samples are released
+                    del samples
 
             # if self.verbose:
             # self.console.print(f"🔊 Spoken: {text}")
@@ -252,18 +273,62 @@ class TTSManger:
             self.console.print(f"❌ Error in speech synthesis: {str(e)}")
             raise
 
+    def _cleanup_resources(self) -> None:
+        """Clean up TTS resources to prevent memory leaks."""
+        try:
+            if self.tts_provider == TTSProvider.LOCAL and self.engine:
+                # Stop pyttsx3 engine
+                if hasattr(self.engine, "stop"):
+                    self.engine.stop()
+
+            # Clear any audio streams
+            self._audio_streams.clear()
+
+            # Clear engine reference
+            self.engine = None
+
+        except Exception as e:
+            if self.verbose:
+                self.console.print(f"⚠️ Warning during TTS cleanup: {e}")
+
+    def shutdown(self) -> None:
+        """Explicitly shutdown the TTS manager and clean up resources."""
+        self._cleanup_resources()
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup."""
+        self.shutdown()
+
+    @contextmanager
+    def speak_context(self, text: str) -> Generator[None, None, None]:
+        """Context manager for safe speech synthesis with automatic cleanup."""
+        try:
+            self.speak(text)
+            yield
+        finally:
+            # Force cleanup after speech
+            if self.tts_provider in [TTSProvider.OPENAI, TTSProvider.KOKORO]:
+                try:
+                    import gc
+
+                    gc.collect()  # Force garbage collection to free audio buffers
+                except ImportError:
+                    pass
+
 
 if __name__ == "__main__":
     load_dotenv(Path("~/.par_gpt.env").expanduser())
 
-    # file = cache_manager.get_key("https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v0_19.onnx")
-    # print file size of file
-    # file_size_mb = os.path.getsize(file) / (1024 * 1024)
-    # print(f"File size: {file_size_mb:.2f} MB")
+    # Example usage with proper memory management
+    # with TTSManger(TTSProvider.OPENAI, voice_name="nova") as tts:
+    #     tts.speak("Hello Paul. What can I do for you today?")
 
-    # sm = TTSManger(TTSProvider.LOCAL, voice_name='Shelley (English (UK))')
-    # sm = TTSManger(TTSProvider.ELEVENLABS, voice_name="XrExE9yKIg1WjnnlVkGX")
-    sm = TTSManger(TTSProvider.OPENAI, voice_name="nova")
-    # sm = TTSManger(TTSProvider.KOKORO, voice_name="af_sarah")
-    # Console().print(sm.list_voices())
-    sm.speak("Hello Paul. What can I do for you today?")
+    # Or using speak context for automatic cleanup
+    # tts = TTSManger(TTSProvider.OPENAI, voice_name="nova")
+    # with tts.speak_context("Hello Paul. What can I do for you today?"):
+    #     pass  # Speech happens here with automatic cleanup
+    # tts.shutdown()

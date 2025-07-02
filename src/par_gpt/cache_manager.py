@@ -11,6 +11,7 @@ from par_ai_core.user_agents import get_random_user_agent
 from par_ai_core.utils import get_file_suffix, is_url
 
 from par_gpt import __application_binary__
+from par_gpt.utils.path_security import PathSecurityError, validate_within_base
 
 
 class CacheManager:
@@ -51,6 +52,27 @@ class CacheManager:
             Path: Path in cache for item
         """
         return self.cache_dir / self.key_for_item(item)
+
+    def _get_secure_cache_path(self, item: str) -> Path:
+        """
+        Securely get a cache path for an item, preventing directory traversal.
+
+        Args:
+            item (str): Item to get cache path for
+
+        Returns:
+            Path: Secure cache path
+
+        Raises:
+            PathSecurityError: If item contains path traversal attempts
+        """
+        try:
+            # Validate that the item path stays within the cache directory
+            return validate_within_base(item, self.cache_dir)
+        except PathSecurityError:
+            # If direct path fails validation, fall back to the hashed key method
+            # This ensures backward compatibility while maintaining security
+            return self.get_path(item)
 
     def download(self, url: str, force: bool = False, timeout: int = 10) -> Path:
         """
@@ -110,14 +132,20 @@ class CacheManager:
             return self.download(item, force, timeout)
 
         with self.lock:
-            # check if item is a key in cache
-            path = self.cache_dir / item
-            if path.exists():
-                return path
-            # compute cache key for item
+            # First try secure direct path (validates against path traversal)
+            try:
+                path = self._get_secure_cache_path(item)
+                if path.exists():
+                    return path
+            except PathSecurityError:
+                # If direct path is unsafe, skip it and only use hashed key
+                pass
+
+            # Always try the hashed key path as fallback
             path = self.get_path(item)
             if path.exists():
                 return path
+
         raise FileNotFoundError(f"Key '{item}' not found in cache")
 
     def set_item(self, item: str, value: bytes | str) -> Path:
@@ -132,8 +160,11 @@ class CacheManager:
             Path: Path in cache for item
         """
         with self.lock:
-            path = self.cache_dir / item
-            if not path.exists():
+            # Use secure path resolution to prevent directory traversal
+            try:
+                path = self._get_secure_cache_path(item)
+            except PathSecurityError:
+                # If item contains unsafe path, use hashed key method only
                 path = self.get_path(item)
 
             if isinstance(value, str):
@@ -152,11 +183,23 @@ class CacheManager:
             bool: True if item / key exists, False otherwise
         """
         with self.lock:
-            path = self.cache_dir / item
-            if not path.exists():
-                path = self.get_path(item)
-            exists = path.exists()
-            path.unlink(missing_ok=True)
+            # Try secure path first, then fallback to hashed key
+            exists = False
+            try:
+                path = self._get_secure_cache_path(item)
+                if path.exists():
+                    exists = True
+                    path.unlink()
+            except PathSecurityError:
+                # Skip unsafe direct path
+                pass
+
+            # Also try hashed key path
+            path = self.get_path(item)
+            if path.exists():
+                exists = True
+                path.unlink()
+
             return exists
 
     def item_exists(self, item: str) -> bool:
@@ -170,10 +213,16 @@ class CacheManager:
             bool: True if item / key exists, False otherwise
         """
         with self.lock:
-            path = self.cache_dir / item
-            if path.exists():
-                return True
+            # Check secure direct path first
+            try:
+                path = self._get_secure_cache_path(item)
+                if path.exists():
+                    return True
+            except PathSecurityError:
+                # Skip unsafe direct path
+                pass
 
+            # Always check hashed key path
             return self.get_path(item).exists()
 
 

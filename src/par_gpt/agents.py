@@ -15,7 +15,6 @@ from langchain_groq import ChatGroq
 from par_ai_core.llm_config import llm_run_manager
 from par_ai_core.llm_image_utils import image_to_chat_message
 from par_ai_core.output_utils import DisplayOutputFormat, get_output_format_prompt
-from par_ai_core.par_logging import console_err
 from par_ai_core.utils import (
     code_frontend_file_globs,
     code_java_file_globs,
@@ -29,6 +28,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 
 from par_gpt.memory_utils import get_memory_prompt
+from par_gpt.utils import get_console
 
 
 def do_single_llm_call(
@@ -45,8 +45,7 @@ def do_single_llm_call(
     console: Console | None = None,
     use_tts: bool = False,
 ) -> tuple[str, str, BaseMessage]:
-    if not console:
-        console = console_err
+    console = get_console(console)
 
     if not env_info:
         env_info = ""
@@ -125,8 +124,7 @@ def do_react_agent(
     console: Console | None = None,
 ):
     """React agent"""
-    if not console:
-        console = console_err
+    console = get_console(console)
 
     default_system_prompt = (
         """
@@ -201,8 +199,7 @@ def do_tool_agent(
     if image:
         raise ValueError("Image not supported for tool agent")
 
-    if not console:
-        console = console_err
+    console = get_console(console)
 
     if chat_history is None:
         chat_history = []

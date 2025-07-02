@@ -6,7 +6,7 @@ from pathlib import Path
 from par_ai_core.par_logging import console_err
 
 from par_gpt import __env_var_prefix__
-from par_gpt.utils import get_redis_client
+from par_gpt.utils import get_redis_manager, with_redis_fallback
 
 
 def get_memory_user() -> str:
@@ -16,7 +16,8 @@ def get_memory_user() -> str:
     return os.environ.get(f"{__env_var_prefix__}_USER") or os.environ.get("USER") or "user"
 
 
-def add_memory_redis(key: str, memory: str | list[str]) -> bool:
+@with_redis_fallback(default=False)
+def add_memory_redis(key: str, memory: str | list[str], *, redis_client=None) -> bool:
     """
     Save a memory string or a list of memory strings to Redis.
 
@@ -27,21 +28,18 @@ def add_memory_redis(key: str, memory: str | list[str]) -> bool:
     Returns:
         bool: True if the memory was saved successfully, False otherwise.
     """
-    try:
-        r = get_redis_client()
-        if not r:
-            return False
-        if isinstance(memory, str):
-            memory = [memory]
-        memory = [m.strip() for m in memory]
-        r.rpush(key, *memory)
-        return True
-    except Exception as _:
-        # console_err.print(f"Error saving memory to Redis: {e}")
+    if not redis_client:
         return False
 
+    if isinstance(memory, str):
+        memory = [memory]
+    memory = [m.strip() for m in memory]
+    redis_client.rpush(key, *memory)
+    return True
 
-def list_memories_redis(key: str) -> list[str]:
+
+@with_redis_fallback(default=[])
+def list_memories_redis(key: str, *, redis_client=None) -> list[str]:
     """
     Retrieve all memories associated with a given key from Redis.
 
@@ -51,15 +49,11 @@ def list_memories_redis(key: str) -> list[str]:
     Returns:
         list[str]: A list of memory strings associated with the given key. If no memories are found, an empty list is returned.
     """
-    try:
-        r = get_redis_client()
-        if not r:
-            return []
-        memories = r.lrange(key, 0, -1)
-        return [memory.decode("utf-8") for memory in memories]  # type: ignore
-    except Exception as _:
-        # console_err.print(f"Error retrieving memories from Redis: {e}")
+    if not redis_client:
         return []
+
+    memories = redis_client.lrange(key, 0, -1)
+    return [str(memory) for memory in memories]
 
 
 def remove_memory_redis(key: str, memory: str) -> bool:
@@ -76,10 +70,11 @@ def remove_memory_redis(key: str, memory: str) -> bool:
     try:
         memories = list_memories_redis(key)
         if memory in memories:
-            r = get_redis_client()
-            if not r:
+            manager = get_redis_manager()
+            with manager.redis_operation("remove memory") as client:
+                if client:
+                    return client.lrem(key, 1, memory) == 1
                 return False
-            return r.lrem(key, 1, memory) == 1
         return False
     except Exception as _:
         # console_err.print(f"Error removing memory from Redis: {e}")
@@ -97,11 +92,12 @@ def clear_memories_redis(key: str) -> bool:
         bool: True if all memories were removed successfully, False otherwise.
     """
     try:
-        r = get_redis_client()
-        if not r:
+        manager = get_redis_manager()
+        with manager.redis_operation("clear memories") as client:
+            if client:
+                client.delete(key)
+                return True
             return False
-        r.delete(key)
-        return True
     except Exception as _:
         # console_err.print(f"Error removing memory from Redis: {e}")
         return False

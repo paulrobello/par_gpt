@@ -40,7 +40,6 @@ keywords = [
     "llm",
 ]
 dependencies = [
-    "asyncio>=3.4.3",
     "beautifulsoup4>=4.13.4",
     "google-api-python-client>=2.169.0",
     "google-auth-httplib2>=0.2.0",
@@ -94,6 +93,8 @@ dependencies = [
     "par-ai-core>=0.3.1",
     "tinify>=1.7.0",
     "langchain-mcp-adapters>=0.1.0",
+    "cryptography>=45.0.5",
+    "pydantic-settings>=2.0.0",
 ]
 packages = [
     "src/par_gpt",
