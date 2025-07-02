@@ -8,8 +8,18 @@ import warnings
 import clipman
 from langchain_core._api import LangChainBetaWarning
 
+# Import and suppress LangChain deprecation warnings
+try:
+    from langchain_core._api import LangChainDeprecationWarning
+
+    warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
+except ImportError:
+    pass
+
 warnings.simplefilter("ignore", category=LangChainBetaWarning)
 warnings.simplefilter("ignore", category=DeprecationWarning)
+# Specifically suppress LangChain deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain.*")
 
 try:
     clipman.init()

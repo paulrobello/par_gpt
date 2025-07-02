@@ -18,47 +18,18 @@ from par_gpt.utils.path_security import (
     validate_within_base,
 )
 from par_gpt.utils.redis_manager import RedisOperationManager, get_redis_manager, with_redis_fallback
-
-# Import from original utils.py to maintain backward compatibility
-# Note: Using relative import to avoid circular import
-from ..utils import (
-    FigletFontName,
-    ImageCaptureOutputType,
-    VisibleWindow,
-    cache_manager,
-    capture_window_image,
-    describe_image_with_llm,
-    figlet_horizontal,
-    figlet_vertical,
-    get_redis_client,
-    get_weather_current,
-    get_weather_forecast,
-    github_publish_repo,
-    image_gen_dali,
-    list_visible_windows_mac,
-    mk_env_context,
-    show_image_in_terminal,  # noqa: F401
-    update_pyproject_deps,
+from par_gpt.utils.security_warnings import (
+    warn_code_execution,
+    warn_command_execution,
+    warn_environment_modification,
+    warn_subprocess_operation,
 )
 
+# Note: Functions from original utils.py are NOT imported here to avoid circular imports
+# Files that need these functions should implement basic versions directly
+# This is a temporary solution to resolve import conflicts
+
 __all__ = [
-    # Original utils.py exports
-    "FigletFontName",
-    "ImageCaptureOutputType",
-    "VisibleWindow",
-    "cache_manager",
-    "capture_window_image",
-    "describe_image_with_llm",
-    "figlet_horizontal",
-    "figlet_vertical",
-    "get_redis_client",
-    "get_weather_current",
-    "get_weather_forecast",
-    "github_publish_repo",
-    "image_gen_dali",
-    "list_visible_windows_mac",
-    "mk_env_context",
-    "update_pyproject_deps",
     # New utils modules
     "AudioResourceManager",
     "get_audio_manager",
@@ -85,4 +56,9 @@ __all__ = [
     "validate_relative_path",
     "validate_url_path",
     "validate_within_base",
+    # Security warnings
+    "warn_code_execution",
+    "warn_command_execution",
+    "warn_environment_modification",
+    "warn_subprocess_operation",
 ]

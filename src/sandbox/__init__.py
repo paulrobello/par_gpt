@@ -17,25 +17,6 @@ from threading import Thread
 from typing import Any
 from uuid import uuid4
 
-# Import path security utilities
-try:
-    from par_gpt.utils.path_security import PathSecurityError, sanitize_filename
-except ImportError:
-    # Fallback if path security module is not available
-    class PathSecurityError(Exception):
-        pass
-
-    def sanitize_filename(filename: str, replacement: str = "_") -> str:
-        """Basic filename sanitization fallback."""
-        import re
-
-        # Remove dangerous characters
-        sanitized = re.sub(r'[<>:"|?*\x00-\x1f]', replacement, filename)
-        sanitized = sanitized.replace("..", replacement)
-        sanitized = sanitized.replace("/", replacement).replace("\\", replacement)
-        return sanitized[:255]  # Limit length
-
-
 import docker
 import docker.errors
 from docker import DockerClient
@@ -43,6 +24,24 @@ from pydantic import BaseModel
 from RestrictedPython import compile_restricted
 from rich.console import Console
 from strenum import StrEnum
+
+# Import path security utilities
+try:
+    from par_gpt.utils.path_security import PathSecurityError, sanitize_filename  # type: ignore
+except ImportError:
+    # Fallback if path security module is not available
+    import re
+
+    class PathSecurityError(Exception):
+        pass
+
+    def sanitize_filename(filename: str, replacement: str = "_") -> str:
+        """Basic filename sanitization fallback."""
+        # Remove dangerous characters
+        sanitized = re.sub(r'[<>:"|?*\x00-\x1f]', replacement, filename)
+        sanitized = sanitized.replace("..", replacement)
+        sanitized = sanitized.replace("/", replacement).replace("\\", replacement)
+        return sanitized[:255]  # Limit length
 
 
 @dataclass

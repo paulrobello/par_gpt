@@ -17,9 +17,11 @@ from rich.markdown import Markdown
 
 # Import path security utilities
 try:
-    from par_gpt.utils.path_security import PathSecurityError, validate_relative_path
+    from par_gpt.utils.path_security import PathSecurityError, validate_relative_path  # type: ignore
 except ImportError:
     # Fallback if path security module is not available
+    from pathlib import Path
+
     class PathSecurityError(Exception):
         pass
 

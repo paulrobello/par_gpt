@@ -195,13 +195,26 @@ class ParPythonREPLTool(BaseTool):
             query = ast.unparse(ast.Module(tree.body, type_ignores=[]))
 
             if self.prompt_before_exec:
-                ans = Prompt.ask(
-                    f"Execute>>>\n[yellow]{query}[/yellow]\n<<<[[green]Y[/green]/[red]n[/red]] ? ",
-                    default="y",
-                    console=self.console,
-                )
-                if ans.lower() not in ["y", "yes", ""]:
-                    raise AbortedByUserError("Tool aborted by user.")
+                # Enhanced security warning for code execution
+                try:
+                    from par_gpt.utils.security_warnings import warn_code_execution
+
+                    if not warn_code_execution(
+                        code=query,
+                        execution_context="Python REPL (Host System)",
+                        console=self.console,
+                        skip_confirmation=False,
+                    ):
+                        raise AbortedByUserError("Code execution cancelled by user for security reasons.")
+                except ImportError:
+                    # Fallback to basic prompt if security warnings module is not available
+                    ans = Prompt.ask(
+                        f"⚠️  EXECUTE CODE ON HOST SYSTEM? ⚠️\n[yellow]{query}[/yellow]\n[[green]Y[/green]/[red]n[/red]] ? ",
+                        default="n",  # Changed default to "n" for safety
+                        console=self.console,
+                    )
+                    if ans.lower() not in ["y", "yes"]:
+                        raise AbortedByUserError("Tool aborted by user.")
             elif self.show_exec_code:
                 self.console.print(f"Executing>>>\n[yellow]{query}[/yellow]\n")
 

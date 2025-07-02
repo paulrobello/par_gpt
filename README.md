@@ -389,11 +389,15 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
   - keywords: weather, wx
 - Github - Allows creation, publishing to and listing of personal Github repos.
   - keywords: github
-- List visible windows - Gets info on all visible windows. Can be used for window / screen capture.
-  - keywords: windows
+- List visible windows - Gets info on all visible windows. Can be used for window capture.
+  - keywords: window
+- List available screens - Gets info on all connected displays (physical and virtual). Used for screen capture.
+  - keywords: screen, display
 - Figlet - Displays Figlet style text in terminal.
   - keywords: figlet
-- Capture Window Image - Capture screenshot of of window or desktop
+- Capture Window Image - Capture screenshot of specific application window
+  - keywords: capture, screenshot
+- Capture Screen Image - Capture screenshot of entire screen/display with multi-monitor support
   - keywords: capture, screenshot
 - Image Gen - Generate image using Dall-E-3
   - keywords: image
@@ -519,10 +523,23 @@ par_gpt -p details -f 'https://freerangestock.com/sample/157314/mystical-glowing
 
 # check code for bugs (change to root for project you want to check)
 par_gpt code_review
+
+# list available screens/displays
+par_gpt agent "list available screens"
+
+# capture screenshot of primary screen
+par_gpt agent "take a screenshot of my screen"
+
+# capture specific display in multi-monitor setup
+par_gpt agent "capture screenshot of display 2"
 ```
 
 ## What's New
 - Version 0.12.0:
+  - **New Screen Capture Tools**: Added comprehensive screen capture functionality with multi-monitor support
+    - `ai_list_available_screens` - Detects all connected displays (physical and virtual)
+    - `ai_capture_screen_image` - Captures screenshots of specific screens with intelligent display selection
+    - Integrates with existing security warning system for safe operation
   - **Major Security Update**: Implemented comprehensive path traversal protection across all file operations
   - **Memory Management**: Fixed critical audio processing memory leaks with resource cleanup
   - **Code Quality**: Centralized utility classes and improved type safety
