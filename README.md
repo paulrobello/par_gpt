@@ -543,7 +543,7 @@ Timing Details (Grand Total: 8.347s, 5 operations | Processing: 5.397s | User Wa
 ├── llm_config_setup: 0.000s
 ├── build_chat_model: 0.070s
 ├── user_input_prompt: 2.150s
-├── llm_invoke: 5.327s (model=gpt-4o)
+├── llm_invoke: 5.327s (model=gpt-4.1)
 └── security_confirmation: 0.800s
 ```
 
@@ -667,7 +667,7 @@ par_gpt -p details -a OpenAI -d md agent --repl "what is the value of 4 times th
 
 # tell me a joke using github model on azure
 par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" llm "tell me a joke"
-par_gpt --show-config --debug -p -a Github -m "gpt-4o" llm "tell me a joke"
+par_gpt --show-config --debug -p -a Github -m "gpt-4.1" llm "tell me a joke"
 
 # Groq vision model
 par_gpt -a Groq -m "llama-3.2-90b-vision-preview" -f PATH_TO_IMAGE llm "describe this image"
