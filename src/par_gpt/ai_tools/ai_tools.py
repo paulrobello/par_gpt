@@ -795,7 +795,14 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
         utils_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(utils_module)
 
-        img = utils_module.capture_screen_image(screen_id=screen_id, output_format="BASE64")
+        # Check if yes-to-all mode is enabled to skip security confirmations
+        try:
+            from par_gpt.tool_context import is_yes_to_all_enabled
+            skip_confirmation = is_yes_to_all_enabled()
+        except ImportError:
+            skip_confirmation = False
+        
+        img = utils_module.capture_screen_image(screen_id=screen_id, output_format="BASE64", skip_confirmation=skip_confirmation)
         if not describe_image:
             return img  # type: ignore
 
@@ -861,7 +868,14 @@ def ai_capture_window_image(
             return f"Error getting window list: {str(e)}. Please specify app_name, app_title, or window_id manually."
 
     try:
-        img = capture_window_image(app_name=app_name, app_title=app_title, window_id=window_id, output_format="BASE64")
+        # Check if yes-to-all mode is enabled to skip security confirmations
+        try:
+            from par_gpt.tool_context import is_yes_to_all_enabled
+            skip_confirmation = is_yes_to_all_enabled()
+        except ImportError:
+            skip_confirmation = False
+            
+        img = capture_window_image(app_name=app_name, app_title=app_title, window_id=window_id, output_format="BASE64", skip_confirmation=skip_confirmation)
         if not describe_image:
             return img  # type: ignore
 

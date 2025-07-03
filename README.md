@@ -169,6 +169,7 @@ par_gpt [OPTIONS]
 --loop-mode             -L      [one_shot|infinite]                                                                         One shot or infinite mode [env var: PARGPT_LOOP_MODE] [default: one_shot]
 --show-times                                                                                                                 Show timing information for various operations [env var: PARGPT_SHOW_TIMES]
 --show-times-detailed                                                                                                        Show detailed timing information with hierarchical breakdown [env var: PARGPT_SHOW_TIMES_DETAILED]
+--yes-to-all            -y                                                                                                   Automatically accept all security warnings and confirmation prompts [env var: PARGPT_YES_TO_ALL]
 --version               -v                                                                                                   Show version and exit.
 --install-completion                                                                                                         Install completion for the current shell.
 --show-completion                                                                                                            Show completion for the current shell, to copy it or customize the installation.
@@ -195,7 +196,6 @@ stardew           Generate pixel art avatar variation.
 ```
 --max-iterations   -i      INTEGER  Maximum number of iterations to run when in agent mode. [env var: PARGPT_MAX_ITERATIONS] [default: 5]
 --show-tool-calls  -T               Show tool calls [env var: PARGPT_SHOW_TOOL_CALLS]
---yes-to-all       -y               Yes to all prompts [env var: PARGPT_YES_TO_ALL]
 --repl                              Enable REPL tool [env var: PARGPT_REPL]
 --code-sandbox     -c               Enable code sandbox tool. Requires a running code sandbox container. [env var: PARGPT_CODE_SANDBOX]
 ```
@@ -448,6 +448,34 @@ PAR GPT implements comprehensive security measures to protect against common vul
 - **Environment variable validation** and type checking
 - **API key protection** from logs and debug output
 
+### Security Warnings and Automation Control
+
+PAR GPT includes comprehensive security warnings for potentially dangerous operations, with flexible automation controls:
+
+#### Security Warning Types
+- **Code Execution Warnings** - Before executing arbitrary code via REPL or sandbox
+- **Command Execution Warnings** - Before running system commands (screen capture, file operations)
+- **Environment Modification Warnings** - Before setting environment variables
+
+#### Automation and Silent Operation
+- **`--yes-to-all` Global Flag** - Automatically accepts all security warnings and confirmation prompts
+- **Silent automation support** - Enables headless/scripted usage without interactive prompts
+- **Per-operation control** - Individual tools respect the global automation setting
+- **Environment variable** - `PARGPT_YES_TO_ALL=1` for persistent automation mode
+
+#### Usage Examples
+```bash
+# Interactive mode (default) - shows security warnings and prompts for confirmation
+par_gpt agent "write and execute Python code to analyze data"
+
+# Automated mode - silently executes without prompts
+par_gpt --yes-to-all agent "write and execute Python code to analyze data"
+
+# Environment variable for persistent automation
+export PARGPT_YES_TO_ALL=1
+par_gpt agent "take a screenshot and analyze it"
+```
+
 For detailed security implementation, see [PATH_SECURITY_SUMMARY.md](PATH_SECURITY_SUMMARY.md).
 
 ## Performance Monitoring
@@ -630,10 +658,25 @@ par_gpt --enable-redis agent "what do you remember about my preferences?"
 
 # default behavior (no Redis required, memory tool not available)
 par_gpt agent "tell me a joke"  # clean startup, no Redis errors
+
+# automatically accept all security warnings and confirmation prompts
+par_gpt --yes-to-all agent "write and execute a python script to analyze data.csv"
+
+# combine with other global options
+par_gpt --yes-to-all --debug --show-config agent "complex task with code execution"
+
+# use environment variable to set globally
+export PARGPT_YES_TO_ALL=1
+par_gpt agent "task that might require confirmations"
 ```
 
 ## What's New
 - Version 0.12.2:
+  - **Global `--yes-to-all` Security Bypass**: Added comprehensive global flag to automatically accept all security warnings and confirmation prompts
+    - **Silent automation** - Enables headless/scripted usage without interactive prompts
+    - **Cross-tool support** - Works with REPL code execution, screen capture, window capture, and all security-sensitive operations
+    - **Environment variable** - `PARGPT_YES_TO_ALL=1` for persistent configuration
+    - **Security conscious** - Maintains warnings by default, only bypasses when explicitly requested
   - **Major Startup Performance Optimization**: Comprehensive lazy loading system reducing startup time by 25-50%
     - **Command-specific import routing** - Only loads modules needed for specific commands
     - **Lazy import manager** with caching to prevent duplicate module loading

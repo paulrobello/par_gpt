@@ -35,6 +35,10 @@ def warn_command_execution(
     if console is None:
         console = Console(stderr=True)
 
+    # If skip_confirmation is True, bypass both warning display and confirmation
+    if skip_confirmation:
+        return True
+
     warning_text = f"""[bold red]⚠️  SECURITY WARNING ⚠️[/bold red]
 
 [yellow]Operation:[/yellow] {operation_description}
@@ -48,9 +52,6 @@ def warn_command_execution(
 [yellow]Only proceed if you trust the operation and understand the risks.[/yellow]"""
 
     console.print(Panel(warning_text, border_style="red", title="[bold red]DANGER[/bold red]"))
-
-    if skip_confirmation:
-        return True
 
     try:
         response = Prompt.ask(
@@ -139,6 +140,10 @@ def warn_code_execution(
     if console is None:
         console = Console(stderr=True)
 
+    # If skip_confirmation is True, bypass both warning display and confirmation
+    if skip_confirmation:
+        return True
+
     # Truncate code for display while preserving readability
     display_code = code[:200] + "\n..." if len(code) > 200 else code
 
@@ -157,9 +162,6 @@ def warn_code_execution(
 [bold yellow]⚠️  ONLY PROCEED IF YOU TRUST THIS CODE ⚠️[/bold yellow]"""
 
     console.print(Panel(warning_text, border_style="red", title="[bold red]⚠️  DANGER: CODE EXECUTION ⚠️[/bold red]"))
-
-    if skip_confirmation:
-        return True
 
     try:
         response = Prompt.ask(

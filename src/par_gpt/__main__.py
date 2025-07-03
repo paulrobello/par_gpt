@@ -369,6 +369,15 @@ def main(
             help="Show detailed timing information with hierarchical breakdown",
         ),
     ] = False,
+    yes_to_all: Annotated[
+        bool,
+        typer.Option(
+            "--yes-to-all",
+            "-y",
+            envvar=f"{__env_var_prefix__}_YES_TO_ALL",
+            help="Automatically accept all security warnings and confirmation prompts",
+        ),
+    ] = False,
     version: Annotated[  # pylint: disable=unused-argument
         bool | None,
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
@@ -691,6 +700,9 @@ def main(
             raise typer.Exit(1) from e
 
     if show_config:
+        # Lazy load Rich components for config display
+        Panel = lazy_import('rich.panel', 'Panel')
+        Text = lazy_import('rich.text', 'Text')
         console.print(
             Panel.fit(
                 Text.assemble(
@@ -770,6 +782,9 @@ def main(
                     ("Debug: ", "cyan"),
                     (f"{debug}", "green"),
                     "\n",
+                    ("Yes to All: ", "cyan"),
+                    (f"{yes_to_all}", "green"),
+                    "\n",
                 ),
                 title="[bold]GPT Configuration",
                 border_style="bold",
@@ -814,6 +829,7 @@ def main(
         "voice_input_man": voice_input_man,
         "show_times": show_times,
         "show_times_detailed": show_times_detailed,
+        "yes_to_all": yes_to_all,
     }
 
     ctx.obj = state
@@ -1135,15 +1151,6 @@ def agent(
             help="Show tool calls",
         ),
     ] = False,
-    yes_to_all: Annotated[
-        bool,
-        typer.Option(
-            "--yes-to-all",
-            "-y",
-            envvar=f"{__env_var_prefix__}_YES_TO_ALL",
-            help="Yes to all prompts",
-        ),
-    ] = False,
     repl: Annotated[
         bool,
         typer.Option(
@@ -1201,6 +1208,8 @@ def agent(
 
         env_info = mk_env_context({}, console)
 
+        # Lazy load provider callback
+        get_parai_callback = lazy_import('par_ai_core.provider_cb_info', 'get_parai_callback')
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"] or show_tool_calls,
@@ -1215,15 +1224,26 @@ def agent(
                         continue
                     if question.lower() == "exit":
                         return
+                    # Lazy load AI tool list builder
+                    build_ai_tool_list = lazy_import('par_gpt.lazy_tool_loader', 'build_ai_tool_list')
                     ai_tools, local_modules = build_ai_tool_list(
                         question,
                         repl=repl,
                         code_sandbox=code_sandbox,
-                        yes_to_all=yes_to_all,
+                        yes_to_all=state["yes_to_all"],
                         enable_redis=state["enable_redis"],
                     )
                     if state["tts_man"]:
+                        # Lazy load random message function
+                        get_random_message = lazy_import('par_gpt.agent_messages', 'get_random_message')
                         state["tts_man"].speak(get_random_message(), do_async=True)
+                    
+                    # Set tool context for AI tools to access global state
+                    from par_gpt.tool_context import set_tool_context
+                    set_tool_context(yes_to_all=state["yes_to_all"])
+                    
+                    # Lazy load tool agent
+                    do_tool_agent = lazy_import('par_gpt.agents', 'do_tool_agent')
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -1240,20 +1260,38 @@ def agent(
                     )
                 else:
                     while not question:
+                        # Lazy load Rich prompt (if not already loaded)
+                        if 'Prompt' not in locals():
+                            Prompt = lazy_import('rich.prompt', 'Prompt')
                         question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                         if question.lower() == "exit":
                             return
 
+                    # Lazy load AI tool list builder (if not already loaded)
+                    if 'build_ai_tool_list' not in locals():
+                        build_ai_tool_list = lazy_import('par_gpt.lazy_tool_loader', 'build_ai_tool_list')
                     ai_tools, local_modules = build_ai_tool_list(
                         question,
                         repl=repl,
                         code_sandbox=code_sandbox,
-                        yes_to_all=yes_to_all,
+                        yes_to_all=state["yes_to_all"],
                         enable_redis=state["enable_redis"],
                     )
 
                     if state["tts_man"]:
+                        # Lazy load random message function (if not already loaded)
+                        if 'get_random_message' not in locals():
+                            get_random_message = lazy_import('par_gpt.agent_messages', 'get_random_message')
                         state["tts_man"].speak(get_random_message(), do_async=True)
+                    
+                    # Set tool context for AI tools to access global state (if not already set)
+                    if 'set_tool_context' not in locals():
+                        from par_gpt.tool_context import set_tool_context
+                        set_tool_context(yes_to_all=state["yes_to_all"])
+                    
+                    # Lazy load tool agent (if not already loaded)
+                    if 'do_tool_agent' not in locals():
+                        do_tool_agent = lazy_import('par_gpt.agents', 'do_tool_agent')
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -1281,10 +1319,17 @@ def agent(
                     history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
 
                 if state["debug"]:
+                    # Lazy load Rich components
+                    Panel = lazy_import('rich.panel', 'Panel')
+                    Pretty = lazy_import('rich.pretty', 'Pretty')
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
+                # Lazy load display output function
+                display_formatted_output = lazy_import('par_ai_core.output_utils', 'display_formatted_output')
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
+                    # Lazy load TTS summary function
+                    summarize_for_tts = lazy_import('par_gpt.tts_manager', 'summarize_for_tts')
                     state["tts_man"].speak(summarize_for_tts(content))
 
                 if not state["voice_input_man"] and state["loop_mode"] != LoopMode.INFINITE:

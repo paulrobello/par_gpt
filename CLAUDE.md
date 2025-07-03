@@ -266,6 +266,50 @@ except ImportError:
 - Verify base directory enforcement with various escape attempts
 - Check cross-platform compatibility (Windows and Unix paths)
 
+### Security Warnings and Automation
+
+PAR GPT includes a comprehensive security warning system with automation controls for development and production use:
+
+#### **Security Warning Functions** (`src/par_gpt/utils/security_warnings.py`):
+- **`warn_code_execution()`** - For arbitrary code execution (REPL, scripts)
+- **`warn_command_execution()`** - For system command execution (screen capture, file operations)
+- **`warn_environment_modification()`** - For environment variable changes
+
+#### **Tool Context System** (`src/par_gpt/tool_context.py`):
+Global state management for AI tools to access runtime configuration:
+```python
+from par_gpt.tool_context import set_tool_context, is_yes_to_all_enabled
+
+# In agent execution (done automatically)
+set_tool_context(yes_to_all=state["yes_to_all"])
+
+# In AI tools
+skip_confirmation = is_yes_to_all_enabled()
+result = capture_screen_image(skip_confirmation=skip_confirmation)
+```
+
+#### **Using Security Warnings in New Tools**:
+```python
+from par_gpt.utils.security_warnings import warn_command_execution
+
+def my_dangerous_operation(command: str, skip_confirmation: bool = False):
+    if not warn_command_execution(
+        command=command,
+        operation_description="Execute dangerous operation",
+        skip_confirmation=skip_confirmation
+    ):
+        raise ValueError("Operation cancelled by user")
+    
+    # Proceed with operation
+    return execute_command(command)
+```
+
+#### **Best Practices**:
+- **Always use security warnings** for operations that execute code, commands, or modify system state
+- **Respect `skip_confirmation` parameter** in all security-sensitive functions
+- **Test both interactive and automated modes** (`--yes-to-all` flag)
+- **Use tool context** for AI tools that need access to runtime state
+
 ## Performance Development Guidelines
 
 ### Lazy Loading Patterns
@@ -346,14 +390,38 @@ par_gpt sandbox -a stop        # CLI command to stop sandbox
 
 ### CLI Modes
 ```bash
-par_gpt llm [prompt]           # Basic LLM mode (no tools)
-par_gpt agent [prompt]         # Full agent with dynamic tools (Redis disabled by default)
-par_gpt --enable-redis agent   # Agent with Redis memory functionality enabled
-par_gpt --repl agent [prompt]  # Agent with host code execution
-par_gpt --code-sandbox agent   # Agent with Docker sandbox
+# Basic modes
+par_gpt llm [prompt]                      # Basic LLM mode (no tools)
+par_gpt agent [prompt]                    # Full agent with dynamic tools (Redis disabled by default)
+par_gpt --enable-redis agent              # Agent with Redis memory functionality enabled
+
+# Code execution modes
+par_gpt --repl agent [prompt]             # Agent with host code execution (interactive)
+par_gpt --code-sandbox agent              # Agent with Docker sandbox execution
+
+# Automation modes (silent operation)
+par_gpt --yes-to-all agent [prompt]       # Agent with automatic security confirmation acceptance
+par_gpt --yes-to-all --repl agent         # Agent with host execution, no security prompts
+par_gpt --yes-to-all agent "screenshot"   # Silent screen capture without warnings
+
+# Combined automation examples
+PARGPT_YES_TO_ALL=1 par_gpt agent "code"  # Environment variable for persistent automation
+par_gpt --yes-to-all --debug agent        # Automated with debug output for troubleshooting
 ```
 
 ## Recent Improvements (v0.12.2+)
+
+### Global Security Automation System (v0.12.2)
+- **Comprehensive `--yes-to-all` Flag**: Global automation for all security warnings and confirmation prompts
+  - **Cross-tool support** - Works with REPL, screen capture, window capture, command execution
+  - **Tool Context System** (`tool_context.py`) - Global state management for AI tools
+  - **Silent operation** - Enables headless/scripted usage without interactive prompts
+  - **Security conscious** - Maintains security by default, automation only when explicitly requested
+- **Enhanced Security Warning Functions**: Complete silence mode when `skip_confirmation=True`
+  - Updated `warn_command_execution()`, `warn_code_execution()`, `warn_environment_modification()`
+  - Bypasses both warning display AND confirmation prompts in automation mode
+- **AI Tool Integration**: Screen capture and window capture tools respect global automation state
+- **Environment Variable Support**: `PARGPT_YES_TO_ALL=1` for persistent automation configuration
 
 ### Major Startup Performance Optimization (v0.12.2)
 - **Comprehensive Lazy Loading System**: Reduces startup time by 25-50% additional improvement
