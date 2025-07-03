@@ -6,14 +6,17 @@ import weakref
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from par_ai_core.llm_config import LlmConfig
 from par_ai_core.llm_providers import LlmProvider
 from par_ai_core.utils import timer_block
-from RealtimeSTT import AudioToTextRecorder
+
+# RealtimeSTT import moved to lazy loading in __init__ method
 from rich.console import Console
 
+from par_gpt.lazy_import_manager import lazy_import
 from par_gpt.utils.console_manager import get_console
 from par_gpt.utils.llm_invoker import LLMInvoker
 
@@ -56,7 +59,8 @@ class VoiceInputManager:
         self.verbose = verbose
         self.model = model
         self.post_speech_silence_duration = post_speech_silence_duration
-        self.recorder: AudioToTextRecorder | None = None
+        # Type annotation updated to use Any since AudioToTextRecorder is lazy loaded
+        self.recorder: Any | None = None
         self.batch_size = batch_size
         self.wake_word = wake_word
         self.sanity_check_sentence = sanity_check_sentence
@@ -78,6 +82,8 @@ class VoiceInputManager:
         self.console.print("🎤 Initializing audio recording system...")
         try:
             with timer_block("🎤 Recording system initialization complete", console=self.console):
+                # Lazy load AudioToTextRecorder
+                AudioToTextRecorder = lazy_import("RealtimeSTT", "AudioToTextRecorder")
                 self.recorder = AudioToTextRecorder(
                     spinner=False,
                     post_speech_silence_duration=self.post_speech_silence_duration,

@@ -10,22 +10,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
-import clipman as clipboard
-import feedparser
 import requests
-from github import Auth, AuthenticatedUser, Github
 from langchain_core.tools import tool
 from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider, provider_light_models
 from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
-from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.text import Text
+
+# Lazy import manager for heavy dependencies
+from par_gpt.lazy_import_manager import lazy_import
 
 # Memory utils imports moved inside ai_memory_db function to prevent Redis connection when disabled
-from par_gpt.repo.repo import GitRepo
 from par_gpt.utils import get_console
 
 # Import functions directly from the original utils.py file to avoid circular imports
@@ -193,6 +189,9 @@ def ai_copy_to_clipboard(text: str) -> str:
     Returns:
         "Text copied to clipboard" or error message "Error accessing clipboard".
     """
+    # Lazy load clipboard
+    clipboard = lazy_import("clipman")
+
     try:
         clipboard.copy(text)
         return "Text copied to clipboard"
@@ -211,6 +210,9 @@ def ai_copy_from_clipboard() -> str:
     Returns:
         Any text that was copied from the clipboard or an error message "Error accessing clipboard".
     """
+    # Lazy load clipboard
+    clipboard = lazy_import("clipman")
+
     try:
         return clipboard.paste() or ""
     except Exception as e:
@@ -231,6 +233,9 @@ def git_commit_tool(message_only: bool, files: list[str], context: str | None = 
     Returns:
         str: The commit message and optional commit hash
     """
+    # Lazy load GitRepo
+    GitRepo = lazy_import("par_gpt.repo.repo", "GitRepo")
+
     ai_provider: LlmProvider = LlmProvider.OPENAI
     repo = GitRepo(
         llm_config=LlmConfig(
@@ -465,6 +470,11 @@ def ai_github_list_repos(
     """
     if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
         raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
+
+    # Lazy load GitHub modules
+    Auth = lazy_import("github", "Auth")
+    Github = lazy_import("github", "Github")
+
     auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repos = g.get_user().get_repos(sort=order_by, direction=order_direction)
@@ -505,6 +515,12 @@ def ai_github_create_repo(repo_name: str | None = None, private: bool = True) ->
     """
     if not os.environ.get("GITHUB_PERSONAL_ACCESS_TOKEN"):
         raise ValueError("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
+
+    # Lazy load GitHub modules
+    Auth = lazy_import("github", "Auth")
+    Github = lazy_import("github", "Github")
+    AuthenticatedUser = lazy_import("github", "AuthenticatedUser")
+
     auth = Auth.Token(os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"])
     g = Github(auth=auth)
     repo_name = repo_name or Path(os.getcwd()).stem.lower().replace(" ", "-")
@@ -568,6 +584,9 @@ def ai_fetch_rss(url: str, max_items: int = 5) -> str:
     Returns:
         str: The formatted markdown content of the RSS feed.
     """
+    # Lazy load feedparser
+    feedparser = lazy_import("feedparser")
+
     feed = feedparser.parse(url)
 
     if feed.bozo:
@@ -666,6 +685,10 @@ def execute_code(code: str) -> ExecuteCommandResult:
         ExecuteCommandResult which will contain the exit code, stdout, and stderr of the executed code.
     """
     from sandbox import SandboxRun
+
+    # Lazy load Rich components
+    Panel = lazy_import("rich.panel", "Panel")
+    Text = lazy_import("rich.text", "Text")
 
     try:
         console_err.print(Panel(code, title="Running code in sandbox..."))
@@ -798,11 +821,14 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
         # Check if yes-to-all mode is enabled to skip security confirmations
         try:
             from par_gpt.tool_context import is_yes_to_all_enabled
+
             skip_confirmation = is_yes_to_all_enabled()
         except ImportError:
             skip_confirmation = False
-        
-        img = utils_module.capture_screen_image(screen_id=screen_id, output_format="BASE64", skip_confirmation=skip_confirmation)
+
+        img = utils_module.capture_screen_image(
+            screen_id=screen_id, output_format="BASE64", skip_confirmation=skip_confirmation
+        )
         if not describe_image:
             return img  # type: ignore
 
@@ -871,11 +897,18 @@ def ai_capture_window_image(
         # Check if yes-to-all mode is enabled to skip security confirmations
         try:
             from par_gpt.tool_context import is_yes_to_all_enabled
+
             skip_confirmation = is_yes_to_all_enabled()
         except ImportError:
             skip_confirmation = False
-            
-        img = capture_window_image(app_name=app_name, app_title=app_title, window_id=window_id, output_format="BASE64", skip_confirmation=skip_confirmation)
+
+        img = capture_window_image(
+            app_name=app_name,
+            app_title=app_title,
+            window_id=window_id,
+            output_format="BASE64",
+            skip_confirmation=skip_confirmation,
+        )
         if not describe_image:
             return img  # type: ignore
 
@@ -897,6 +930,8 @@ def user_prompt(prompt: str, default_value: str | None = None, choices: list[str
     Returns:
         str: The user's input.
     """
+    # Lazy load Rich Prompt component
+    Prompt = lazy_import("rich.prompt", "Prompt")
     return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
 
 

@@ -19,7 +19,7 @@ from typing import Any, Literal, cast
 import orjson as json
 
 # Heavy imports moved inside functions for better startup performance
-import requests  # Keep requests as it's commonly used
+# requests import moved to functions that need it (weather functions)
 import tomli_w
 from packaging.requirements import Requirement
 from par_ai_core.llm_config import LlmConfig
@@ -50,6 +50,9 @@ def get_weather_current(location: str, timeout: int = 10) -> dict[str, Any]:
     Returns:
         str: Weather
     """
+    # Lazy import requests
+    import requests
+
     if location == "auto":
         location = "auto:ip"
 
@@ -72,6 +75,9 @@ def get_weather_forecast(location: str, num_days: int, timeout: int = 10) -> dic
     Returns:
         str: Weather
     """
+    # Lazy import requests
+    import requests
+
     if location == "auto":
         location = "auto:ip"
 
@@ -1405,7 +1411,13 @@ def github_publish_repo(repo_name: str | None = None, public: bool = False) -> s
     # Import github dependencies locally for better startup performance
     try:
         from git import Remote
-        from github import Auth, AuthenticatedUser, Github
+
+        from par_gpt.lazy_import_manager import lazy_import
+
+        # Lazy load GitHub classes
+        Auth = lazy_import("github", "Auth")
+        Github = lazy_import("github", "Github")
+        AuthenticatedUser = lazy_import("github", "AuthenticatedUser")
     except ImportError:
         return "Error: GitHub dependencies not available"
 

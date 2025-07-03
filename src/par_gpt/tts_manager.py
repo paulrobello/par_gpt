@@ -8,14 +8,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import orjson as json
-import pyttsx3
 from dotenv import load_dotenv
-from elevenlabs import play
-from elevenlabs.client import ElevenLabs
-from kokoro_onnx import Kokoro
-from openai import OpenAI
 from par_ai_core.llm_config import LlmConfig, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider
 from par_ai_core.par_logging import console_err
@@ -24,6 +18,7 @@ from rich.console import Console
 from strenum import StrEnum
 
 from par_gpt.cache_manager import cache_manager
+from par_gpt.lazy_import_manager import lazy_import
 
 
 def summarize_for_tts(text: str) -> str:
@@ -138,6 +133,8 @@ class TTSManger:
         self.console.print(f"🔊 Initializing {self.tts_provider} TTS engine")
         with timer_block(f"🔊 Initialization of {self.tts_provider} TTS engine complete", console=self.console):
             if self.tts_provider == TTSProvider.LOCAL:
+                # Lazy load pyttsx3
+                pyttsx3 = lazy_import("pyttsx3")
                 self.engine = pyttsx3.init()
                 self.engine.setProperty("rate", int(self.speed * 100))  # Speed of speech
                 self.engine.setProperty("volume", 1.0)  # Volume level
@@ -151,6 +148,8 @@ class TTSManger:
                     "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v0_19.onnx"
                 ):
                     self.console.print("🔊 One time model download 310MB in progress...")
+                # Lazy load Kokoro
+                Kokoro = lazy_import("kokoro_onnx", "Kokoro")
                 self.engine = Kokoro(
                     str(
                         cache_manager.get_item(
@@ -167,11 +166,15 @@ class TTSManger:
                     voice_name = "af_sarah"
                 self.voice_name = voice_name
             elif self.tts_provider == TTSProvider.ELEVENLABS:
+                # Lazy load ElevenLabs
+                ElevenLabs = lazy_import("elevenlabs.client", "ElevenLabs")
                 self.engine = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
                 if not voice_name:
                     voice_name = "XrExE9yKIg1WjnnlVkGX"  # Matilda   "XB0fDUnXU5powFXDhCwa"  # Charlotte
                 self.voice_name = voice_name
             elif self.tts_provider == TTSProvider.OPENAI:
+                # Lazy load OpenAI
+                OpenAI = lazy_import("openai", "OpenAI")
                 self.engine = OpenAI()
                 if not voice_name:
                     voice_name = "nova"
@@ -234,18 +237,22 @@ class TTSManger:
                     model="eleven_turbo_v2",
                     stream=False,
                 )
+                # Lazy load elevenlabs play
+                play = lazy_import("elevenlabs", "play")
                 play(audio)
             elif self.tts_provider == TTSProvider.OPENAI:
                 import sounddevice as sd
 
-                response = self.engine.audio.speech.create(  # type: ignore
+                audio_response = self.engine.audio.speech.create(  # type: ignore
                     model="tts-1-hd",
                     voice=self.voice_name,  # type: ignore
                     speed=self.speed,
                     response_format="wav",
                     input=text,
                 )
-                audio_data = np.frombuffer(response.content, dtype=np.int16)
+                # Lazy load numpy
+                np = lazy_import("numpy")
+                audio_data = np.frombuffer(audio_response.content, dtype=np.int16)
 
                 # Play with proper cleanup
                 try:

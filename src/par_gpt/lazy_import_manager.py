@@ -169,6 +169,47 @@ class LazyImportManager:
 
         return imports
 
+    def load_tts_imports(self) -> dict[str, Any]:
+        """Load TTS functionality when needed."""
+        imports = {}
+        imports["pyttsx3"] = self.get_cached_import("pyttsx3")
+        imports["ElevenLabs"] = self.get_cached_import("elevenlabs.client", "ElevenLabs")
+        imports["OpenAI"] = self.get_cached_import("openai", "OpenAI")
+        imports["Kokoro"] = self.get_cached_import("kokoro_onnx", "Kokoro")
+        imports["play"] = self.get_cached_import("elevenlabs", "play")
+        imports["numpy"] = self.get_cached_import("numpy")
+        return imports
+
+    def load_voice_input_imports(self) -> dict[str, Any]:
+        """Load voice input functionality when needed."""
+        imports = {}
+        imports["AudioToTextRecorder"] = self.get_cached_import("RealtimeSTT", "AudioToTextRecorder")
+        return imports
+
+    def load_github_imports(self) -> dict[str, Any]:
+        """Load GitHub API functionality when needed."""
+        imports = {}
+        imports["Github"] = self.get_cached_import("github", "Github")
+        imports["Auth"] = self.get_cached_import("github", "Auth")
+        imports["AuthenticatedUser"] = self.get_cached_import("github", "AuthenticatedUser")
+        return imports
+
+    def load_feed_imports(self) -> dict[str, Any]:
+        """Load feed processing functionality when needed."""
+        imports = {}
+        imports["feedparser"] = self.get_cached_import("feedparser")
+        return imports
+
+    def load_rich_imports(self) -> dict[str, Any]:
+        """Load Rich UI components when needed."""
+        imports = {}
+        imports["Panel"] = self.get_cached_import("rich.panel", "Panel")
+        imports["Prompt"] = self.get_cached_import("rich.prompt", "Prompt")
+        imports["Text"] = self.get_cached_import("rich.text", "Text")
+        imports["Pretty"] = self.get_cached_import("rich.pretty", "Pretty")
+        imports["Markdown"] = self.get_cached_import("rich.markdown", "Markdown")
+        return imports
+
 
 # Global lazy import manager instance
 _lazy_import_manager = LazyImportManager()

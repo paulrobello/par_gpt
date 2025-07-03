@@ -30,10 +30,27 @@ from par_gpt.lazy_import_manager import lazy_import
 from par_gpt.tts_manager import TTSProvider
 
 # Path security exception for error handling
-from par_gpt.utils.path_security import PathSecurityError
+from par_gpt.utils.path_security import PathSecurityError, sanitize_filename
 
 # Import types needed for command annotations
 from sandbox import SandboxAction
+
+
+# Lazy import utilities used across multiple functions
+def get_clipboard():
+    return lazy_import("clipman")
+
+
+def get_json():
+    return lazy_import("orjson")
+
+
+def get_git_repo():
+    return lazy_import("par_gpt.repo.repo", "GitRepo")
+
+
+def get_pretty():
+    return lazy_import("rich.pretty", "Pretty")
 
 
 # Temporary basic implementations to avoid circular import issues
@@ -477,7 +494,7 @@ def main(
 
     if copy_from_clipboard:
         # Lazy load clipboard functionality
-        clipboard = lazy_import('clipman')
+        clipboard = lazy_import("clipman")
         cv = clipboard.paste()
         if not cv:
             console.print("[bold red]Failed to copy from clipboard. Exiting...")
@@ -537,11 +554,13 @@ def main(
                 if context_is_url:
                     try:
                         # Lazy load image utilities
-                        try_get_image_type = lazy_import('par_ai_core.llm_image_utils', 'try_get_image_type')
-                        image_to_base64 = lazy_import('par_ai_core.llm_image_utils', 'image_to_base64')
-                        UnsupportedImageTypeError = lazy_import('par_ai_core.llm_image_utils', 'UnsupportedImageTypeError')
-                        cache_manager = lazy_import('par_gpt.cache_manager', 'cache_manager')
-                        
+                        try_get_image_type = lazy_import("par_ai_core.llm_image_utils", "try_get_image_type")
+                        image_to_base64 = lazy_import("par_ai_core.llm_image_utils", "image_to_base64")
+                        UnsupportedImageTypeError = lazy_import(
+                            "par_ai_core.llm_image_utils", "UnsupportedImageTypeError"
+                        )
+                        cache_manager = lazy_import("par_gpt.cache_manager", "cache_manager")
+
                         image_type = try_get_image_type(context_location)
                         console.print(f"[bold green]Image type {image_type} detected.")
                         image_path = cache_manager.download(context_location)
@@ -550,16 +569,20 @@ def main(
                         show_image_in_terminal(image_path)
                     except UnsupportedImageTypeError as _:
                         # Lazy load web utilities
-                        fetch_url_and_convert_to_markdown = lazy_import('par_ai_core.web_tools', 'fetch_url_and_convert_to_markdown')
+                        fetch_url_and_convert_to_markdown = lazy_import(
+                            "par_ai_core.web_tools", "fetch_url_and_convert_to_markdown"
+                        )
                         context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
                 else:
                     try:
                         # Lazy load image utilities (if not already loaded)
-                        if 'try_get_image_type' not in locals():
-                            try_get_image_type = lazy_import('par_ai_core.llm_image_utils', 'try_get_image_type')
-                            image_to_base64 = lazy_import('par_ai_core.llm_image_utils', 'image_to_base64')
-                            UnsupportedImageTypeError = lazy_import('par_ai_core.llm_image_utils', 'UnsupportedImageTypeError')
-                        
+                        if "try_get_image_type" not in locals():
+                            try_get_image_type = lazy_import("par_ai_core.llm_image_utils", "try_get_image_type")
+                            image_to_base64 = lazy_import("par_ai_core.llm_image_utils", "image_to_base64")
+                            UnsupportedImageTypeError = lazy_import(
+                                "par_ai_core.llm_image_utils", "UnsupportedImageTypeError"
+                            )
+
                         image_type = try_get_image_type(context_location)
                         console.print(f"[bold green]Image type {image_type} detected.")
                         image_path = Path(context_location)
@@ -658,14 +681,18 @@ def main(
             reasoning_effort=reasoning_effort,
             reasoning_budget=reasoning_budget,
         ).set_env()
-    tts_man: TTSManger | None = None
+    # Lazy import TTS and voice input managers
+    TTSManger = lazy_import("par_gpt.tts_manager", "TTSManger")
+    VoiceInputManager = lazy_import("par_gpt.voice_input_manager", "VoiceInputManager")
+
+    tts_man: TTSManger | None = None  # type: ignore
     if tts:
         if tts_list_voices:
             voices = TTSManger(tts_provider or TTSProvider.KOKORO, console=console).list_voices()
             console.print("\nAvailable voices:", voices)
             exit(0)
         tts_man = TTSManger(tts_provider or TTSProvider.KOKORO, voice_name=tts_voice, console=console)
-    voice_input_man: VoiceInputManager | None = None
+    voice_input_man: VoiceInputManager | None = None  # type: ignore
     if voice_input:
         voice_input_man = VoiceInputManager(wake_word="jenny", verbose=debug or True, sanity_check_sentence=False)
 
@@ -701,8 +728,8 @@ def main(
 
     if show_config:
         # Lazy load Rich components for config display
-        Panel = lazy_import('rich.panel', 'Panel')
-        Text = lazy_import('rich.text', 'Text')
+        Panel = lazy_import("rich.panel", "Panel")
+        Text = lazy_import("rich.text", "Text")
         console.print(
             Panel.fit(
                 Text.assemble(
@@ -864,7 +891,7 @@ def llm(
     if history_file and history_file.is_file():
         # Lazy load JSON functionality
         json = lazy_import("orjson")
-        chat_history = json.loads(history_file.read_bytes() or "[]")
+        chat_history = get_json().loads(history_file.read_bytes() or "[]")
         console.print("Loaded chat history from:", history_file)
         if chat_history and chat_history[0][0] == "system":
             if state["system_prompt"]:
@@ -885,7 +912,7 @@ def llm(
 
         env_info = mk_env_context({}, console)
         # Lazy load provider callback
-        get_parai_callback = lazy_import('par_ai_core.provider_cb_info', 'get_parai_callback')
+        get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"],
@@ -896,13 +923,13 @@ def llm(
             while True:
                 while not question:
                     # Lazy load Rich prompt
-                    Prompt = lazy_import('rich.prompt', 'Prompt')
+                    Prompt = lazy_import("rich.prompt", "Prompt")
                     question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                     if question.lower() == "exit":
                         return
 
                 # Lazy load LLM call function
-                do_single_llm_call = lazy_import('par_gpt.agents', 'do_single_llm_call')
+                do_single_llm_call = lazy_import("par_gpt.agents", "do_single_llm_call")
                 content, thinking, result = do_single_llm_call(
                     chat_model=chat_model,
                     user_input=question,
@@ -920,28 +947,28 @@ def llm(
                 question = ""
                 chat_history.append(("assistant", content))
                 if history_file:
-                    history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
+                    history_file.write_bytes(get_json().dumps(chat_history, str, get_json().OPT_INDENT_2))
 
                 if not sys.stdout.isatty():
                     print(content)
 
                 if state["copy_to_clipboard"]:
-                    clipboard.copy(content)
+                    get_clipboard().copy(content)
                     console.print("[bold green]Copied to clipboard")
 
                 if state["debug"]:
                     # Lazy load Rich components
-                    Panel = lazy_import('rich.panel', 'Panel')
-                    Pretty = lazy_import('rich.pretty', 'Pretty')
+                    Panel = lazy_import("rich.panel", "Panel")
+                    Pretty = lazy_import("rich.pretty", "Pretty")
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
                 if thinking and state["display_format"] != DisplayOutputFormat.NONE:
-                    if 'Panel' not in locals():
-                        Panel = lazy_import('rich.panel', 'Panel')
+                    if "Panel" not in locals():
+                        Panel = lazy_import("rich.panel", "Panel")
                     console.print(Panel(thinking, title="thinking", style="cyan"))
 
                 # Lazy load output formatting
-                display_formatted_output = lazy_import('par_ai_core.output_utils', 'display_formatted_output')
+                display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
                     state["tts_man"].speak(content)
@@ -949,6 +976,8 @@ def llm(
                 if state["loop_mode"] != LoopMode.INFINITE:
                     break
                 if state["loop_mode"] == LoopMode.INFINITE:
+                    # Lazy load show_llm_cost function
+                    show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
                     show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
 
     except Exception as e:
@@ -985,6 +1014,8 @@ def git(
     question = question.strip()
 
     try:
+        # Lazy load provider callback
+        get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"],
@@ -992,7 +1023,7 @@ def git(
             verbose=state["debug"],
             console=console,
         ):
-            repo = GitRepo(llm_config=state["llm_config"])
+            repo = get_git_repo()(llm_config=state["llm_config"])
             if not repo.is_dirty():
                 console.print("[bold yellow]No changes to commit. Exiting...")
                 return
@@ -1030,9 +1061,13 @@ def code_review(
         chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
+        # Lazy load provider callback
+        get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         with get_parai_callback(
             show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
         ) as cb:
+            # Lazy load do_code_review_agent function
+            do_code_review_agent = lazy_import("par_gpt.agents", "do_code_review_agent")
             content, thinking, result = do_code_review_agent(
                 chat_model=chat_model,
                 user_input=question,
@@ -1049,17 +1084,29 @@ def code_review(
             print(content)
 
         if state["copy_to_clipboard"]:
-            clipboard.copy(content)
+            # Lazy load clipboard function
+            clipboard = lazy_import("par_gpt.utils", "clipboard")
+            get_clipboard().copy(content)
             console.print("[bold green]Copied to clipboard")
 
         if state["debug"]:
+            # Lazy load Rich components
+            Panel = lazy_import("rich.panel", "Panel")
+            Pretty = lazy_import("rich.pretty", "Pretty")
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
+        # Lazy load show_llm_cost function
+        show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
 
         if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+            # Lazy load Panel if not already loaded
+            if "Panel" not in locals():
+                Panel = lazy_import("rich.panel", "Panel")
             console.print(Panel(thinking, title="thinking", style="cyan"))
 
+        # Lazy load display output function
+        display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
         display_formatted_output(content, state["display_format"], console=console)
     except Exception as e:
         console.print("[bold red]Error:")
@@ -1091,9 +1138,13 @@ def generate_prompt(
     try:
         chat_model = state["llm_config"].build_chat_model()
 
+        # Lazy load provider callback
+        get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         with get_parai_callback(
             show_end=state["debug"], show_tool_calls=state["debug"], verbose=state["debug"], console=console
         ) as cb:
+            # Lazy load do_prompt_generation_agent function
+            do_prompt_generation_agent = lazy_import("par_gpt.agents", "do_prompt_generation_agent")
             content, thinking, result = do_prompt_generation_agent(
                 chat_model=chat_model,
                 user_input=question,
@@ -1108,17 +1159,29 @@ def generate_prompt(
             print(content)
 
         if state["copy_to_clipboard"]:
-            clipboard.copy(content)
+            # Lazy load clipboard function
+            clipboard = lazy_import("par_gpt.utils", "clipboard")
+            get_clipboard().copy(content)
             console.print("[bold green]Copied to clipboard")
 
         if state["debug"]:
+            # Lazy load Rich components
+            Panel = lazy_import("rich.panel", "Panel")
+            Pretty = lazy_import("rich.pretty", "Pretty")
             console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
+        # Lazy load show_llm_cost function
+        show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
         show_llm_cost(usage_metadata, console=console, show_pricing=state["pricing"])
 
         if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+            # Lazy load Panel if not already loaded
+            if "Panel" not in locals():
+                Panel = lazy_import("rich.panel", "Panel")
             console.print(Panel(thinking, title="thinking", style="cyan"))
 
+        # Lazy load display output function
+        display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
         display_formatted_output(content, state["display_format"], console=console)
 
     except Exception as e:
@@ -1184,7 +1247,7 @@ def agent(
     chat_history = []
     history_file: Path | None = state["history_file"]
     if history_file and history_file.is_file():
-        chat_history = json.loads(history_file.read_bytes() or "[]")
+        chat_history = get_json().loads(history_file.read_bytes() or "[]")
         console.print("Loaded chat history from:", history_file)
         if chat_history and chat_history[0][0] == "system":
             if state["system_prompt"]:
@@ -1209,7 +1272,7 @@ def agent(
         env_info = mk_env_context({}, console)
 
         # Lazy load provider callback
-        get_parai_callback = lazy_import('par_ai_core.provider_cb_info', 'get_parai_callback')
+        get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"] or show_tool_calls,
@@ -1225,7 +1288,7 @@ def agent(
                     if question.lower() == "exit":
                         return
                     # Lazy load AI tool list builder
-                    build_ai_tool_list = lazy_import('par_gpt.lazy_tool_loader', 'build_ai_tool_list')
+                    build_ai_tool_list = lazy_import("par_gpt.lazy_tool_loader", "build_ai_tool_list")
                     ai_tools, local_modules = build_ai_tool_list(
                         question,
                         repl=repl,
@@ -1235,15 +1298,16 @@ def agent(
                     )
                     if state["tts_man"]:
                         # Lazy load random message function
-                        get_random_message = lazy_import('par_gpt.agent_messages', 'get_random_message')
+                        get_random_message = lazy_import("par_gpt.agent_messages", "get_random_message")
                         state["tts_man"].speak(get_random_message(), do_async=True)
-                    
+
                     # Set tool context for AI tools to access global state
                     from par_gpt.tool_context import set_tool_context
+
                     set_tool_context(yes_to_all=state["yes_to_all"])
-                    
+
                     # Lazy load tool agent
-                    do_tool_agent = lazy_import('par_gpt.agents', 'do_tool_agent')
+                    do_tool_agent = lazy_import("par_gpt.agents", "do_tool_agent")
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -1261,15 +1325,15 @@ def agent(
                 else:
                     while not question:
                         # Lazy load Rich prompt (if not already loaded)
-                        if 'Prompt' not in locals():
-                            Prompt = lazy_import('rich.prompt', 'Prompt')
+                        if "Prompt" not in locals():
+                            Prompt = lazy_import("rich.prompt", "Prompt")
                         question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                         if question.lower() == "exit":
                             return
 
                     # Lazy load AI tool list builder (if not already loaded)
-                    if 'build_ai_tool_list' not in locals():
-                        build_ai_tool_list = lazy_import('par_gpt.lazy_tool_loader', 'build_ai_tool_list')
+                    if "build_ai_tool_list" not in locals():
+                        build_ai_tool_list = lazy_import("par_gpt.lazy_tool_loader", "build_ai_tool_list")
                     ai_tools, local_modules = build_ai_tool_list(
                         question,
                         repl=repl,
@@ -1280,18 +1344,19 @@ def agent(
 
                     if state["tts_man"]:
                         # Lazy load random message function (if not already loaded)
-                        if 'get_random_message' not in locals():
-                            get_random_message = lazy_import('par_gpt.agent_messages', 'get_random_message')
+                        if "get_random_message" not in locals():
+                            get_random_message = lazy_import("par_gpt.agent_messages", "get_random_message")
                         state["tts_man"].speak(get_random_message(), do_async=True)
-                    
+
                     # Set tool context for AI tools to access global state (if not already set)
-                    if 'set_tool_context' not in locals():
+                    if "set_tool_context" not in locals():
                         from par_gpt.tool_context import set_tool_context
+
                         set_tool_context(yes_to_all=state["yes_to_all"])
-                    
+
                     # Lazy load tool agent (if not already loaded)
-                    if 'do_tool_agent' not in locals():
-                        do_tool_agent = lazy_import('par_gpt.agents', 'do_tool_agent')
+                    if "do_tool_agent" not in locals():
+                        do_tool_agent = lazy_import("par_gpt.agents", "do_tool_agent")
                     content, result = do_tool_agent(
                         chat_model=chat_model,
                         ai_tools=ai_tools,
@@ -1312,30 +1377,32 @@ def agent(
                         print(content)
 
                     if state["copy_to_clipboard"]:
-                        clipboard.copy(content)
+                        get_clipboard().copy(content)
                         console.print("[bold green]Copied to clipboard")
 
                 if history_file:
-                    history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
+                    history_file.write_bytes(get_json().dumps(chat_history, str, get_json().OPT_INDENT_2))
 
                 if state["debug"]:
                     # Lazy load Rich components
-                    Panel = lazy_import('rich.panel', 'Panel')
-                    Pretty = lazy_import('rich.pretty', 'Pretty')
+                    Panel = lazy_import("rich.panel", "Panel")
+                    Pretty = lazy_import("rich.pretty", "Pretty")
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
                 # Lazy load display output function
-                display_formatted_output = lazy_import('par_ai_core.output_utils', 'display_formatted_output')
+                display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
                     # Lazy load TTS summary function
-                    summarize_for_tts = lazy_import('par_gpt.tts_manager', 'summarize_for_tts')
+                    summarize_for_tts = lazy_import("par_gpt.tts_manager", "summarize_for_tts")
                     state["tts_man"].speak(summarize_for_tts(content))
 
                 if not state["voice_input_man"] and state["loop_mode"] != LoopMode.INFINITE:
                     break
 
                 if state["loop_mode"] == LoopMode.INFINITE:
+                    # Lazy load show_llm_cost function
+                    show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
                     show_llm_cost(cb.usage_metadata, console=console, show_pricing=PricingDisplay.PRICE)
 
     except Exception as e:
@@ -1394,6 +1461,10 @@ def aider(
         raise typer.Exit(1)
 
     if not main_model:
+        # Lazy load provider utilities
+        is_provider_api_key_set = lazy_import("par_ai_core.llm_providers", "is_provider_api_key_set")
+        provider_default_models = lazy_import("par_ai_core.llm_providers", "provider_default_models")
+
         if is_provider_api_key_set(LlmProvider.ANTHROPIC):
             main_model = provider_default_models[LlmProvider.ANTHROPIC]
         elif is_provider_api_key_set(LlmProvider.OPENAI):
@@ -1410,6 +1481,8 @@ def aider(
     write_files: list[str] = file_names.split(",") if file_names else []
     write_files = [f.strip() for f in write_files if f.strip()]
     if write_files:
+        # Lazy load file context utilities
+        get_file_list_for_context = lazy_import("par_ai_core.utils", "get_file_list_for_context")
         write_files = [f.as_posix() for f in get_file_list_for_context(cast(list[str | Path], write_files))]
 
     if not write_files:
@@ -1420,10 +1493,16 @@ def aider(
     read_files: list[str] = read_names.split(",") if read_names else []
     read_files = [f.strip() for f in read_files if f.strip()]
     if read_files:
+        # Lazy load file context utilities (if not already loaded)
+        if "get_file_list_for_context" not in locals():
+            get_file_list_for_context = lazy_import("par_ai_core.utils", "get_file_list_for_context")
         read_files = [f.as_posix() for f in get_file_list_for_context(cast(list[str | Path], read_files))]
 
     w_flist = "\n".join(write_files)
     r_flist = "\n".join(read_files)
+    # Lazy load Rich components
+    Panel = lazy_import("rich.panel", "Panel")
+    Prompt = lazy_import("rich.prompt", "Prompt")
     console_err.print(Panel(f"""Write:\n{w_flist}\nRead:\n{r_flist}""", title="File context", highlight=True))
     if (
         Prompt.ask(
@@ -1463,6 +1542,11 @@ def sandbox(
     ],
 ) -> None:
     """Build and run code runner docker sandbox."""
+    # Lazy load sandbox utilities
+    install_sandbox = lazy_import("sandbox", "install_sandbox")
+    stop_sandbox = lazy_import("sandbox", "stop_sandbox")
+    start_sandbox = lazy_import("sandbox", "start_sandbox")
+
     if action == SandboxAction.BUILD:
         install_sandbox(console=console)
     elif action == SandboxAction.STOP:
@@ -1633,6 +1717,11 @@ def pi_profile(
 ) -> None:
     """Convert Pyinstrument json report to markdown"""
 
+    # Lazy load profile utilities
+    process_profile = lazy_import("par_gpt.utils", "process_profile")
+    ProfileAnalysisError = lazy_import("par_gpt.utils", "ProfileAnalysisError")
+    Markdown = lazy_import("rich.markdown", "Markdown")
+
     try:
         report = process_profile(profile_path=profile_json, modules_in_scope=module, output_path=output, limit=limit)
         if output:
@@ -1735,13 +1824,18 @@ def stardew(
             image_file.close()
 
         if state["debug"]:
-            console.print(Pretty(response))
+            console.print(get_pretty()(response))
 
         if not response.data or not len(response.data) or not response.data[0].b64_json:
             raise ValueError("no b64_json in response")
 
         image_base64 = response.data[0].b64_json
         img_data = base64.b64decode(image_base64)
+
+        # Lazy load path security utilities (needed for both branches)
+        sanitize_filename = lazy_import("par_gpt.utils.path_security", "sanitize_filename")
+        validate_relative_path = lazy_import("par_gpt.utils.path_security", "validate_relative_path")
+        validate_within_base = lazy_import("par_gpt.utils.path_security", "validate_within_base")
 
         # Determine output file name with security validation
         if out:
@@ -1816,6 +1910,8 @@ def code_test(
 
     chat_model = state["llm_config"].build_chat_model()
 
+    # Lazy load provider callback
+    get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
     with get_parai_callback(
         show_end=state["debug"],
         show_tool_calls=True,
@@ -1831,6 +1927,8 @@ def code_test(
         )
         # console.print(graph.schema)
 
+        # Lazy load LLM run manager
+        llm_run_manager = lazy_import("par_ai_core.llm_config", "llm_run_manager")
         runnable_config = llm_run_manager.get_runnable_config(chat_model.name)
         chain = GraphCypherQAChain.from_llm(
             chat_model,
@@ -1913,6 +2011,8 @@ def code_test(
         )
     )
 
+    # Lazy load provider callback
+    get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
     with get_parai_callback(
         show_tool_calls=state["debug"], show_pricing=PricingDisplay.DETAILS, verbose=state["debug"], console=console
     ):
@@ -1923,6 +2023,8 @@ def code_test(
             if prompt.lower().strip() == "exit":
                 break
             chat_history.append(("user", prompt))
+            # Lazy load single LLM call function
+            do_single_llm_call = lazy_import("par_gpt.agents", "do_single_llm_call")
             content, thinking, result = do_single_llm_call(
                 chat_model=chat_model,
                 user_input=prompt,
@@ -1936,10 +2038,18 @@ def code_test(
             )
             chat_history.append(("assistant", content))
             if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+                # Lazy load Rich components
+                Panel = lazy_import("rich.panel", "Panel")
                 console.print(Panel(thinking, title="thinking", style="cyan"))
 
+            # Lazy load Rich components (if not already loaded)
+            if "Panel" not in locals():
+                Panel = lazy_import("rich.panel", "Panel")
+            Pretty = lazy_import("rich.pretty", "Pretty")
             console_err.print(Panel.fit(Pretty(content), title="[bold]GPT Response", border_style="bold"))
             if state["tts_man"]:
+                # Lazy load TTS summary function
+                summarize_for_tts = lazy_import("par_gpt.tts_manager", "summarize_for_tts")
                 state["tts_man"].speak(summarize_for_tts(content))
         if state["voice_input_man"]:
             state["voice_input_man"].shutdown()
