@@ -98,6 +98,7 @@ dependencies = [
 ]
 packages = [
     "src/par_gpt",
+    "src/par_utils", 
     "src/sandbox",
 ]
 
@@ -141,6 +142,7 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/par_gpt",
+    "src/par_utils",
     "src/sandbox",
 ]
 include = [

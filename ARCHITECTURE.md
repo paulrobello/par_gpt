@@ -448,7 +448,7 @@ flowchart TB
 flowchart TD
     A[User Operation] --> B{Security Check}
     B -->|Path Valid?<br/>File Safe?<br/>Code Safe?| C{Validation}
-    C -->|No| D[Reject & Error]
+    C -->|No| D[Reject and Error]
     C -->|Yes| E{Security Warning}
     E -->|Show Risk<br/>Get Consent| F{User Choice}
     F -->|No| G[Cancel Operation]
@@ -513,7 +513,7 @@ flowchart TD
     B --> C[Validate Pattern]
     C --> D[Check Characters]
     D --> E[Validate Length]
-    E --> F[Resolve & Check]
+    E --> F[Resolve and Check]
     F --> G[✅ Safe Path]
     
     B1["Remove ..\ and ../ patterns"]
@@ -563,7 +563,7 @@ flowchart TD
     E --> G
     F --> G
     
-    G --> H[Thread-safe & Persistent Caching]
+    G --> H[Thread-safe and Persistent Caching]
     H --> I[⚡ 25-50% startup time reduction]
     
     subgraph "Import Management"
@@ -587,7 +587,7 @@ flowchart TD
     I --> L
     
     G --> M
-    N --|> M : extends
+    N --> M
     
     style A fill:#1565c0
     style I fill:#1b5e20

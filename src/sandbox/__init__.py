@@ -27,7 +27,7 @@ from strenum import StrEnum
 
 # Import path security utilities
 try:
-    from par_gpt.utils.path_security import PathSecurityError, sanitize_filename  # type: ignore
+    from par_utils import PathSecurityError, sanitize_filename  # type: ignore
 except ImportError:
     # Fallback if path security module is not available
     import re
