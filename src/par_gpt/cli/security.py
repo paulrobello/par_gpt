@@ -8,7 +8,12 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
-from par_gpt.utils.path_security import PathSecurityError, sanitize_filename, validate_relative_path, validate_within_base
+from par_gpt.utils.path_security import (
+    PathSecurityError,
+    sanitize_filename,
+    validate_relative_path,
+    validate_within_base,
+)
 
 
 def validate_context_path_security(context_location: str, console: Console | None = None) -> None:

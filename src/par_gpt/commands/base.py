@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import typer
-from par_ai_core.llm_config import llm_run_manager
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
@@ -45,13 +44,10 @@ class BaseCommand(ABC):
             raise typer.Exit(1)
 
     def build_chat_model_with_timing(self, state: dict[str, Any]) -> Any:
-        """Build chat model with optional timing."""
-        if state.get("show_times") or state.get("show_times_detailed"):
-            from par_gpt.utils.timing import timer
+        """Build chat model with timing."""
+        from par_gpt.utils.timing import timer
 
-            with timer("build_chat_model"):
-                return state["llm_config"].build_chat_model()
-        else:
+        with timer("build_chat_model"):
             return state["llm_config"].build_chat_model()
 
     def get_provider_callback(self, state: dict[str, Any]) -> Any:
@@ -138,11 +134,12 @@ class BaseCommand(ABC):
         """Handle command exceptions consistently."""
         self.console.print("[bold red]Error:")
         self.console.print(str(e), markup=False)
-        
+
         if state.get("debug"):
             import traceback
+
             self.console.print(traceback.format_exc())
-        
+
         raise typer.Exit(code=1)
 
     @abstractmethod
@@ -167,25 +164,9 @@ class LLMCommandMixin:
     ) -> tuple[str, str, Any]:
         """Perform a single LLM call with timing."""
         do_single_llm_call = lazy_import("par_gpt.agents", "do_single_llm_call")
-        
-        if state.get("show_times") or state.get("show_times_detailed"):
-            from par_gpt.utils.timing import timer
+        from par_gpt.utils.timing import timer
 
-            with timer("llm_invoke"):
-                return do_single_llm_call(
-                    chat_model=chat_model,
-                    user_input=user_input,
-                    system_prompt=system_prompt,
-                    no_system_prompt=no_system_prompt,
-                    env_info=env_info,
-                    image=image,
-                    display_format=state["display_format"],
-                    debug=state["debug"],
-                    console=self.console,
-                    use_tts=state["tts"],
-                    chat_history=chat_history,
-                )
-        else:
+        with timer("llm_invoke"):
             return do_single_llm_call(
                 chat_model=chat_model,
                 user_input=user_input,
@@ -213,7 +194,7 @@ class LoopableCommandMixin:
     ) -> None:
         """Handle interactive loop for commands that support it."""
         from par_gpt.cli.options import LoopMode
-        
+
         question = ""
         while True:
             if state.get("voice_input_man"):
@@ -236,7 +217,7 @@ class LoopableCommandMixin:
                 content, thinking, result = "", "", None
 
             self.handle_output(content, thinking, result, state)
-            
+
             if chat_history is not None:
                 chat_history.append(("assistant", content))
                 if state.get("history_file"):
@@ -251,6 +232,7 @@ class LoopableCommandMixin:
             if state["loop_mode"] == LoopMode.INFINITE:
                 show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
                 from par_ai_core.pricing_lookup import PricingDisplay
+
                 show_llm_cost(callback_context.usage_metadata, console=self.console, show_pricing=PricingDisplay.PRICE)
 
 
@@ -265,12 +247,12 @@ class ChatHistoryMixin:
             json = lazy_import("orjson")
             chat_history = json.loads(history_file.read_bytes() or "[]")
             self.console.print("Loaded chat history from:", history_file)
-            
+
             # Update system prompt if provided
             if chat_history and chat_history[0][0] == "system":
                 if state.get("system_prompt"):
                     chat_history[0][1] = state["system_prompt"]
-        
+
         return chat_history
 
     def save_chat_history(

@@ -17,14 +17,15 @@ class ShowEnvCommand(BaseCommand):
 
 def create_show_env_command():
     """Create and return the show-env command function for Typer."""
-    
+
     def show_env() -> None:
         """Show environment context."""
         command = ShowEnvCommand()
+
         # Create a minimal context for this command
         class FakeContext:
             obj = {}
-        
+
         command.execute(FakeContext())
-    
+
     return show_env

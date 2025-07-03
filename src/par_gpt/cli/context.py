@@ -114,39 +114,14 @@ class ContextProcessor:
             """Basic image display - functionality limited due to import restrictions."""
             self.console.print(f"[dim]Image at: {image_path}[/dim]")
 
-        if show_times or show_times_detailed:
-            from par_gpt.utils.timing import timer
+        from par_gpt.utils.timing import timer
 
-            with timer("context_processing"):
-                context, context_is_image = self._process_content_with_timing(
-                    context_location, context_is_url, context_is_file, show_image_in_terminal_helper
-                )
-        else:
-            context, context_is_image = self._process_content_without_timing(
+        with timer("context_processing"):
+            context, context_is_image = self._process_content_core(
                 context_location, context_is_url, context_is_file, show_image_in_terminal_helper
             )
 
         return context, context_is_image
-
-    def _process_content_with_timing(
-        self,
-        context_location: str,
-        context_is_url: bool,
-        context_is_file: bool,
-        show_image_helper: Any,
-    ) -> tuple[str, bool]:
-        """Process content with timing tracking."""
-        return self._process_content_core(context_location, context_is_url, context_is_file, show_image_helper)
-
-    def _process_content_without_timing(
-        self,
-        context_location: str,
-        context_is_url: bool,
-        context_is_file: bool,
-        show_image_helper: Any,
-    ) -> tuple[str, bool]:
-        """Process content without timing tracking."""
-        return self._process_content_core(context_location, context_is_url, context_is_file, show_image_helper)
 
     def _process_content_core(
         self,
@@ -175,7 +150,9 @@ class ContextProcessor:
                 show_image_helper(image_path)
             except UnsupportedImageTypeError:
                 # Lazy load web utilities
-                fetch_url_and_convert_to_markdown = lazy_import("par_ai_core.web_tools", "fetch_url_and_convert_to_markdown")
+                fetch_url_and_convert_to_markdown = lazy_import(
+                    "par_ai_core.web_tools", "fetch_url_and_convert_to_markdown"
+                )
                 context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
         else:
             try:

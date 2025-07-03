@@ -6,11 +6,14 @@ import os
 from typing import Annotated
 
 import typer
+from par_ai_core.llm_config import ReasoningEffort
 from par_ai_core.llm_providers import LlmProvider
+from par_ai_core.output_utils import DisplayOutputFormat
 from par_ai_core.par_logging import console_err
+from par_ai_core.pricing_lookup import PricingDisplay
 from rich.console import Console
 
-from par_gpt import __application_title__, __version__, __env_var_prefix__
+from par_gpt import __application_title__, __env_var_prefix__, __version__
 from par_gpt.cli.config import (
     create_llm_config,
     get_base_url,
@@ -28,9 +31,6 @@ from par_gpt.cli.options import GLOBAL_OPTION_DEFAULTS, LoopMode
 from par_gpt.cli.security import check_mutual_exclusivity
 from par_gpt.lazy_import_manager import lazy_import
 from par_gpt.tts_manager import TTSProvider
-from par_ai_core.llm_config import ReasoningEffort
-from par_ai_core.output_utils import DisplayOutputFormat
-from par_ai_core.pricing_lookup import PricingDisplay
 
 
 def version_callback(value: bool) -> None:
@@ -333,37 +333,37 @@ def main(
     ] = None,
 ):
     """PAR GPT Global Options"""
-    
+
     console = console_err
-    
+
     # Load environment variables lazily after command is determined
     load_environment()
-    
+
     # Initialize globals based on command type
     command = ctx.invoked_subcommand or "help"
     initialize_globals_for_command(command)
-    
+
     # Set Redis enabled flag early to prevent connection attempts when disabled
     setup_redis(enable_redis)
-    
+
     # Initialize timing system if requested
     setup_timing(show_times, show_times_detailed)
-    
+
     # Set environment variables with security warnings
     set_environment_variables(user, redis_host, redis_port, console)
-    
+
     # Validate provider API key
     validate_provider_api_key(ai_provider, console)
-    
+
     # Check for mutually exclusive options
     check_mutual_exclusivity(copy_from_clipboard, context_location, console)
-    
+
     # Process context
     context_processor = ContextProcessor(console)
     context_location = context_processor.process_clipboard(copy_from_clipboard, context_location)
     context_is_url, context_is_file = context_processor.validate_context_location(context_location)
     context = context_processor.process_stdin(context_location, copy_from_clipboard)
-    
+
     # Process context content (images, URLs, files)
     if context_location:
         context_content, context_is_image = context_processor.process_context_content(
@@ -373,52 +373,75 @@ def main(
             context = context_content
     else:
         context_is_image = False
-    
+
     # Get appropriate model for context
     try:
-        model, model_type = get_model_for_context(
-            ai_provider, model, light_model, context_is_image, command
-        )
+        model, model_type = get_model_for_context(ai_provider, model, light_model, context_is_image, command)
         console.print(f"[bold green]Auto selected {model_type} model: {model}")
     except ValueError as e:
         console.print(f"[bold red]{e}. Exiting...")
         raise typer.Exit(1)
-    
+
     # Get base URL
     ai_base_url = get_base_url(ai_provider, ai_base_url)
-    
-    # Create LLM config with timing if requested
-    if show_times or show_times_detailed:
-        from par_gpt.utils.timing import timer
-        with timer("llm_config_setup"):
-            llm_config = create_llm_config(
-                ai_provider, model, fallback_models, temperature, ai_base_url,
-                user_agent_appid, max_context_size, reasoning_effort, reasoning_budget, command
-            )
-    else:
+
+    # Create LLM config with timing
+    from par_gpt.utils.timing import timer
+
+    with timer("llm_config_setup"):
         llm_config = create_llm_config(
-            ai_provider, model, fallback_models, temperature, ai_base_url,
-            user_agent_appid, max_context_size, reasoning_effort, reasoning_budget, command
+            ai_provider,
+            model,
+            fallback_models,
+            temperature,
+            ai_base_url,
+            user_agent_appid,
+            max_context_size,
+            reasoning_effort,
+            reasoning_budget,
+            command,
         )
-    
+
     # Setup TTS and voice input
     tts_man, voice_input_man = setup_tts_and_voice_input(
         tts, tts_provider, tts_voice, tts_list_voices, voice_input, debug, console
     )
-    
+
     # Validate chat history path
     history_file = context_processor.validate_chat_history_path(chat_history)
-    
+
     # Show configuration if requested
     if show_config:
         display_configuration(
-            ai_provider, light_model, model, fallback_models, max_context_size, reasoning_effort, 
-            reasoning_budget, ai_base_url, temperature, system_prompt, user_prompt, pricing, 
-            display_format, context_location, context_is_image, loop_mode, history_file, 
-            redis_host, redis_port, enable_redis, tts, tts_provider, tts_voice, voice_input, 
-            debug, yes_to_all, console
+            ai_provider,
+            light_model,
+            model,
+            fallback_models,
+            max_context_size,
+            reasoning_effort,
+            reasoning_budget,
+            ai_base_url,
+            temperature,
+            system_prompt,
+            user_prompt,
+            pricing,
+            display_format,
+            context_location,
+            context_is_image,
+            loop_mode,
+            history_file,
+            redis_host,
+            redis_port,
+            enable_redis,
+            tts,
+            tts_provider,
+            tts_voice,
+            voice_input,
+            debug,
+            yes_to_all,
+            console,
         )
-    
+
     # Create state object
     state = {
         "debug": debug,
@@ -460,51 +483,125 @@ def main(
         "show_times_detailed": show_times_detailed,
         "yes_to_all": yes_to_all,
     }
-    
+
     ctx.obj = state
 
 
 def display_configuration(
-    ai_provider, light_model, model, fallback_models, max_context_size, reasoning_effort,
-    reasoning_budget, ai_base_url, temperature, system_prompt, user_prompt, pricing,
-    display_format, context_location, context_is_image, loop_mode, history_file,
-    redis_host, redis_port, enable_redis, tts, tts_provider, tts_voice, voice_input,
-    debug, yes_to_all, console: Console
+    ai_provider,
+    light_model,
+    model,
+    fallback_models,
+    max_context_size,
+    reasoning_effort,
+    reasoning_budget,
+    ai_base_url,
+    temperature,
+    system_prompt,
+    user_prompt,
+    pricing,
+    display_format,
+    context_location,
+    context_is_image,
+    loop_mode,
+    history_file,
+    redis_host,
+    redis_port,
+    enable_redis,
+    tts,
+    tts_provider,
+    tts_voice,
+    voice_input,
+    debug,
+    yes_to_all,
+    console: Console,
 ):
     """Display configuration panel."""
     Panel = lazy_import("rich.panel", "Panel")
     Text = lazy_import("rich.text", "Text")
-    
+
     console.print(
         Panel.fit(
             Text.assemble(
-                ("AI Provider: ", "cyan"), (f"{ai_provider.value}", "green"), "\n",
-                ("Light Model: ", "cyan"), (f"{light_model}", "green"), "\n",
-                ("Model: ", "cyan"), (f"{model}", "green"), "\n",
-                ("Fallback Models: ", "cyan"), (f"{fallback_models}", "green"), "\n",
-                ("Max Context Size: ", "cyan"), (f"{max_context_size}", "green"), "\n",
-                ("Reasoning Effort: ", "cyan"), (f"{reasoning_effort}", "green"), "\n",
-                ("Reasoning Budget: ", "cyan"), (f"{reasoning_budget}", "green"), "\n",
-                ("AI Provider Base URL: ", "cyan"), "\n",
-                (f"{ai_base_url or 'default'}", "green"), "\n",
-                ("Temperature: ", "cyan"), (f"{temperature}", "green"), "\n",
-                ("System Prompt: ", "cyan"), (f"{system_prompt or 'default'}", "green"), "\n",
-                ("User Prompt: ", "cyan"), (f"{user_prompt or 'using stdin'}", "green"), "\n",
-                ("Pricing: ", "cyan"), (f"{pricing}", "green"), "\n",
-                ("Display Format: ", "cyan"), (f"{display_format or 'default'}", "green"), "\n",
-                ("Context Location: ", "cyan"), (f"{context_location or 'default'}", "green"), "\n",
-                ("Context Is Image: ", "cyan"), (f"{context_is_image}", "green"), "\n",
-                ("Loop Mode: ", "cyan"), (f"{loop_mode}", "green"), "\n",
-                ("Chat History: ", "cyan"), (f"{history_file or 'None'}", "green"), "\n",
-                ("Redis Host: ", "cyan"), (f"{redis_host or 'default'}", "green"), "\n",
-                ("Redis Port: ", "cyan"), (f"{redis_port or 'default'}", "green"), "\n",
-                ("Redis Enabled: ", "cyan"), (f"{enable_redis}", "green"), "\n",
-                ("TTS: ", "cyan"), (f"{tts}", "green"), "\n",
-                ("TTS Provider: ", "cyan"), (f"{tts_provider}", "green"), "\n",
-                ("TTS Voice: ", "cyan"), (f"{tts_voice or 'Default'}", "green"), "\n",
-                ("Voice Input: ", "cyan"), (f"{voice_input}", "green"), "\n",
-                ("Debug: ", "cyan"), (f"{debug}", "green"), "\n",
-                ("Yes to All: ", "cyan"), (f"{yes_to_all}", "green"), "\n",
+                ("AI Provider: ", "cyan"),
+                (f"{ai_provider.value}", "green"),
+                "\n",
+                ("Light Model: ", "cyan"),
+                (f"{light_model}", "green"),
+                "\n",
+                ("Model: ", "cyan"),
+                (f"{model}", "green"),
+                "\n",
+                ("Fallback Models: ", "cyan"),
+                (f"{fallback_models}", "green"),
+                "\n",
+                ("Max Context Size: ", "cyan"),
+                (f"{max_context_size}", "green"),
+                "\n",
+                ("Reasoning Effort: ", "cyan"),
+                (f"{reasoning_effort}", "green"),
+                "\n",
+                ("Reasoning Budget: ", "cyan"),
+                (f"{reasoning_budget}", "green"),
+                "\n",
+                ("AI Provider Base URL: ", "cyan"),
+                "\n",
+                (f"{ai_base_url or 'default'}", "green"),
+                "\n",
+                ("Temperature: ", "cyan"),
+                (f"{temperature}", "green"),
+                "\n",
+                ("System Prompt: ", "cyan"),
+                (f"{system_prompt or 'default'}", "green"),
+                "\n",
+                ("User Prompt: ", "cyan"),
+                (f"{user_prompt or 'using stdin'}", "green"),
+                "\n",
+                ("Pricing: ", "cyan"),
+                (f"{pricing}", "green"),
+                "\n",
+                ("Display Format: ", "cyan"),
+                (f"{display_format or 'default'}", "green"),
+                "\n",
+                ("Context Location: ", "cyan"),
+                (f"{context_location or 'default'}", "green"),
+                "\n",
+                ("Context Is Image: ", "cyan"),
+                (f"{context_is_image}", "green"),
+                "\n",
+                ("Loop Mode: ", "cyan"),
+                (f"{loop_mode}", "green"),
+                "\n",
+                ("Chat History: ", "cyan"),
+                (f"{history_file or 'None'}", "green"),
+                "\n",
+                ("Redis Host: ", "cyan"),
+                (f"{redis_host or 'default'}", "green"),
+                "\n",
+                ("Redis Port: ", "cyan"),
+                (f"{redis_port or 'default'}", "green"),
+                "\n",
+                ("Redis Enabled: ", "cyan"),
+                (f"{enable_redis}", "green"),
+                "\n",
+                ("TTS: ", "cyan"),
+                (f"{tts}", "green"),
+                "\n",
+                ("TTS Provider: ", "cyan"),
+                (f"{tts_provider}", "green"),
+                "\n",
+                ("TTS Voice: ", "cyan"),
+                (f"{tts_voice or 'Default'}", "green"),
+                "\n",
+                ("Voice Input: ", "cyan"),
+                (f"{voice_input}", "green"),
+                "\n",
+                ("Debug: ", "cyan"),
+                (f"{debug}", "green"),
+                "\n",
+                ("Yes to All: ", "cyan"),
+                (f"{yes_to_all}", "green"),
+                "\n",
             ),
             title="[bold]GPT Configuration",
             border_style="bold",

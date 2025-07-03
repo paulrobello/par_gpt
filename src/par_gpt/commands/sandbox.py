@@ -31,7 +31,7 @@ class SandboxCommand(BaseCommand):
 
 def create_sandbox_command():
     """Create and return the sandbox command function for Typer."""
-    
+
     def sandbox_command(
         ctx: typer.Context,
         action: Annotated[
@@ -46,5 +46,5 @@ def create_sandbox_command():
         """Build and run code runner docker sandbox."""
         command = SandboxCommand()
         command.execute(ctx, action)
-    
+
     return sandbox_command

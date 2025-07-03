@@ -16,15 +16,13 @@ class GitCommand(BaseCommand):
     def execute(self, ctx: typer.Context) -> None:
         """Execute the git command."""
         state = ctx.obj
-        
+
         # Get user prompt from args
         if not state["user_prompt"] and len(ctx.args) > 0:
             state["user_prompt"] = ctx.args.pop(0)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(
-            state["user_prompt"], state["context"], state["context_is_image"]
-        )
+        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
 
         self.validate_question(question)
         question = question.strip()
@@ -34,7 +32,7 @@ class GitCommand(BaseCommand):
             with self.get_provider_callback(state):
                 get_git_repo = lazy_import("par_gpt.repo.repo", "GitRepo")
                 repo = get_git_repo()(llm_config=state["llm_config"])
-                
+
                 if not repo.is_dirty():
                     self.console.print("[bold yellow]No changes to commit. Exiting...")
                     return
@@ -52,10 +50,10 @@ class GitCommand(BaseCommand):
 
 def create_git_command():
     """Create and return the git command function for Typer."""
-    
+
     def git_command(ctx: typer.Context) -> None:
         """Git commit helper."""
         command = GitCommand()
         command.execute(ctx)
-    
+
     return git_command

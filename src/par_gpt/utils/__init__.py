@@ -85,6 +85,17 @@ def __getattr__(name: str):
 # This is a temporary solution to resolve import conflicts
 
 __all__ = [
+    # Lazy loader functions
+    "get_audio_utils",
+    "get_config_utils",
+    "get_console_utils",
+    "get_image_utils",
+    "get_llm_utils",
+    "get_path_security_utils",
+    "get_redis_utils",
+    "get_security_utils",
+    "get_timing_utils",
+    "lazy_utils_import",
     # New utils modules
     "AudioResourceManager",
     "get_audio_manager",

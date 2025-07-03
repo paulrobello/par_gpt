@@ -287,25 +287,12 @@ def build_ai_tool_list(
     from rich.panel import Panel
 
     # Time the tool loading operations
-    try:
-        from par_gpt.utils.timing import is_timing_enabled, timer
+    from par_gpt.utils.timing import timer
 
-        if is_timing_enabled():
-            with timer("core_tools_loading"):
-                core_tools = _lazy_loader.get_core_tools(enable_redis=enable_redis)
-
-            with timer("conditional_tools_loading", {"question_length": len(question)}):
-                conditional_tools, local_modules = _lazy_loader.get_conditional_tools(
-                    question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
-                )
-        else:
-            core_tools = _lazy_loader.get_core_tools(enable_redis=enable_redis)
-            conditional_tools, local_modules = _lazy_loader.get_conditional_tools(
-                question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
-            )
-    except ImportError:
-        # Fallback if timing module is not available
+    with timer("core_tools_loading"):
         core_tools = _lazy_loader.get_core_tools(enable_redis=enable_redis)
+
+    with timer("conditional_tools_loading", {"question_length": len(question)}):
         conditional_tools, local_modules = _lazy_loader.get_conditional_tools(
             question, repl=repl, code_sandbox=code_sandbox, yes_to_all=yes_to_all
         )

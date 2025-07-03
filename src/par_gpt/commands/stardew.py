@@ -98,6 +98,7 @@ class StardewCommand(BaseCommand):
             self.console.print(f"[bold red]Error:[/bold red] {e}")
             if state["debug"]:
                 import traceback
+
                 self.console.print(traceback.format_exc())
             raise typer.Exit(code=1)
 
@@ -144,46 +145,44 @@ class StardewCommand(BaseCommand):
 
 def create_stardew_command():
     """Create and return the stardew command function for Typer."""
-    
+
     def stardew_command(
         ctx: typer.Context,
         prompt: Annotated[str, typer.Option(..., "-p", "--prompt", help="User request for avatar variation.")],
         system_prompt: Annotated[
             str,
             typer.Option(
-                "-S", "--system-prompt", 
-                envvar=f"{__env_var_prefix__}_SD_SYSTEM_PROMPT", 
-                help="System prompt to use"
+                "-S", "--system-prompt", envvar=f"{__env_var_prefix__}_SD_SYSTEM_PROMPT", help="System prompt to use"
             ),
         ] = "Make this character {user_prompt}. ensure you maintain the pixel art style.",
         src: Annotated[
             Path | None,
             typer.Option(
-                "-s", "--src", 
-                envvar=f"{__env_var_prefix__}_SD_SRC_IMAGE", 
-                help="Source image to use as reference."
+                "-s", "--src", envvar=f"{__env_var_prefix__}_SD_SRC_IMAGE", help="Source image to use as reference."
             ),
         ] = None,
         out_folder: Annotated[
             Path | None,
             typer.Option(
-                "-O", "--out-folder", 
-                envvar=f"{__env_var_prefix__}_SD_OUT_FOLDER", 
-                help="Output folder for generated images."
+                "-O",
+                "--out-folder",
+                envvar=f"{__env_var_prefix__}_SD_OUT_FOLDER",
+                help="Output folder for generated images.",
             ),
         ] = None,
         out: Annotated[str | None, typer.Option("-o", "--out", help="Output image name.")] = None,
         display: Annotated[
             bool,
             typer.Option(
-                "-d", "--display", 
-                envvar=f"{__env_var_prefix__}_SD_DISPLAY_IMAGE", 
-                help="Display resulting image in the terminal."
+                "-d",
+                "--display",
+                envvar=f"{__env_var_prefix__}_SD_DISPLAY_IMAGE",
+                help="Display resulting image in the terminal.",
             ),
         ] = False,
     ) -> None:
         """Generate pixel art avatar variation."""
         command = StardewCommand()
         command.execute(ctx, prompt, system_prompt, src, out_folder, out, display)
-    
+
     return stardew_command

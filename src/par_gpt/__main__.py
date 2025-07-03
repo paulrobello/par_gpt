@@ -23,11 +23,21 @@ from par_gpt.commands.utils import (
 
 # Register all commands with the app
 app.command(name="show-env")(create_show_env_command())
-app.command(name="llm", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(create_llm_command())
-app.command(name="agent", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(create_agent_command())
-app.command(name="git", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(create_git_command())
-app.command(name="code-review", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(create_code_review_command())
-app.command(name="generate-prompt", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(create_generate_prompt_command())
+app.command(name="llm", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    create_llm_command()
+)
+app.command(name="agent", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    create_agent_command()
+)
+app.command(name="git", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    create_git_command()
+)
+app.command(name="code-review", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    create_code_review_command()
+)
+app.command(name="generate-prompt", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
+    create_generate_prompt_command()
+)
 app.command(name="sandbox")(create_sandbox_command())
 app.command(name="update-deps")(create_update_deps_command())
 app.command(name="pub-repo-gh")(create_publish_repo_command())

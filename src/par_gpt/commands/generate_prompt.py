@@ -14,15 +14,13 @@ class GeneratePromptCommand(BaseCommand, LLMCommandMixin):
     def execute(self, ctx: typer.Context) -> None:
         """Execute the generate prompt command."""
         state = ctx.obj
-        
+
         # Get user prompt from args
         if not state["user_prompt"] and len(ctx.args) > 0:
             state["user_prompt"] = ctx.args.pop(0)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(
-            state["user_prompt"], state["context"], state["context_is_image"]
-        )
+        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
 
         self.validate_question(question)
         question = question.strip()
@@ -56,10 +54,10 @@ class GeneratePromptCommand(BaseCommand, LLMCommandMixin):
 
 def create_generate_prompt_command():
     """Create and return the generate prompt command function for Typer."""
-    
+
     def generate_prompt_command(ctx: typer.Context) -> None:
         """Use meta prompting to generate a new prompt."""
         command = GeneratePromptCommand()
         command.execute(ctx)
-    
+
     return generate_prompt_command

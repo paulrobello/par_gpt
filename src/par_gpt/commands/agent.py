@@ -7,7 +7,7 @@ from typing import Annotated
 import typer
 
 from par_gpt import __env_var_prefix__
-from par_gpt.cli.options import AGENT_OPTION_DEFAULTS, get_agent_options
+from par_gpt.cli.options import AGENT_OPTION_DEFAULTS
 from par_gpt.commands.base import BaseCommand, ChatHistoryMixin, LoopableCommandMixin
 from par_gpt.lazy_import_manager import lazy_import
 
@@ -15,10 +15,12 @@ from par_gpt.lazy_import_manager import lazy_import
 class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
     """Full agent with dynamic tools."""
 
-    def execute(self, ctx: typer.Context, max_iterations: int, show_tool_calls: bool, repl: bool, code_sandbox: bool) -> None:
+    def execute(
+        self, ctx: typer.Context, max_iterations: int, show_tool_calls: bool, repl: bool, code_sandbox: bool
+    ) -> None:
         """Execute the agent command."""
         state = ctx.obj
-        
+
         # Get user prompt from args
         if not state["user_prompt"] and len(ctx.args) > 0:
             state["user_prompt"] = ctx.args.pop(0)
@@ -27,9 +29,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         chat_history = self.load_chat_history(state)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(
-            state["user_prompt"], state["context"], state["context_is_image"]
-        )
+        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
 
         try:
             # Build chat model with timing
@@ -39,8 +39,16 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
             # Get provider callback
             with self.get_provider_callback(state) as cb:
                 self._process_agent_interaction(
-                    chat_model, question, env_info, chat_history, state, cb,
-                    max_iterations, show_tool_calls, repl, code_sandbox
+                    chat_model,
+                    question,
+                    env_info,
+                    chat_history,
+                    state,
+                    cb,
+                    max_iterations,
+                    show_tool_calls,
+                    repl,
+                    code_sandbox,
                 )
 
         except Exception as e:
@@ -67,7 +75,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         code_sandbox: bool,
     ) -> None:
         """Process the agent interaction loop."""
-        
+
         def process_question(q: str, s: dict) -> tuple[str, str, any]:
             """Process a single question with agent tools."""
             # Build AI tool list based on question keywords
@@ -86,6 +94,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
 
             # Set tool context for AI tools to access global state
             from par_gpt.tool_context import set_tool_context
+
             set_tool_context(yes_to_all=s["yes_to_all"])
 
             # Execute agent with tools
@@ -119,9 +128,10 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 # Process initial question
                 content, thinking, result = process_question(question, state)
                 self.handle_output(content, thinking, result, state)
-                
+
                 # Continue with loop if needed
                 from par_gpt.cli.options import LoopMode
+
                 if state["loop_mode"] == LoopMode.INFINITE:
                     self.handle_interactive_loop(state, callback_context, chat_history, process_question)
             else:
@@ -131,7 +141,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
     def _handle_voice_agent_loop(self, state: dict, process_question_func: callable, callback_context) -> None:
         """Handle voice input agent loop."""
         from par_gpt.cli.options import LoopMode
-        
+
         while True:
             question = state["voice_input_man"].get_text()
             if not question:
@@ -148,12 +158,13 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
             if state["loop_mode"] == LoopMode.INFINITE:
                 show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
                 from par_ai_core.pricing_lookup import PricingDisplay
+
                 show_llm_cost(callback_context.usage_metadata, console=self.console, show_pricing=PricingDisplay.PRICE)
 
 
 def create_agent_command():
     """Create and return the agent command function for Typer."""
-    
+
     def agent_command(
         ctx: typer.Context,
         max_iterations: Annotated[
@@ -195,5 +206,5 @@ def create_agent_command():
         """Full agent with dynamic tools."""
         command = AgentCommand()
         command.execute(ctx, max_iterations, show_tool_calls, repl, code_sandbox)
-    
+
     return agent_command

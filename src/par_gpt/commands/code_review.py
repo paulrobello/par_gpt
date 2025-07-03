@@ -14,7 +14,7 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
     def execute(self, ctx: typer.Context) -> None:
         """Execute the code review command."""
         state = ctx.obj
-        
+
         # Get user prompt from args
         if not state["user_prompt"] and len(ctx.args) > 0:
             state["user_prompt"] = ctx.args.pop(0)
@@ -23,9 +23,7 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
         question = state["user_prompt"] or state["context"] or "Please review code"
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(
-            question, state["context"], state["context_is_image"]
-        ).strip()
+        question = self.combine_prompt_and_context(question, state["context"], state["context_is_image"]).strip()
 
         try:
             # Build chat model
@@ -59,10 +57,10 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
 
 def create_code_review_command():
     """Create and return the code review command function for Typer."""
-    
+
     def code_review_command(ctx: typer.Context) -> None:
         """Review code."""
         command = CodeReviewCommand()
         command.execute(ctx)
-    
+
     return code_review_command

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
 import typer
 from par_ai_core.llm_config import ReasoningEffort
 from par_ai_core.llm_providers import LlmProvider
