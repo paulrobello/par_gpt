@@ -101,25 +101,6 @@ def validate_and_load_config(**cli_args: Any) -> tuple[PARGPTConfig, list[str]]:
         return PARGPTConfig(), [f"Configuration error: {e}"]
 
 
-def validate_configuration_compatibility(config: PARGPTConfig, console: Console | None = None) -> None:
-    """Validate configuration compatibility and show warnings.
-
-    Args:
-        config: Validated configuration to check.
-        console: Console for output (optional).
-    """
-    if console is None:
-        console = console_err
-
-    # Import migration utilities for compatibility checks
-    from par_gpt.utils.config_migration import validate_migration_compatibility
-
-    warnings = validate_migration_compatibility(config)
-
-    for warning in warnings:
-        console.print(f"[yellow]Configuration warning: {warning}[/yellow]")
-
-
 def show_config_summary(config: PARGPTConfig, console: Console | None = None) -> None:
     """Show a summary of the current configuration.
 

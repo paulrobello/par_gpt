@@ -129,7 +129,9 @@ class TestErrorRegistry:
     def test_format_error(self):
         """Test formatting error with registry."""
         registry = ErrorRegistry()
-        formatted = registry.format_error("CONFIG_INVALID_PROVIDER", provider="InvalidProvider", supported_providers="OpenAI, Anthropic")
+        formatted = registry.format_error(
+            "CONFIG_INVALID_PROVIDER", provider="InvalidProvider", supported_providers="OpenAI, Anthropic"
+        )
         assert "InvalidProvider" in formatted
         assert "OpenAI, Anthropic" in formatted
 
@@ -170,7 +172,9 @@ class TestGlobalFunctions:
 
     def test_global_format_error(self):
         """Test global format_error function."""
-        formatted = format_error("CONFIG_INVALID_PROVIDER", provider="TestProvider", supported_providers="Valid providers")
+        formatted = format_error(
+            "CONFIG_INVALID_PROVIDER", provider="TestProvider", supported_providers="Valid providers"
+        )
         assert "TestProvider" in formatted
         assert "Valid providers" in formatted
 
@@ -190,7 +194,7 @@ class TestGlobalFunctions:
         rich_formatted = create_error_with_rich_formatting(
             error, console_markup=True, provider="TestProvider", supported_providers="Valid providers"
         )
-        
+
         assert "TestProvider" in rich_formatted
         assert "[red]" in rich_formatted or "[yellow]" in rich_formatted  # Should have color markup
 
@@ -208,14 +212,14 @@ class TestDefaultErrors:
     def test_config_errors_exist(self):
         """Test that configuration errors are registered."""
         registry = get_error_registry()
-        
+
         config_errors = [
             "CONFIG_INVALID_PROVIDER",
             "CONFIG_INVALID_TEMPERATURE",
             "CONFIG_MISSING_API_KEY",
             "CONFIG_INVALID_BASE_URL",
         ]
-        
+
         for error_code in config_errors:
             error = registry.get(error_code)
             assert error is not None, f"Error {error_code} should be registered"
@@ -224,14 +228,14 @@ class TestDefaultErrors:
     def test_security_errors_exist(self):
         """Test that security errors are registered."""
         registry = get_error_registry()
-        
+
         security_errors = [
             "SECURITY_PATH_TRAVERSAL",
             "SECURITY_DANGEROUS_FILENAME",
             "SECURITY_FILE_TOO_LARGE",
             "SECURITY_CODE_EXECUTION_DENIED",
         ]
-        
+
         for error_code in security_errors:
             error = registry.get(error_code)
             assert error is not None, f"Error {error_code} should be registered"
@@ -240,13 +244,13 @@ class TestDefaultErrors:
     def test_network_errors_exist(self):
         """Test that network errors are registered."""
         registry = get_error_registry()
-        
+
         network_errors = [
             "NETWORK_CONNECTION_FAILED",
             "NETWORK_TIMEOUT",
             "NETWORK_API_RATE_LIMIT",
         ]
-        
+
         for error_code in network_errors:
             error = registry.get(error_code)
             assert error is not None, f"Error {error_code} should be registered"
@@ -256,6 +260,6 @@ class TestDefaultErrors:
         """Test that critical errors have solutions."""
         registry = get_error_registry()
         critical_errors = registry.get_errors_by_severity(ErrorSeverity.CRITICAL)
-        
+
         for error in critical_errors:
             assert error.solution is not None, f"Critical error {error.code} should have a solution"

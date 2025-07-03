@@ -233,6 +233,12 @@ classDiagram
         +ai_capture_screen()
         +ai_show_image()
         +ai_get_weather()
+        +ai_figlet()
+        +ai_github_publish_repo()
+        +ai_image_gen_dali()
+        +ai_list_windows()
+        +ai_list_screens()
+        +... 29 total tools
     }
     
     class UtilsFacade {
@@ -264,7 +270,7 @@ classDiagram
     UtilsFacade --> ComplexUtils : delegates to
     UtilsFacade --> LazyImportManager : lazy loads via
     
-    note for UtilsFacade "Resolves circular imports\nProvides clean interface\nCaches loaded functions"
+    note for UtilsFacade "Resolves circular imports\nProvides clean interface\nCaches loaded functions\nFixed in v0.13.0: Added dynamic loading"
     note for ComplexUtils "Large utils.py module\nWith complex dependencies\nPotential circular imports"
 ```
 

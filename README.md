@@ -589,56 +589,56 @@ par_gpt llm "sort the table by grade in the following order S,A,B,C,F" | \
 save_vault fillament_grade_props
 
 # get commit message for current changes
-par_gpt git 'display commit message for current changes'
+par_gpt git "display commit message for current changes"
 
 # commit current changes with automatically generated commit message also show config and pricing
-par_gpt --show-config --pricing details git 'commit current changes'
+par_gpt --show-config --pricing details git "commit current changes"
 
 # copy commit message for current changes to clipboard using agent mode
-par_gpt -t 0 --debug agent 'create a commit messages that would be relevant to the changes in the current repository and copy to clipboard'
+par_gpt -t 0 --debug agent "create a commit messages that would be relevant to the changes in the current repository and copy to clipboard"
 
 # Performance monitoring examples
 # Show timing summary for LLM operations
-echo "Analyze this complex problem" | par_gpt --show-times llm
+par_gpt --show-times llm "Analyze this complex problem"
 
 # Show detailed timing breakdown for agent operations
-par_gpt --show-times-detailed agent 'search for latest AI news and summarize findings'
+par_gpt --show-times-detailed agent "search for latest AI news and summarize findings"
 
 # Combine timing with other debugging options
-par_gpt --show-times --debug --pricing details agent 'complex research task'
+par_gpt --show-times --debug --pricing details agent "complex research task"
 
 # get details for new Macbook M4 Max (this will use web search and web scrape tools)
-par_gpt agent 'get me the details for the new Macbook M4 Max'
+par_gpt agent "get me the details for the new Macbook M4 Max"
 
 # generate a csv file named data.csv filled with fake names and ages
-par_gpt agent 'generate a csv file named data.csv filled with fake names and ages'
+par_gpt agent "generate a csv file named data.csv filled with fake names and ages"
 
 # read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser
-par_gpt agent 'read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser'
+par_gpt agent "read csv file named data.csv and generate a PNG format image graph with age on the x axis and count of age on y axis. open the PNG in a browser"
 
 # read csv file named data.csv and generate a graph with age on the x axis and count of age on y axis. display the image in the terminal
-par_gpt agent 'read csv file named data.csv and generate a graph.png graph with age on the x axis and count of age on y axis. display the image in the terminal size large'
+par_gpt agent "read csv file named data.csv and generate a graph.png graph with age on the x axis and count of age on y axis. display the image in the terminal size large"
 
 # display the current weather in Woodland CA
-par_gpt agent 'current weather in Woodland CA and display the current conditions image / icon in the terminal'
+par_gpt agent "current weather in Woodland CA and display the current conditions image / icon in the terminal"
 
-par_gpt -p details -a OpenAI -d md agent --repl 'what is the value of 4 times the ArcTangent of 1'
+par_gpt -p details -a OpenAI -d md agent --repl "what is the value of 4 times the ArcTangent of 1"
 
 # tell me a joke using github model on azure
 par_gpt --show-config --debug -p -a Github -m "Llama-3.2-90B-Vision-Instruct" llm "tell me a joke"
 par_gpt --show-config --debug -p -a Github -m "gpt-4o" llm "tell me a joke"
 
 # Groq vision model
-par_gpt -a Groq -m 'llama-3.2-90b-vision-preview' -f PATH_TO_IMAGE llm "describe this image"
+par_gpt -a Groq -m "llama-3.2-90b-vision-preview" -f PATH_TO_IMAGE llm "describe this image"
 
 # get image from url and answer question
 par_gpt -f "https://gratisography.com/wp-content/uploads/2024/10/gratisography-birthday-dog-sunglasses-1036x780.jpg" llm "describe the image"
 
 # Get context from url and answer question about it. Note does not currently use RAG so can be token heavy
-par_gpt -p details -f 'https://console.groq.com/docs/vision' llm "what model ids support vision"
+par_gpt -p details -f "https://console.groq.com/docs/vision" llm "what model ids support vision"
 
 # get image from url and answer question
-par_gpt -p details -f 'https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg' llm "describe this image"
+par_gpt -p details -f "https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg" llm "describe this image"
 
 # check code for bugs (change to root for project you want to check)
 par_gpt code_review
@@ -668,9 +668,35 @@ par_gpt --yes-to-all --debug --show-config agent "complex task with code executi
 # use environment variable to set globally
 export PARGPT_YES_TO_ALL=1
 par_gpt agent "task that might require confirmations"
+
+# AI tools examples (now working after import fixes)
+# create ASCII art text
+par_gpt agent "create figlet text that says HELLO"
+
+# generate an image using DALL-E and display in terminal
+par_gpt agent "generate an image of a cyberpunk city and display it in the terminal"
+
+# list all available screens/displays
+par_gpt agent "list available screens"
+
+# capture screenshot of primary screen
+par_gpt agent "take a screenshot of my screen"
+
+# list all visible windows
+par_gpt agent "list visible windows"
 ```
 
 ## What's New
+- Version 0.13.0:
+  - **AI Tools Import Fix**: Resolved critical import issues affecting 10+ AI tools
+    - **Screen capture tools** - Fixed `ai_capture_screen_image()` and `ai_capture_window_image()` for multi-monitor support
+    - **Image generation** - Restored `ai_image_gen_dali()` for DALL-E image creation with terminal display
+    - **Text generation** - Fixed `ai_figlet()` for ASCII art text generation
+    - **GitHub integration** - Restored `ai_github_publish_repo()` for repository publishing
+    - **System interaction** - Fixed `ai_list_visible_windows()` and `ai_list_available_screens()` for window/display management
+    - **Root cause**: Utils package restructuring broke facade pattern imports; fixed by extending utils `__init__.py` with dynamic loading from original `utils.py`
+  - **Documentation Updates**: Updated README.md, CLAUDE.md, and ARCHITECTURE.md with corrected command syntax and AI tools information
+  - **Command Syntax**: Standardized examples to use `uv run par_gpt "prompt"` instead of `echo "prompt" | uv run par_gpt agent`
 - Version 0.12.2:
   - **Global `--yes-to-all` Security Bypass**: Added comprehensive global flag to automatically accept all security warnings and confirmation prompts
     - **Silent automation** - Enables headless/scripted usage without interactive prompts

@@ -36,7 +36,7 @@ def make_maze(w=16, h=16, scale=0):
 
 the_seed = 1
 
-for scale in range(0,3):
+for scale in range(0, 3):
     random.seed = the_seed
     print(make_maze(scale=scale))
     print("\n\n")
