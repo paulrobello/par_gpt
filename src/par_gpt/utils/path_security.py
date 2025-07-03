@@ -9,6 +9,9 @@ from pathlib import Path
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
+# Import centralized error handling
+from par_gpt.utils.error_registry import format_error
+
 
 class PathSecurityError(Exception):
     """Raised when a path security violation is detected."""
@@ -83,21 +86,26 @@ class SecurePathValidator:
         # Check for path traversal patterns
         for pattern in self._compiled_patterns:
             if pattern.search(component):
-                raise PathSecurityError(f"Path traversal detected in component: {component}")
+                error_msg = format_error("SECURITY_PATH_TRAVERSAL", path=component)
+                raise PathSecurityError(error_msg, component)
 
         # Check for dangerous characters
         for char in self.DANGEROUS_CHARS:
             if char in component:
-                raise PathSecurityError(f"Dangerous character '{char}' in path component: {component}")
+                error_msg = format_error("SECURITY_DANGEROUS_FILENAME", filename=component)
+                raise PathSecurityError(error_msg, component)
 
         # Check for Windows reserved names
         name_without_ext = component.split(".")[0].upper()
         if name_without_ext in self.WINDOWS_RESERVED:
-            raise PathSecurityError(f"Reserved filename: {component}")
+            error_msg = format_error("SECURITY_DANGEROUS_FILENAME", filename=component)
+            raise PathSecurityError(error_msg, component)
 
         # Check for names that are too long
         if len(component) > 255:
-            raise PathSecurityError(f"Path component too long: {len(component)} characters")
+            # Create a custom error for this specific case
+            error_msg = f"Path component too long: {len(component)} characters (maximum: 255)"
+            raise PathSecurityError(error_msg, component)
 
         return component
 
@@ -127,7 +135,8 @@ class SecurePathValidator:
         # Check for path traversal patterns in the full path
         for pattern in self._compiled_patterns:
             if pattern.search(normalized_path):
-                raise PathSecurityError(f"Path traversal detected: {path}", path)
+                error_msg = format_error("SECURITY_PATH_TRAVERSAL", path=str(path))
+                raise PathSecurityError(error_msg, path)
 
         # Convert to Path object and check each component
         path_obj = Path(normalized_path)

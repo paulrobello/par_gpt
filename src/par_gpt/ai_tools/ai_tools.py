@@ -24,83 +24,12 @@ from par_gpt.lazy_import_manager import lazy_import
 # Memory utils imports moved inside ai_memory_db function to prevent Redis connection when disabled
 from par_gpt.utils import get_console
 
-# Import functions directly from the original utils.py file to avoid circular imports
-# We need to import them carefully to avoid the utils package vs utils.py conflict
-try:
-    # Direct import from the utils.py file
-    import importlib.util
-
-    utils_py_path = os.path.join(os.path.dirname(__file__), "..", "utils.py")
-    spec = importlib.util.spec_from_file_location("utils_module", utils_py_path)
-    if spec is None or spec.loader is None:
-        raise ImportError("Could not load utils.py spec")
-    utils_module = importlib.util.module_from_spec(spec)
-
-    # Set up minimal environment for utils.py to load
-    import sys
-
-    original_modules = sys.modules.copy()
-
-    # Execute with minimal dependencies to avoid circular imports
-    try:
-        spec.loader.exec_module(utils_module)
-        # Extract the functions we need
-        capture_window_image = utils_module.capture_window_image
-        describe_image_with_llm = utils_module.describe_image_with_llm
-        get_weather_current = utils_module.get_weather_current
-        get_weather_forecast = utils_module.get_weather_forecast
-        show_image_in_terminal = utils_module.show_image_in_terminal
-        github_publish_repo = utils_module.github_publish_repo
-        figlet_horizontal = utils_module.figlet_horizontal
-        figlet_vertical = utils_module.figlet_vertical
-        list_visible_windows_mac = utils_module.list_visible_windows_mac
-        image_gen_dali = utils_module.image_gen_dali
-    except Exception:
-        # Fallback if direct import fails - create stub functions
-        def capture_window_image(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def describe_image_with_llm(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def get_weather_current(*args, **kwargs):
-            return {"error": "Function not available due to import restrictions"}
-
-        def get_weather_forecast(*args, **kwargs):
-            return {"error": "Function not available due to import restrictions"}
-
-        def show_image_in_terminal(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def github_publish_repo(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def figlet_horizontal(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def figlet_vertical(*args, **kwargs):
-            return "Function not available due to import restrictions"
-
-        def list_visible_windows_mac(*args, **kwargs):
-            return []
-
-        def image_gen_dali(*args, **kwargs):
-            # Return a stub path that will work with hasattr check
-            class StubPath:
-                def as_posix(self):
-                    return "Function not available due to import restrictions"
-
-                def __str__(self):
-                    return "Function not available due to import restrictions"
-
-            return StubPath()
-
-except Exception:
-    # Final fallback - create stub functions if the first level import failed
-    pass
-
-
+# Clean import resolution using facade pattern
+from par_gpt.utils.utils_facade import get_utils_facade
 from sandbox import ExecuteCommandResult
+
+# Get the utils facade instance for clean function access
+_utils = get_utils_facade()
 
 
 @tool(parse_docstring=True)
@@ -284,7 +213,7 @@ def ai_get_weather_current(location: str) -> dict[str, Any]:
         dict: Weather data
     """
 
-    return get_weather_current(location)
+    return _utils.get_weather_current(location)
 
 
 @tool(parse_docstring=True)
@@ -300,7 +229,7 @@ def ai_get_weather_forecast(location: str, num_days: int) -> dict[str, Any]:
         dict: Weather data
     """
 
-    return get_weather_forecast(location, num_days)
+    return _utils.get_weather_forecast(location, num_days)
 
 
 @tool(parse_docstring=True)
@@ -318,7 +247,7 @@ def ai_display_image_in_terminal(image_path: str, dimension: str = "auto") -> st
         str: Status of the operation
     """
 
-    return show_image_in_terminal(image_path, dimension)
+    return _utils.show_image_in_terminal(image_path, dimension)
 
 
 @tool(parse_docstring=True)
@@ -542,7 +471,7 @@ def ai_github_publish_repo(repo_name: str | None = None, public: bool = False) -
     Returns:
         str: The URL of the newly created repository or Error message
     """
-    return github_publish_repo(repo_name, public)
+    return _utils.github_publish_repo(repo_name, public)
 
 
 @tool(parse_docstring=True)
@@ -568,8 +497,8 @@ def ai_figlet(
         Calling this tool will send its output directly to the terminal. You do not need to capture the output.
     """
     if color_direction == "horizontal":
-        return figlet_horizontal(text, font, colors)
-    return figlet_vertical(text, font, colors)
+        return _utils.figlet_horizontal(text, font, colors)
+    return _utils.figlet_vertical(text, font, colors)
 
 
 @tool(parse_docstring=True)
@@ -722,7 +651,7 @@ def ai_list_visible_windows() -> list:
     Returns:
         list: A list of visible windows on the user's screen.
     """
-    return list_visible_windows_mac()
+    return _utils.list_visible_windows_mac()
 
 
 @tool(parse_docstring=True)
@@ -735,17 +664,7 @@ def ai_list_available_screens() -> list:
         list: A list of available screens/displays with their details.
     """
     try:
-        import importlib.util
-
-        # Direct import from utils.py to avoid circular imports
-        utils_py_path = os.path.join(os.path.dirname(__file__), "..", "utils.py")
-        spec = importlib.util.spec_from_file_location("utils_module", utils_py_path)
-        if spec is None or spec.loader is None:
-            return [{"error": "Could not load screen detection utilities"}]
-        utils_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(utils_module)
-
-        return utils_module.list_available_screens()
+        return _utils.list_available_screens()
     except Exception as e:
         return [{"error": f"Screen detection not available: {str(e)}"}]
 
@@ -766,18 +685,7 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
     # If no screen_id specified, get the list of screens and capture the primary one
     if screen_id is None:
         try:
-            # Use the same import approach as above for consistency
-            import importlib.util
-
-            # Direct import from utils.py to avoid circular imports
-            utils_py_path = os.path.join(os.path.dirname(__file__), "..", "utils.py")
-            spec = importlib.util.spec_from_file_location("utils_module", utils_py_path)
-            if spec is None or spec.loader is None:
-                return "Error: Could not load screen detection utilities"
-            utils_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(utils_module)
-
-            screens = utils_module.list_available_screens()
+            screens = _utils.list_available_screens()
             if not screens:
                 return "No displays found to capture."
 
@@ -808,16 +716,6 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
             return f"Error getting screen list: {str(e)}. Please specify screen_id manually."
 
     try:
-        # Import capture_screen_image function using the same approach
-        import importlib.util
-
-        utils_py_path = os.path.join(os.path.dirname(__file__), "..", "utils.py")
-        spec = importlib.util.spec_from_file_location("utils_module", utils_py_path)
-        if spec is None or spec.loader is None:
-            return "Error: Could not load screen capture utilities"
-        utils_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(utils_module)
-
         # Check if yes-to-all mode is enabled to skip security confirmations
         try:
             from par_gpt.tool_context import is_yes_to_all_enabled
@@ -826,13 +724,13 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
         except ImportError:
             skip_confirmation = False
 
-        img = utils_module.capture_screen_image(
+        img = _utils.capture_screen_image(
             screen_id=screen_id, output_format="BASE64", skip_confirmation=skip_confirmation
         )
         if not describe_image:
             return img  # type: ignore
 
-        return utils_module.describe_image_with_llm(img)  # type: ignore
+        return _utils.describe_image_with_llm(img)  # type: ignore
     except Exception as e:
         return f"Error capturing screen image: {str(e)}"
 
@@ -857,7 +755,7 @@ def ai_capture_window_image(
     # If no window parameters are specified, get the list of windows and capture the active one
     if app_name is None and app_title is None and window_id is None:
         try:
-            windows = list_visible_windows_mac()
+            windows = _utils.list_visible_windows_mac()
             if not windows:
                 return "No visible application windows found to capture. You may need to specify an app_name manually."
 
@@ -902,7 +800,7 @@ def ai_capture_window_image(
         except ImportError:
             skip_confirmation = False
 
-        img = capture_window_image(
+        img = _utils.capture_window_image(
             app_name=app_name,
             app_title=app_title,
             window_id=window_id,
@@ -912,7 +810,7 @@ def ai_capture_window_image(
         if not describe_image:
             return img  # type: ignore
 
-        return describe_image_with_llm(img)  # type: ignore
+        return _utils.describe_image_with_llm(img)  # type: ignore
     except Exception as e:
         return f"Error capturing window image: {str(e)}"
 
@@ -948,12 +846,12 @@ def ai_image_gen_dali(prompt: str, display: bool = True) -> str:
     Returns:
         str: The path to the generated image. This MUST be shown to the user.
     """
-    image_path = image_gen_dali(
+    image_path = _utils.image_gen_dali(
         prompt,
         # upgrade_prompt=LlmConfig(LlmProvider.OPENAI, model_name="gpt-4o-mini", temperature=0.9),
     )
     if display:
-        show_image_in_terminal(image_path, transparent=False)
+        _utils.show_image_in_terminal(image_path, transparent=False)
 
     # Handle both Path objects and string returns from image_gen_dali
     if hasattr(image_path, "as_posix"):
@@ -994,5 +892,5 @@ def ai_memory_db(op: Literal["list", "add", "remove"], memory: str | None) -> st
 
 
 if __name__ == "__main__":
-    figlet_horizontal("PAR GPT", font="3d-ascii")
-    # figlet_vertical("PAR GPT", font="3d-ascii")
+    _utils.figlet_horizontal("PAR GPT", font="3d-ascii")
+    # _utils.figlet_vertical("PAR GPT", font="3d-ascii")

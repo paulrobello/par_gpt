@@ -15,6 +15,7 @@ from rich.console import Console
 from par_gpt import __application_binary__, __env_var_prefix__
 from par_gpt.lazy_import_manager import lazy_import
 from par_gpt.tts_manager import TTSProvider
+from par_gpt.utils.config_validation import PARGPTConfig, load_and_validate_config
 
 
 def load_environment() -> None:
@@ -80,6 +81,68 @@ def validate_provider_api_key(ai_provider: LlmProvider, console: Console | None 
         if not os.environ.get(key_name):
             console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
             raise typer.Exit(1)
+
+
+def validate_and_load_config(**cli_args: Any) -> tuple[PARGPTConfig, list[str]]:
+    """Validate and load configuration from environment and CLI arguments.
+
+    Args:
+        **cli_args: CLI arguments to override environment settings.
+
+    Returns:
+        Tuple of (validated_config, warnings_list).
+    """
+    try:
+        config, warnings = load_and_validate_config(**cli_args)
+        return config, warnings
+    except Exception as e:
+        console_err.print(f"[bold red]Configuration validation failed: {e}[/bold red]")
+        # Return default config with error warning
+        return PARGPTConfig(), [f"Configuration error: {e}"]
+
+
+def validate_configuration_compatibility(config: PARGPTConfig, console: Console | None = None) -> None:
+    """Validate configuration compatibility and show warnings.
+
+    Args:
+        config: Validated configuration to check.
+        console: Console for output (optional).
+    """
+    if console is None:
+        console = console_err
+
+    # Import migration utilities for compatibility checks
+    from par_gpt.utils.config_migration import validate_migration_compatibility
+
+    warnings = validate_migration_compatibility(config)
+
+    for warning in warnings:
+        console.print(f"[yellow]Configuration warning: {warning}[/yellow]")
+
+
+def show_config_summary(config: PARGPTConfig, console: Console | None = None) -> None:
+    """Show a summary of the current configuration.
+
+    Args:
+        config: Configuration to summarize.
+        console: Console for output (optional).
+    """
+    if console is None:
+        console = console_err
+
+    from rich.panel import Panel
+    from rich.table import Table
+
+    summary = config.get_summary()
+
+    table = Table(title="Configuration Summary")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+
+    for key, value in summary.items():
+        table.add_row(key.replace("_", " ").title(), str(value))
+
+    console.print(Panel(table, title="PAR GPT Configuration", border_style="blue"))
 
 
 def get_model_for_context(

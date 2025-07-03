@@ -102,6 +102,7 @@ class EnvironmentConfig(BaseSettings):
     # Vector Store
     vector_store_url: str | None = Field(default=None, alias="VECTOR_STORE_URL")
 
+    # noinspection PyNestedDecorators
     @field_validator("redis_port", "neo4j_port")
     @classmethod
     def validate_port(cls, v: int) -> int:
@@ -110,6 +111,7 @@ class EnvironmentConfig(BaseSettings):
             raise ValueError(f"Port must be between 1 and 65535, got {v}")
         return v
 
+    # noinspection PyNestedDecorators
     @field_validator("temperature")
     @classmethod
     def validate_temperature(cls, v: float) -> float:
