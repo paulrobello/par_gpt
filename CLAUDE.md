@@ -33,8 +33,19 @@ make package        # Build the package
 
 ## Architecture and Key Components
 
-### Core Application Structure
-- **Entry Point**: `src/par_gpt/__main__.py` - Main Typer CLI application
+### Core Application Structure (Refactored v0.13.0+)
+- **Entry Point**: `src/par_gpt/__main__.py` - Simplified entry point (39 lines, down from 2060)
+- **CLI Infrastructure**: `src/par_gpt/cli/` - Modular CLI components
+  - `app.py` - Main Typer app setup and global callback
+  - `options.py` - Centralized CLI option definitions
+  - `config.py` - Configuration setup and validation
+  - `context.py` - Context processing (files, URLs, images, stdin)
+  - `security.py` - Path validation and security checks
+- **Commands**: `src/par_gpt/commands/` - Individual command implementations
+  - `base.py` - Base command class with common patterns (mixins for LLM, loops, chat history)
+  - `llm.py`, `agent.py` - Core LLM and agent commands
+  - `git.py`, `code_review.py`, `generate_prompt.py` - Specialized commands
+  - `sandbox.py`, `stardew.py`, `utils.py` - Utility commands
 - **Agent System**: `src/par_gpt/agents.py` - AI agent implementations with dynamic tool loading
 - **Tool System**: `src/par_gpt/ai_tools/` - Keyword-activated tools for agent mode
 - **Provider Layer**: Uses `par-ai-core` for multi-provider AI model abstraction
@@ -62,6 +73,46 @@ Tools are dynamically loaded based on keywords in user requests:
 
 ## Common Development Patterns
 
+### Adding New CLI Commands (Refactored v0.13.0+)
+
+**Command Implementation Pattern:**
+1. Create command file in `src/par_gpt/commands/my_command.py`
+2. Inherit from `BaseCommand` and appropriate mixins:
+   ```python
+   from par_gpt.commands.base import BaseCommand, LLMCommandMixin, LoopableCommandMixin
+   
+   class MyCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin):
+       def execute(self, ctx: typer.Context, my_option: bool) -> None:
+           state = ctx.obj
+           # Implementation here
+   ```
+3. Create command function:
+   ```python
+   def create_my_command():
+       def my_command(ctx: typer.Context, my_option: bool = False) -> None:
+           command = MyCommand()
+           command.execute(ctx, my_option)
+       return my_command
+   ```
+4. Register in `src/par_gpt/__main__.py`:
+   ```python
+   from par_gpt.commands.my_command import create_my_command
+   app.command()(create_my_command())
+   ```
+
+**Available Command Mixins:**
+- **BaseCommand**: Core functionality, error handling, console management
+- **LLMCommandMixin**: LLM configuration, model building, provider callbacks
+- **LoopableCommandMixin**: Interactive loops, prompt handling, output management
+- **ChatHistoryMixin**: Chat history loading, saving, validation
+
+**CLI Infrastructure Components (v0.13.0+):**
+- **`cli/options.py`**: All CLI option definitions with defaults
+- **`cli/config.py`**: Configuration setup and validation logic
+- **`cli/context.py`**: Context processing (files, URLs, images, stdin)
+- **`cli/security.py`**: Security validation and mutual exclusivity checks
+- **`cli/app.py`**: Main Typer app and global callback (512 lines)
+
 ### Adding New AI Tools
 1. Create tool class in `src/par_gpt/ai_tools/ai_tools.py`
 2. Add keyword mapping in agent's tool loading logic
@@ -81,8 +132,9 @@ The screen capture functionality demonstrates a complete tool implementation pat
 - `ai_capture_screen_image()` - Tool for capturing screen with auto-detection and LLM description
 - Circular import handling using `importlib.util.spec_from_file_location`
 
-**Tool Registration (`src/par_gpt/__main__.py`)**:
-- Import tools in main module
+**Tool Registration (Refactored v0.13.0+)**:
+- Tools loaded dynamically in `src/par_gpt/lazy_tool_loader.py`
+- Command registration in `src/par_gpt/__main__.py` (now 39 lines)
 - Add keyword-based loading in `build_ai_tool_list()` function
 - Keywords: "screen", "display", "capture", "screenshot"
 
@@ -194,10 +246,10 @@ PAR GPT implements a complete lazy loading system that reduces startup time by 2
 - GitHub API operations - complete lazy loading pattern
 - All other heavy imports already properly lazy loaded
 
-**Main Application** (`__main__.py`):
-- Helper functions for cross-function lazy imports
-- Fixed scoping issues with path security functions
-- Proper import organization and error handling
+**Main Application** (`__main__.py`) - Refactored v0.13.0+:
+- Now 39 lines (down from 2060), pure command registration
+- CLI infrastructure moved to `cli/` module
+- Command implementations moved to `commands/` module
 
 #### **Extended LazyImportManager Categories:**
 - `load_tts_imports()` - TTS provider dependencies
@@ -538,6 +590,24 @@ par_gpt --yes-to-all --debug agent        # Automated with debug output for trou
 ```
 
 ## Recent Improvements (v0.12.2+)
+
+### Architecture Refactoring (v0.13.0)
+- **Monolithic File Breakdown**: Refactored 2060-line `__main__.py` into modular architecture
+  - **98% Size Reduction**: Main entry point now 39 lines (down from 2060)
+  - **CLI Infrastructure Module**: Created `src/par_gpt/cli/` with specialized modules
+    - `options.py` - Centralized CLI option definitions with defaults
+    - `config.py` - Configuration setup and validation logic (functions extracted)
+    - `context.py` - Context processing for files, URLs, images, stdin
+    - `security.py` - Security validation and mutual exclusivity checks
+    - `app.py` - Main Typer app setup with global callback (512 lines)
+  - **Commands Module**: Created `src/par_gpt/commands/` with command pattern architecture
+    - `base.py` - BaseCommand class with reusable mixins (267 lines)
+    - Individual command files (llm.py, agent.py, git.py, etc.)
+    - Mixins: LLMCommandMixin, LoopableCommandMixin, ChatHistoryMixin
+- **Preserved Functionality**: All existing features, lazy loading optimizations, and security measures maintained
+- **Command Pattern**: Consistent architecture for adding new CLI commands with inheritance
+- **Separation of Concerns**: Clear boundaries between CLI infrastructure and business logic
+- **Maintainability**: Dramatically improved code organization and readability
 
 ### Complete Lazy Loading Implementation (v0.12.2+)
 - **Comprehensive Lazy Loading Conversion**: Completed system-wide lazy loading implementation
