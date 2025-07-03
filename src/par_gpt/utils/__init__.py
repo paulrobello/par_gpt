@@ -148,6 +148,7 @@ def __getattr__(name: str):
         "capture_window_image": lambda: _import_from_original_utils("capture_window_image"),
         "describe_image_with_llm": lambda: _import_from_original_utils("describe_image_with_llm"),
         "image_gen_dali": lambda: _import_from_original_utils("image_gen_dali"),
+        "update_pyproject_deps": lambda: _import_from_original_utils("update_pyproject_deps"),
     }
 
     if name in utils_maps:
@@ -238,4 +239,5 @@ __all__ = [
     "capture_window_image",
     "describe_image_with_llm",
     "image_gen_dali",
+    "update_pyproject_deps",
 ]

@@ -118,8 +118,14 @@ class ContextProcessor:
 
         # Helper function to show image in terminal
         def show_image_in_terminal_helper(image_path: Path) -> None:
-            """Basic image display - functionality limited due to import restrictions."""
-            self.console.print(f"[dim]Image at: {image_path}[/dim]")
+            """Display image in terminal using the real implementation."""
+            try:
+                show_image_in_terminal = lazy_import("par_gpt.utils", "show_image_in_terminal")
+                show_image_in_terminal(image_path, console=self.console)
+            except ImportError:
+                self.console.print(f"[dim]Image at: {image_path}[/dim]")
+            except Exception:
+                self.console.print(f"[dim]Image available at: {image_path}[/dim]")
 
         from par_utils import timer
 

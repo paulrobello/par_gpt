@@ -37,10 +37,27 @@ class UpdateDepsCommand(BaseCommand):
             self.console.print("[bold red]Cannot specify both --dev-only and --main-only")
             raise typer.Exit(1)
 
-        # Basic implementation - functionality limited due to import restrictions
-        self.console.print(
-            "[yellow]Dependency update functionality not fully available due to import restrictions[/yellow]"
-        )
+        # Import the actual implementation from utils
+        try:
+            update_pyproject_deps = lazy_import("par_gpt.utils", "update_pyproject_deps")
+
+            # Call the actual implementation
+            update_pyproject_deps(
+                do_uv_update=not no_uv_update,
+                console=self.console,
+                dev_only=dev_only,
+                main_only=main_only,
+                dry_run=dry_run,
+                skip_packages=skip_packages,
+            )
+        except ImportError as e:
+            self.console.print(f"[bold red]Import error: {e}")
+            self.console.print("[yellow]Falling back to manual dependency update...")
+            self.console.print("[cyan]Please run: make depsupdate")
+            raise typer.Exit(1)
+        except Exception as e:
+            self.console.print(f"[bold red]Error updating dependencies: {e}")
+            raise typer.Exit(1)
 
 
 class PublishRepoCommand(BaseCommand):
@@ -48,9 +65,21 @@ class PublishRepoCommand(BaseCommand):
 
     def execute(self, ctx: typer.Context, repo_name: str | None, public: bool) -> None:
         """Execute the publish repo command."""
-        # Basic implementation - functionality limited due to import restrictions
-        result = f"GitHub repo publishing not fully available: repo_name={repo_name}, public={public}"
-        self.console.print(result)
+        # Import the actual implementation from utils
+        try:
+            github_publish_repo = lazy_import("par_gpt.utils", "github_publish_repo")
+
+            # Call the actual implementation
+            result = github_publish_repo(repo_name=repo_name, public=public)
+            self.console.print(result)
+        except ImportError as e:
+            self.console.print(f"[bold red]Import error: {e}")
+            self.console.print("[yellow]GitHub publishing functionality not available...")
+            self.console.print("[cyan]Please check your GitHub configuration and credentials")
+            raise typer.Exit(1)
+        except Exception as e:
+            self.console.print(f"[bold red]Error publishing to GitHub: {e}")
+            raise typer.Exit(1)
 
 
 class TinifyCommand(BaseCommand):
