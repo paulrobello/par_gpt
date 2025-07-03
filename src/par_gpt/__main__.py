@@ -10,63 +10,30 @@ from io import StringIO
 from pathlib import Path
 from typing import Annotated, cast
 
-import clipman as clipboard
-import orjson as json
 import typer
-from dotenv import load_dotenv
+from par_ai_core.llm_config import LlmMode, ReasoningEffort
 
-# Most langchain imports moved to lazy_tool_loader.py for performance
-from par_ai_core.llm_config import LlmConfig, LlmMode, ReasoningEffort, llm_run_manager
-from par_ai_core.llm_image_utils import (
-    UnsupportedImageTypeError,
-    image_to_base64,
-    try_get_image_type,
-)
-from par_ai_core.llm_providers import (
-    LlmProvider,
-    is_provider_api_key_set,
-    provider_base_urls,
-    provider_default_models,
-    provider_env_key_names,
-    provider_light_models,
-    provider_vision_models,
-)
-from par_ai_core.output_utils import DisplayOutputFormat, display_formatted_output
+# Type annotations needed for CLI - these are lightweight
+from par_ai_core.llm_providers import LlmProvider
+from par_ai_core.output_utils import DisplayOutputFormat
 from par_ai_core.par_logging import console_err
-from par_ai_core.pricing_lookup import PricingDisplay, show_llm_cost
-from par_ai_core.provider_cb_info import get_parai_callback
-from par_ai_core.utils import (
-    get_file_list_for_context,
-    has_stdin_content,
-)
-from par_ai_core.web_tools import fetch_url_and_convert_to_markdown
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.pretty import Pretty
-from rich.prompt import Prompt
-from rich.text import Text
-
-# rich_pixels moved to where it's needed for better startup performance
+from par_ai_core.pricing_lookup import PricingDisplay
 from strenum import StrEnum
 
+# Essential imports for CLI and app metadata
 from par_gpt import __application_binary__, __application_title__, __env_var_prefix__, __version__
-from par_gpt.agent_messages import get_random_message
-from par_gpt.agents import do_code_review_agent, do_prompt_generation_agent, do_single_llm_call, do_tool_agent
 
-# AI tools are now loaded lazily via lazy_tool_loader.py to improve startup time
-from par_gpt.cache_manager import cache_manager
-from par_gpt.lazy_tool_loader import build_ai_tool_list
-from par_gpt.profiling.profile_tools import ProfileAnalysisError, process_profile
-from par_gpt.repo.repo import GitRepo
-from par_gpt.tts_manager import TTSManger, TTSProvider, summarize_for_tts
-from par_gpt.utils.path_security import (
-    PathSecurityError,
-    sanitize_filename,
-    validate_relative_path,
-    validate_within_base,
-)
-from par_gpt.voice_input_manager import VoiceInputManager
-from sandbox import SandboxAction, install_sandbox, start_sandbox, stop_sandbox
+# Import the lazy import manager for command-specific loading
+from par_gpt.lazy_import_manager import lazy_import
+
+# TTS types (lightweight enum)
+from par_gpt.tts_manager import TTSProvider
+
+# Path security exception for error handling
+from par_gpt.utils.path_security import PathSecurityError
+
+# Import types needed for command annotations
+from sandbox import SandboxAction
 
 
 # Temporary basic implementations to avoid circular import issues
@@ -118,8 +85,8 @@ app = typer.Typer()
 console = console_err
 
 
-# Load environment variables before CLI parsing so .env file affects argument defaults
-load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
+# Environment loading moved to after command determination for better startup performance
+# Will be loaded in main() callback when needed
 
 
 class LoopMode(StrEnum):
@@ -410,6 +377,17 @@ def main(
     """
     PAR GPT Global Options
     """
+    # Load environment variables lazily after command is determined
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(f"~/.{__application_binary__}.env").expanduser())
+
+    # Initialize globals based on command type
+    from par_gpt.lazy_import_manager import initialize_globals_for_command
+
+    command = ctx.invoked_subcommand or "help"
+    initialize_globals_for_command(command)
+
     # Set Redis enabled flag early to prevent connection attempts when disabled
     from par_gpt.utils.redis_manager import set_redis_enabled
 
@@ -477,6 +455,8 @@ def main(
             os.environ[f"{__env_var_prefix__}_REDIS_PORT"] = str(redis_port)
 
     if ai_provider not in [LlmProvider.OLLAMA, LlmProvider.LLAMACPP, LlmProvider.BEDROCK, LlmProvider.LITELLM]:
+        # Lazy load provider utilities
+        provider_env_key_names = lazy_import("par_ai_core.llm_providers", "provider_env_key_names")
         key_name = provider_env_key_names[ai_provider]
         if not os.environ.get(key_name):
             console.print(f"[bold red]{key_name} environment variable not set. Exiting...")
@@ -487,6 +467,8 @@ def main(
         raise typer.Exit(1)
 
     if copy_from_clipboard:
+        # Lazy load clipboard functionality
+        clipboard = lazy_import('clipman')
         cv = clipboard.paste()
         if not cv:
             console.print("[bold red]Failed to copy from clipboard. Exiting...")
@@ -508,6 +490,8 @@ def main(
                 raise typer.Exit(1)
             # For relative paths, validate them
             if not Path(context_location).is_absolute():
+                # Lazy load path security functions
+                validate_relative_path = lazy_import("par_gpt.utils.path_security", "validate_relative_path")
                 validate_relative_path(context_location, max_depth=5)
             context_is_file = Path(context_location).is_file()
         except PathSecurityError as e:
@@ -526,6 +510,8 @@ def main(
         context_location = ""
 
     sio_all: StringIO = StringIO()
+    # Lazy load stdin utilities
+    has_stdin_content = lazy_import("par_ai_core.utils", "has_stdin_content")
     if not context_location and not copy_from_clipboard and has_stdin_content():
         console.print("[bold green]Context is stdin and will be read...")
         for line in sys.stdin:
@@ -541,6 +527,12 @@ def main(
             with timer("context_processing"):
                 if context_is_url:
                     try:
+                        # Lazy load image utilities
+                        try_get_image_type = lazy_import('par_ai_core.llm_image_utils', 'try_get_image_type')
+                        image_to_base64 = lazy_import('par_ai_core.llm_image_utils', 'image_to_base64')
+                        UnsupportedImageTypeError = lazy_import('par_ai_core.llm_image_utils', 'UnsupportedImageTypeError')
+                        cache_manager = lazy_import('par_gpt.cache_manager', 'cache_manager')
+                        
                         image_type = try_get_image_type(context_location)
                         console.print(f"[bold green]Image type {image_type} detected.")
                         image_path = cache_manager.download(context_location)
@@ -548,9 +540,17 @@ def main(
                         context_is_image = True
                         show_image_in_terminal(image_path)
                     except UnsupportedImageTypeError as _:
+                        # Lazy load web utilities
+                        fetch_url_and_convert_to_markdown = lazy_import('par_ai_core.web_tools', 'fetch_url_and_convert_to_markdown')
                         context = fetch_url_and_convert_to_markdown(context_location)[0].strip()
                 else:
                     try:
+                        # Lazy load image utilities (if not already loaded)
+                        if 'try_get_image_type' not in locals():
+                            try_get_image_type = lazy_import('par_ai_core.llm_image_utils', 'try_get_image_type')
+                            image_to_base64 = lazy_import('par_ai_core.llm_image_utils', 'image_to_base64')
+                            UnsupportedImageTypeError = lazy_import('par_ai_core.llm_image_utils', 'UnsupportedImageTypeError')
+                        
                         image_type = try_get_image_type(context_location)
                         console.print(f"[bold green]Image type {image_type} detected.")
                         image_path = Path(context_location)
@@ -586,13 +586,19 @@ def main(
             model = "gpt-image-1"
             model_type = "image-gen"
         elif light_model:
+            # Lazy load light models
+            provider_light_models = lazy_import("par_ai_core.llm_providers", "provider_light_models")
             model = provider_light_models[ai_provider]
             model_type = "light"
         else:
             if context_is_image:
+                # Lazy load vision models
+                provider_vision_models = lazy_import("par_ai_core.llm_providers", "provider_vision_models")
                 model = provider_vision_models[ai_provider]
                 model_type = "vision"
             else:
+                # Lazy load provider models
+                provider_default_models = lazy_import("par_ai_core.llm_providers", "provider_default_models")
                 model = provider_default_models[ai_provider]
                 model_type = "default"
         if not model:
@@ -602,12 +608,16 @@ def main(
         console.print(f"[bold green]Auto selected {model_type} model: {model}")
 
     if ai_base_url == "none":
+        # Lazy load provider base URLs
+        provider_base_urls = lazy_import("par_ai_core.llm_providers", "provider_base_urls")
         ai_base_url = provider_base_urls[ai_provider]
 
     if show_times or show_times_detailed:
         from par_gpt.utils.timing import timer
 
         with timer("llm_config_setup"):
+            # Lazy load LLM configuration
+            LlmConfig = lazy_import("par_ai_core.llm_config", "LlmConfig")
             llm_config = LlmConfig(
                 mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
                 provider=ai_provider,
@@ -623,6 +633,8 @@ def main(
                 reasoning_budget=reasoning_budget,
             ).set_env()
     else:
+        # Lazy load LLM configuration
+        LlmConfig = lazy_import("par_ai_core.llm_config", "LlmConfig")
         llm_config = LlmConfig(
             mode=LlmMode.BASE if ctx.invoked_subcommand in ["stardew"] else LlmMode.CHAT,
             provider=ai_provider,
@@ -834,6 +846,8 @@ def llm(
     chat_history = []
     history_file: Path | None = state["history_file"]
     if history_file and history_file.is_file():
+        # Lazy load JSON functionality
+        json = lazy_import("orjson")
         chat_history = json.loads(history_file.read_bytes() or "[]")
         console.print("Loaded chat history from:", history_file)
         if chat_history and chat_history[0][0] == "system":
@@ -854,6 +868,8 @@ def llm(
             chat_model = state["llm_config"].build_chat_model()
 
         env_info = mk_env_context({}, console)
+        # Lazy load provider callback
+        get_parai_callback = lazy_import('par_ai_core.provider_cb_info', 'get_parai_callback')
         with get_parai_callback(
             show_end=state["debug"],
             show_tool_calls=state["debug"],
@@ -863,10 +879,14 @@ def llm(
         ) as cb:
             while True:
                 while not question:
+                    # Lazy load Rich prompt
+                    Prompt = lazy_import('rich.prompt', 'Prompt')
                     question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                     if question.lower() == "exit":
                         return
 
+                # Lazy load LLM call function
+                do_single_llm_call = lazy_import('par_gpt.agents', 'do_single_llm_call')
                 content, thinking, result = do_single_llm_call(
                     chat_model=chat_model,
                     user_input=question,
@@ -894,11 +914,18 @@ def llm(
                     console.print("[bold green]Copied to clipboard")
 
                 if state["debug"]:
+                    # Lazy load Rich components
+                    Panel = lazy_import('rich.panel', 'Panel')
+                    Pretty = lazy_import('rich.pretty', 'Pretty')
                     console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
                 if thinking and state["display_format"] != DisplayOutputFormat.NONE:
+                    if 'Panel' not in locals():
+                        Panel = lazy_import('rich.panel', 'Panel')
                     console.print(Panel(thinking, title="thinking", style="cyan"))
 
+                # Lazy load output formatting
+                display_formatted_output = lazy_import('par_ai_core.output_utils', 'display_formatted_output')
                 display_formatted_output(content, state["display_format"], console=console)
                 if state["tts_man"]:
                     state["tts_man"].speak(content)

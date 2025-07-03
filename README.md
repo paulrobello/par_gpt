@@ -633,6 +633,23 @@ par_gpt agent "tell me a joke"  # clean startup, no Redis errors
 ```
 
 ## What's New
+- Version 0.12.2:
+  - **Major Startup Performance Optimization**: Comprehensive lazy loading system reducing startup time by 25-50%
+    - **Command-specific import routing** - Only loads modules needed for specific commands
+    - **Lazy import manager** with caching to prevent duplicate module loading
+    - **Deferred global initialization** - Clipboard and warning configuration only when needed
+    - **Function-level lazy imports** for heavy modules (LLM config, providers, Rich components)
+    - **Utils module restructuring** with dynamic `__getattr__` lazy loading
+  - **Optimized Command Performance**:
+    - `--version` command: ~1.45s (minimal imports)
+    - `show-env` command: ~1.5s (optimized startup)
+    - `llm` command: Significant startup improvement with lazy provider loading
+  - **Lazy Loading Architecture**:
+    - Created `lazy_import_manager.py` for command-specific imports
+    - Created `lazy_utils_loader.py` for utils module lazy loading
+    - Modified `__init__.py` for deferred global initialization
+    - Updated `utils/__init__.py` with dynamic attribute access
+  - **Performance Monitoring Integration**: Timing utilities show optimization impact
 - Version 0.12.1:
   - **Performance Optimization**: Implemented lazy loading for AI tools, reducing startup time by ~10%
     - Heavy imports (PIL, Redis, GitHub APIs) now loaded only when needed

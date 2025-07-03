@@ -5,26 +5,45 @@ from __future__ import annotations
 import os
 import warnings
 
-import clipman
-from langchain_core._api import LangChainBetaWarning
+# Defer global initializations to lazy loading for better startup performance
+_clipman_initialized = False
+_warnings_configured = False
 
-# Import and suppress LangChain deprecation warnings
-try:
-    from langchain_core._api import LangChainDeprecationWarning
 
-    warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
-except ImportError:
-    pass
+def _init_clipman():
+    """Initialize clipboard manager lazily."""
+    global _clipman_initialized
+    if not _clipman_initialized:
+        try:
+            import clipman
 
-warnings.simplefilter("ignore", category=LangChainBetaWarning)
-warnings.simplefilter("ignore", category=DeprecationWarning)
-# Specifically suppress LangChain deprecation warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain.*")
+            clipman.init()
+        except Exception as _:
+            pass
+        _clipman_initialized = True
 
-try:
-    clipman.init()
-except Exception as _:
-    pass
+
+def _configure_warnings():
+    """Configure warnings lazily."""
+    global _warnings_configured
+    if not _warnings_configured:
+        try:
+            from langchain_core._api import LangChainBetaWarning, LangChainDeprecationWarning
+
+            warnings.simplefilter("ignore", category=LangChainDeprecationWarning)
+            warnings.simplefilter("ignore", category=LangChainBetaWarning)
+        except ImportError:
+            pass
+
+        warnings.simplefilter("ignore", category=DeprecationWarning)
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain.*")
+        _warnings_configured = True
+
+
+def ensure_initialized():
+    """Ensure all global initialization is done."""
+    _configure_warnings()
+    _init_clipman()
 
 
 __author__ = "Paul Robello"
