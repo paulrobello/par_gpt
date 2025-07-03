@@ -10,7 +10,15 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
-from par_gpt.lazy_import_manager import lazy_import
+from par_utils import LazyImportManager
+
+# Create a global lazy import manager instance
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 class BaseCommand(ABC):
@@ -45,7 +53,7 @@ class BaseCommand(ABC):
 
     def build_chat_model_with_timing(self, state: dict[str, Any]) -> Any:
         """Build chat model with timing."""
-        from par_gpt.utils.timing import timer
+        from par_utils import timer
 
         with timer("build_chat_model"):
             return state["llm_config"].build_chat_model()
@@ -126,9 +134,9 @@ class BaseCommand(ABC):
     def show_timing_summary(self, state: dict[str, Any]) -> None:
         """Show timing summary if requested."""
         if state.get("show_times") or state.get("show_times_detailed"):
-            from par_gpt.utils.timing import print_timing_summary
+            from par_utils import show_timing_summary
 
-            print_timing_summary(detailed=state.get("show_times_detailed", False))
+            show_timing_summary(detailed=state.get("show_times_detailed", False))
 
     def handle_exception(self, e: Exception, state: dict[str, Any]) -> None:
         """Handle command exceptions consistently."""
@@ -164,7 +172,7 @@ class LLMCommandMixin:
     ) -> tuple[str, str, Any]:
         """Perform a single LLM call with timing."""
         do_single_llm_call = lazy_import("par_gpt.agents", "do_single_llm_call")
-        from par_gpt.utils.timing import timer
+        from par_utils import timer
 
         with timer("llm_invoke"):
             return do_single_llm_call(
@@ -206,7 +214,10 @@ class LoopableCommandMixin:
             else:
                 while not question:
                     Prompt = lazy_import("rich.prompt", "Prompt")
-                    question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
+                    from par_utils import user_timer
+                    
+                    with user_timer("user_input_prompt"):
+                        question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                     if question.lower() == "exit":
                         return
 

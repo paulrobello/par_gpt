@@ -13,7 +13,10 @@ from par_ai_core.par_logging import console_err
 from rich.console import Console
 from rich_pixels import Pixels
 
-from par_gpt.cache_manager import cache_manager
+from par_utils import CacheManager
+
+# Create cache manager instance for backward compatibility
+cache_manager = CacheManager()
 
 
 class ImageProcessor:

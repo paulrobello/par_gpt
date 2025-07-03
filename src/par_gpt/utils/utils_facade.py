@@ -31,7 +31,10 @@ class UtilsFacade:
 
         try:
             # Import from the utils package using lazy import manager
-            from par_gpt.lazy_import_manager import lazy_import
+            from par_utils import LazyImportManager
+
+            _lazy_import_manager = LazyImportManager()
+            lazy_import = _lazy_import_manager.get_cached_import
 
             # Try to get function from utils module
             utils_func = lazy_import("par_gpt.utils", function_name)

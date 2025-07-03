@@ -29,8 +29,16 @@ from par_gpt.cli.config import (
 from par_gpt.cli.context import ContextProcessor
 from par_gpt.cli.options import GLOBAL_OPTION_DEFAULTS, LoopMode
 from par_gpt.cli.security import check_mutual_exclusivity
-from par_gpt.lazy_import_manager import lazy_import
 from par_gpt.tts_manager import TTSProvider
+from par_utils import LazyImportManager
+
+# Create a global lazy import manager instance
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 def version_callback(value: bool) -> None:
@@ -386,7 +394,7 @@ def main(
     ai_base_url = get_base_url(ai_provider, ai_base_url)
 
     # Create LLM config with timing
-    from par_gpt.utils.timing import timer
+    from par_utils import timer
 
     with timer("llm_config_setup"):
         llm_config = create_llm_config(

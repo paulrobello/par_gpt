@@ -1,7 +1,7 @@
 """Timing utilities for performance measurement and profiling.
 
 This module provides utilities for measuring and reporting execution times of various
-operations in PAR GPT. It includes context managers, decorators, and a global timing
+operations. It includes context managers, decorators, and a global timing
 registry for collecting performance metrics.
 """
 
@@ -31,6 +31,7 @@ class TimingData:
     parent: str | None = None
     children: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    category: str = "processing"  # "processing" or "user_interaction"
 
     @property
     def is_complete(self) -> bool:
@@ -87,12 +88,13 @@ class TimingRegistry:
         self._timings.clear()
         self._stack.clear()
 
-    def start_timing(self, name: str, metadata: dict[str, Any] | None = None) -> str:
+    def start_timing(self, name: str, metadata: dict[str, Any] | None = None, category: str = "processing") -> str:
         """Start timing an operation.
 
         Args:
             name: Name of the operation being timed
             metadata: Optional metadata to associate with the timing
+            category: Category of the operation ("processing" or "user_interaction")
 
         Returns:
             Unique identifier for the timing operation
@@ -111,7 +113,13 @@ class TimingRegistry:
         parent = self._stack[-1] if self._stack else None
 
         # Create timing data
-        timing_data = TimingData(name=name, start_time=time.perf_counter(), parent=parent, metadata=metadata or {})
+        timing_data = TimingData(
+            name=name,
+            start_time=time.perf_counter(),
+            parent=parent,
+            metadata=metadata or {},
+            category=category,
+        )
 
         self._timings[unique_id] = timing_data
 
@@ -174,6 +182,49 @@ class TimingRegistry:
                     summary[name] = duration
         return summary
 
+    def get_summary_by_category(self, category: str) -> dict[str, float]:
+        """Get summary of completed timings filtered by category.
+
+        Args:
+            category: Category to filter by ("processing" or "user_interaction")
+
+        Returns:
+            Dictionary mapping operation names to total durations for the category
+        """
+        summary = {}
+        for timing in self._timings.values():
+            if timing.is_complete and timing.category == category:
+                name = timing.name
+                duration = timing.duration or 0.0
+                if name in summary:
+                    summary[name] += duration
+                else:
+                    summary[name] = duration
+        return summary
+
+    def get_total_by_category(self, category: str) -> float:
+        """Get total duration for a specific category.
+
+        Args:
+            category: Category to sum ("processing" or "user_interaction")
+
+        Returns:
+            Total duration in seconds for the category
+        """
+        total = 0.0
+        for timing in self._timings.values():
+            if timing.is_complete and timing.category == category:
+                total += timing.duration or 0.0
+        return total
+
+    def get_processing_total(self) -> float:
+        """Get total duration excluding user interaction time."""
+        return self.get_total_by_category("processing")
+
+    def get_user_interaction_total(self) -> float:
+        """Get total duration of user interaction time."""
+        return self.get_total_by_category("user_interaction")
+
     def print_summary(self, detailed: bool = False) -> None:
         """Print timing summary to console.
 
@@ -223,31 +274,69 @@ class TimingRegistry:
 
             table.add_row(name, f"{total:.3f}s", str(count), f"{average:.3f}s")
 
-        # Add separator and grand total
+        # Add separator and grand totals
         if sorted_ops:
             table.add_section()
             overall_average = grand_total / total_operations if total_operations > 0 else 0.0
+            
+            # Calculate processing and user interaction totals
+            processing_total = self.get_processing_total()
+            user_interaction_total = self.get_user_interaction_total()
+            
+            # Grand Total (All Operations)
             table.add_row(
-                "[bold]Grand Total[/bold]",
+                "[bold]Grand Total (All)[/bold]",
                 f"[bold]{grand_total:.3f}s[/bold]",
                 f"[bold]{total_operations}[/bold]",
                 f"[bold]{overall_average:.3f}s[/bold]",
             )
+            
+            # Processing Total (Excluding User Wait Time)
+            if processing_total > 0.0:
+                processing_ops = sum(1 for t in self._timings.values() 
+                                   if t.is_complete and t.category == "processing")
+                processing_avg = processing_total / processing_ops if processing_ops > 0 else 0.0
+                table.add_row(
+                    "[bold green]Processing Total[/bold green]",
+                    f"[bold green]{processing_total:.3f}s[/bold green]",
+                    f"[bold green]{processing_ops}[/bold green]",
+                    f"[bold green]{processing_avg:.3f}s[/bold green]",
+                )
+            
+            # User Interaction Total (if any)
+            if user_interaction_total > 0.0:
+                user_ops = sum(1 for t in self._timings.values() 
+                             if t.is_complete and t.category == "user_interaction")
+                user_avg = user_interaction_total / user_ops if user_ops > 0 else 0.0
+                table.add_row(
+                    "[bold yellow]User Wait Time[/bold yellow]",
+                    f"[bold yellow]{user_interaction_total:.3f}s[/bold yellow]",
+                    f"[bold yellow]{user_ops}[/bold yellow]",
+                    f"[bold yellow]{user_avg:.3f}s[/bold yellow]",
+                )
 
         self._console.print(table)
 
     def _print_detailed_summary(self) -> None:
         """Print detailed hierarchical timing summary."""
-        # Calculate grand total
+        # Calculate totals
         grand_total = 0.0
         total_operations = 0
+        processing_total = self.get_processing_total()
+        user_interaction_total = self.get_user_interaction_total()
 
         for timing in self._timings.values():
             if timing.is_complete:
                 grand_total += timing.duration or 0.0
                 total_operations += 1
 
-        tree = Tree(f"Timing Details (Grand Total: {grand_total:.3f}s, {total_operations} operations)")
+        # Create title with both totals
+        title = f"Timing Details (Grand Total: {grand_total:.3f}s, {total_operations} operations"
+        if user_interaction_total > 0.0:
+            title += f" | Processing: {processing_total:.3f}s | User Wait: {user_interaction_total:.3f}s"
+        title += ")"
+        
+        tree = Tree(title)
 
         # Build tree from root timings
         root_timings = self.get_root_timings()
@@ -304,18 +393,24 @@ def get_timing_summary() -> dict[str, float]:
     return _timing_registry.get_summary()
 
 
-def print_timing_summary(detailed: bool = False) -> None:
+def show_timing_summary(detailed: bool = False) -> None:
     """Print timing summary to console."""
     _timing_registry.print_summary(detailed=detailed)
 
 
+def show_timing_details() -> None:
+    """Print detailed timing information to console."""
+    _timing_registry.print_summary(detailed=True)
+
+
 @contextmanager
-def timer(name: str, metadata: dict[str, Any] | None = None) -> Generator[str, None, None]:
+def timer(name: str, metadata: dict[str, Any] | None = None, category: str = "processing") -> Generator[str, None, None]:
     """Context manager for timing operations.
 
     Args:
         name: Name of the operation being timed
         metadata: Optional metadata to associate with the timing
+        category: Category of the operation ("processing" or "user_interaction")
 
     Yields:
         Unique timing identifier
@@ -324,8 +419,34 @@ def timer(name: str, metadata: dict[str, Any] | None = None) -> Generator[str, N
         with timer("database_query", {"query": "SELECT * FROM users"}):
             # Your code here
             pass
+        
+        with timer("user_prompt", category="user_interaction"):
+            # User input here
+            pass
     """
-    timing_id = _timing_registry.start_timing(name, metadata)
+    timing_id = _timing_registry.start_timing(name, metadata, category)
+    try:
+        yield timing_id
+    finally:
+        _timing_registry.end_timing(timing_id)
+
+
+@contextmanager
+def user_timer(name: str, metadata: dict[str, Any] | None = None) -> Generator[str, None, None]:
+    """Context manager for timing user interactions.
+
+    Args:
+        name: Name of the user interaction being timed
+        metadata: Optional metadata to associate with the timing
+
+    Yields:
+        Unique timing identifier
+
+    Example:
+        with user_timer("user_confirmation"):
+            response = input("Do you want to continue? ")
+    """
+    timing_id = _timing_registry.start_timing(name, metadata, "user_interaction")
     try:
         yield timing_id
     finally:

@@ -9,7 +9,15 @@ import typer
 from par_gpt import __env_var_prefix__
 from par_gpt.cli.options import AGENT_OPTION_DEFAULTS
 from par_gpt.commands.base import BaseCommand, ChatHistoryMixin, LoopableCommandMixin
-from par_gpt.lazy_import_manager import lazy_import
+from par_utils import LazyImportManager
+
+# Create a global lazy import manager instance
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):

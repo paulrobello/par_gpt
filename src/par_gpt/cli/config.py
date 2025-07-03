@@ -13,9 +13,17 @@ from par_ai_core.par_logging import console_err
 from rich.console import Console
 
 from par_gpt import __application_binary__, __env_var_prefix__
-from par_gpt.lazy_import_manager import lazy_import
+from par_gpt.lazy_import_manager import PARGPTLazyImportManager
 from par_gpt.tts_manager import TTSProvider
 from par_gpt.utils.config_validation import PARGPTConfig, load_and_validate_config
+
+# Create a global lazy import manager instance
+_lazy_import_manager = PARGPTLazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 def load_environment() -> None:
@@ -27,9 +35,13 @@ def load_environment() -> None:
 
 def initialize_globals_for_command(command: str) -> None:
     """Initialize global state based on command type."""
-    from par_gpt.lazy_import_manager import initialize_globals_for_command as _init
-
-    _init(command)
+    # Load appropriate imports based on command type
+    if command in ["version", "help"]:
+        _lazy_import_manager.load_minimal_imports()
+    elif command == "agent":
+        _lazy_import_manager.load_agent_imports()
+    else:
+        _lazy_import_manager.load_basic_llm_imports()
 
 
 def set_environment_variables(
@@ -240,7 +252,7 @@ def setup_tts_and_voice_input(
 def setup_timing(show_times: bool, show_times_detailed: bool) -> None:
     """Initialize timing system if requested."""
     if show_times or show_times_detailed:
-        from par_gpt.utils.timing import enable_timing
+        from par_utils import enable_timing
 
         enable_timing()
 

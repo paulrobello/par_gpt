@@ -16,9 +16,22 @@ from par_ai_core.utils import timer_block
 # RealtimeSTT import moved to lazy loading in __init__ method
 from rich.console import Console
 
-from par_gpt.lazy_import_manager import lazy_import
-from par_gpt.utils.console_manager import get_console
 from par_gpt.utils.llm_invoker import LLMInvoker
+from par_utils import ConsoleManager, LazyImportManager
+
+# Create instances for backward compatibility
+_lazy_import_manager = LazyImportManager()
+_console_manager = ConsoleManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
+
+
+def get_console():
+    """Backward compatibility function for get_console."""
+    return _console_manager.get_console()
 
 
 def is_complete_sentence(text: str, llm_config: LlmConfig | None = None) -> bool:

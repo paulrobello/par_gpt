@@ -18,15 +18,24 @@ from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
 from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
 
-# Lazy import manager for heavy dependencies
-from par_gpt.lazy_import_manager import lazy_import
-
 # Memory utils imports moved inside ai_memory_db function to prevent Redis connection when disabled
 from par_gpt.utils import get_console
 
 # Clean import resolution using facade pattern
 from par_gpt.utils.utils_facade import get_utils_facade
+
+# Lazy import manager for heavy dependencies
+from par_utils import LazyImportManager
 from sandbox import ExecuteCommandResult
+
+# Create a global lazy import manager instance
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
+
 
 # Get the utils facade instance for clean function access
 _utils = get_utils_facade()
@@ -660,8 +669,12 @@ def ai_list_available_screens() -> list:
     Get list of all available screens/displays on the user's system.
     Use this tool to help find and capture specific screen screenshots.
 
+    IMPORTANT: Each display has a unique 'screen_id' (system identifier) that you must use
+    when calling ai_capture_screen_image(). Do NOT use the numbered list position (1, 2, 3...)
+    that appears in display output - use the actual 'screen_id' value from this function's results.
+
     Returns:
-        list: A list of available screens/displays with their details.
+        list: A list of available screens/displays with their details including screen_id.
     """
     try:
         return _utils.list_available_screens()
@@ -676,7 +689,9 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
     it will list available screens and capture the primary display.
 
     Args:
-        screen_id (int | None): ID of the screen/display to capture. Defaults to None (primary display).
+        screen_id (int | None): The EXACT screen_id value from ai_list_available_screens().
+                                This is NOT the numbered list position (1,2,3...) but the actual
+                                system display identifier (e.g., 69733382). Use None for primary display.
         describe_image (bool): Whether to describe the captured image. Defaults to True.
 
     Returns:
@@ -703,7 +718,7 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
                 console.print("\n[yellow]Available displays (primary display first):[/yellow]")
                 for i, screen in enumerate(screens[:5], 1):  # Show first 5 screens
                     prefix = "🖥️" if i == 1 else "  "  # Mark the primary display
-                    console.print(f"{prefix} {i}. {screen.name}")
+                    console.print(f"{prefix} {i}. {screen.name} [screen_id: {screen.screen_id}]")
 
                 # Use the first screen (should be the primary display after sorting)
                 selected_screen = screens[0]
@@ -828,9 +843,12 @@ def user_prompt(prompt: str, default_value: str | None = None, choices: list[str
     Returns:
         str: The user's input.
     """
-    # Lazy load Rich Prompt component
+    # Lazy load Rich Prompt component and user timer
     Prompt = lazy_import("rich.prompt", "Prompt")
-    return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
+    user_timer = lazy_import("par_utils", "user_timer")
+    
+    with user_timer("ai_tool_user_prompt", {"prompt": prompt[:50] + "..." if len(prompt) > 50 else prompt}):
+        return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
 
 
 @tool(parse_docstring=True)

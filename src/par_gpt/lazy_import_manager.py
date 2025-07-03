@@ -1,37 +1,18 @@
-"""Lazy import management for command-specific imports to optimize startup time."""
+"""PAR GPT-specific lazy import management.
+
+This module extends the generic LazyImportManager from par_utils with
+PAR GPT-specific import loading methods and command routing.
+"""
 
 from __future__ import annotations
 
-import importlib
 from typing import Any
 
+from par_utils import LazyImportManager as _LazyImportManager
 
-class LazyImportManager:
-    """Manages lazy imports for different command categories."""
 
-    def __init__(self) -> None:
-        """Initialize the lazy import manager."""
-        self._import_cache: dict[str, Any] = {}
-
-    def get_cached_import(self, module_path: str, item_name: str | None = None) -> Any:
-        """Get a cached import or import and cache it."""
-        cache_key = f"{module_path}.{item_name}" if item_name else module_path
-
-        if cache_key in self._import_cache:
-            return self._import_cache[cache_key]
-
-        # Import the module
-        module = importlib.import_module(module_path)
-
-        if item_name:
-            # Get specific item from module
-            item = getattr(module, item_name)
-            self._import_cache[cache_key] = item
-            return item
-        else:
-            # Cache entire module
-            self._import_cache[cache_key] = module
-            return module
+class PARGPTLazyImportManager(_LazyImportManager):
+    """PAR GPT-specific lazy import manager with command-specific loading methods."""
 
     def load_minimal_imports(self) -> dict[str, Any]:
         """Load only the imports needed for minimal commands (version, help)."""
@@ -129,9 +110,9 @@ class LazyImportManager:
         """Load timing functionality when needed."""
         imports = {}
 
-        imports["enable_timing"] = self.get_cached_import("par_gpt.utils.timing", "enable_timing")
-        imports["show_timing_summary"] = self.get_cached_import("par_gpt.utils.timing", "show_timing_summary")
-        imports["show_timing_details"] = self.get_cached_import("par_gpt.utils.timing", "show_timing_details")
+        imports["enable_timing"] = self.get_cached_import("par_utils", "enable_timing")
+        imports["show_timing_summary"] = self.get_cached_import("par_utils", "show_timing_summary")
+        imports["show_timing_details"] = self.get_cached_import("par_utils", "show_timing_details")
 
         return imports
 
@@ -160,12 +141,10 @@ class LazyImportManager:
         """Load path security functionality when needed."""
         imports = {}
 
-        imports["PathSecurityError"] = self.get_cached_import("par_gpt.utils.path_security", "PathSecurityError")
-        imports["sanitize_filename"] = self.get_cached_import("par_gpt.utils.path_security", "sanitize_filename")
-        imports["validate_relative_path"] = self.get_cached_import(
-            "par_gpt.utils.path_security", "validate_relative_path"
-        )
-        imports["validate_within_base"] = self.get_cached_import("par_gpt.utils.path_security", "validate_within_base")
+        imports["PathSecurityError"] = self.get_cached_import("par_utils", "PathSecurityError")
+        imports["sanitize_filename"] = self.get_cached_import("par_utils", "sanitize_filename")
+        imports["validate_relative_path"] = self.get_cached_import("par_utils", "validate_relative_path")
+        imports["validate_within_base"] = self.get_cached_import("par_utils", "validate_within_base")
 
         return imports
 
@@ -211,8 +190,8 @@ class LazyImportManager:
         return imports
 
 
-# Global lazy import manager instance
-_lazy_import_manager = LazyImportManager()
+# Global PAR GPT lazy import manager instance
+_lazy_import_manager = PARGPTLazyImportManager()
 
 
 def get_command_imports(command: str, **kwargs) -> dict[str, Any]:
@@ -242,11 +221,6 @@ def get_command_imports(command: str, **kwargs) -> dict[str, Any]:
         return _lazy_import_manager.load_basic_llm_imports()
 
 
-def lazy_import(module_path: str, item_name: str | None = None) -> Any:
-    """Convenience function for lazy importing."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
-
-
 def initialize_globals_for_command(command: str) -> None:
     """Initialize global state based on command requirements."""
     # Only initialize globals when needed for specific commands
@@ -254,3 +228,8 @@ def initialize_globals_for_command(command: str) -> None:
         from par_gpt import ensure_initialized
 
         ensure_initialized()
+
+
+def lazy_import(module_path: str, item_name: str | None = None) -> Any:
+    """Convenience function for lazy importing."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)

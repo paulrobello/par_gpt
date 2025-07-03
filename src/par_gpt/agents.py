@@ -96,7 +96,7 @@ def do_single_llm_call(
         console.print(Panel.fit(Pretty(chat_history_debug), title="GPT Prompt"))
 
     # Time the LLM call
-    from par_gpt.utils.timing import timer
+    from par_utils import timer
 
     with timer("llm_invoke", {"model": chat_model.name}):
         result = chat_model.invoke(chat_history, config=llm_run_manager.get_runnable_config(chat_model.name))  # type: ignore
@@ -182,7 +182,7 @@ Begin!
         console.print(Panel.fit(default_system_prompt, title="GPT Prompt"))
 
     # Time the agent executor call
-    from par_gpt.utils.timing import timer
+    from par_utils import timer
 
     with timer("agent_executor_invoke", {"model": chat_model.name}):
         result = agent_executor.invoke(
@@ -328,7 +328,7 @@ def do_tool_agent(
         console.print(Panel.fit(prompt_template.format(**args, agent_scratchpad=""), title="GPT Prompt"))
 
     # Time the tool agent executor call
-    from par_gpt.utils.timing import timer
+    from par_utils import timer
 
     with timer("tool_agent_executor_invoke", {"model": chat_model.name}):
         result = agent_executor.invoke(args, config=llm_run_manager.get_runnable_config(chat_model.name))

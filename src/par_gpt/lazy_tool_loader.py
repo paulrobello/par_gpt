@@ -287,7 +287,7 @@ def build_ai_tool_list(
     from rich.panel import Panel
 
     # Time the tool loading operations
-    from par_gpt.utils.timing import timer
+    from par_utils import timer
 
     with timer("core_tools_loading"):
         core_tools = _lazy_loader.get_core_tools(enable_redis=enable_redis)

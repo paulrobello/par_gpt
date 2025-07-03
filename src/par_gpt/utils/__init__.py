@@ -1,22 +1,43 @@
-"""Utility modules for PAR GPT with lazy loading support."""
+"""Backward compatibility module for PAR GPT utilities.
 
-# Import the lazy loader for better startup performance
-from par_gpt.utils.lazy_utils_loader import (
-    get_audio_utils,
-    get_config_utils,
-    get_console_utils,
-    get_image_utils,
-    get_llm_utils,
-    get_path_security_utils,
-    get_redis_utils,
-    get_security_utils,
-    get_timing_utils,
-    lazy_utils_import,
+This module provides backward compatibility by importing utilities from par_utils
+and the original utils.py, and exposing them through a consistent interface.
+"""
+
+# Import essential utilities from par_utils
+from par_utils import (
+    CacheManager,
+    ConsoleManager,
+    ErrorCategory,
+    ErrorHandler,
+    ErrorSeverity,
+    LazyImportManager,
+    PathSecurityError,
+    SecurePathValidator,
+    TimingRegistry,
+    disable_timing,
+    enable_timing,
+    is_timing_enabled,
+    log_error,
+    sanitize_filename,
+    show_timing_details,
+    show_timing_summary,
+    suppress_error,
+    timed,
+    timer,
+    user_timer,
+    validate_relative_path,
+    validate_within_base,
 )
 
-# Import only the most essential items directly for backward compatibility
-# Heavy modules are loaded lazily via the lazy_utils_loader
-from par_gpt.utils.path_security import PathSecurityError
+# Create instances for backward compatibility
+_console_manager = ConsoleManager()
+_lazy_import_manager = LazyImportManager()
+
+
+def get_console(console=None):
+    """Get the global console instance."""
+    return _console_manager.get_console(console)
 
 
 def _import_from_original_utils(function_name: str):
@@ -41,6 +62,21 @@ def _import_from_original_utils(function_name: str):
         raise AttributeError(f"Function '{function_name}' not found in original utils.py")
 
     return getattr(original_utils, function_name)
+
+
+def _import_from_par_utils(function_name: str):
+    """Import function from par_utils package."""
+    import par_utils
+
+    return getattr(par_utils, function_name)
+
+
+def lazy_utils_import(module_name: str, item_name: str):
+    """Import a specific item from a utils module."""
+    from par_utils import LazyUtilsLoader
+
+    loader = LazyUtilsLoader()
+    return loader.get_utils_item(module_name, item_name)
 
 
 def __getattr__(name: str):
@@ -85,17 +121,19 @@ def __getattr__(name: str):
         ),
         "warn_subprocess_operation": lambda: lazy_utils_import("security_warnings", "warn_subprocess_operation"),
         # Timing utilities
-        "TimingData": lambda: lazy_utils_import("timing", "TimingData"),
-        "TimingRegistry": lambda: lazy_utils_import("timing", "TimingRegistry"),
-        "clear_timings": lambda: lazy_utils_import("timing", "clear_timings"),
-        "disable_timing": lambda: lazy_utils_import("timing", "disable_timing"),
-        "enable_timing": lambda: lazy_utils_import("timing", "enable_timing"),
-        "get_timing_summary": lambda: lazy_utils_import("timing", "get_timing_summary"),
-        "is_timing_enabled": lambda: lazy_utils_import("timing", "is_timing_enabled"),
-        "print_timing_summary": lambda: lazy_utils_import("timing", "print_timing_summary"),
-        "time_operation": lambda: lazy_utils_import("timing", "time_operation"),
-        "timed": lambda: lazy_utils_import("timing", "timed"),
-        "timer": lambda: lazy_utils_import("timing", "timer"),
+        "TimingData": lambda: _import_from_par_utils("TimingData"),
+        "TimingRegistry": lambda: _import_from_par_utils("TimingRegistry"),
+        "clear_timings": lambda: _import_from_par_utils("clear_timings"),
+        "disable_timing": lambda: _import_from_par_utils("disable_timing"),
+        "enable_timing": lambda: _import_from_par_utils("enable_timing"),
+        "get_timing_summary": lambda: _import_from_par_utils("get_timing_summary"),
+        "is_timing_enabled": lambda: _import_from_par_utils("is_timing_enabled"),
+        "show_timing_summary": lambda: _import_from_par_utils("show_timing_summary"),
+        "show_timing_details": lambda: _import_from_par_utils("show_timing_details"),
+        "time_operation": lambda: _import_from_par_utils("time_operation"),
+        "timed": lambda: _import_from_par_utils("timed"),
+        "timer": lambda: _import_from_par_utils("timer"),
+        "user_timer": lambda: _import_from_par_utils("user_timer"),
         # Weather utilities (from original utils.py)
         "get_weather_current": lambda: _import_from_original_utils("get_weather_current"),
         "get_weather_forecast": lambda: _import_from_original_utils("get_weather_forecast"),
@@ -139,6 +177,7 @@ __all__ = [
     "get_audio_manager",
     "safe_tts",
     "safe_voice_input",
+    "CacheManager",
     "ConsoleManager",
     "get_console",
     "EnvironmentConfig",
@@ -150,6 +189,12 @@ __all__ = [
     "RedisOperationManager",
     "get_redis_manager",
     "with_redis_fallback",
+    # Error handling
+    "ErrorCategory",
+    "ErrorHandler",
+    "ErrorSeverity",
+    "log_error",
+    "suppress_error",
     # Path security
     "PathSecurityError",
     "SecurePathValidator",
@@ -173,10 +218,12 @@ __all__ = [
     "enable_timing",
     "get_timing_summary",
     "is_timing_enabled",
-    "print_timing_summary",
+    "show_timing_details",
+    "show_timing_summary",
     "time_operation",
     "timed",
     "timer",
+    "user_timer",
     # Weather utilities
     "get_weather_current",
     "get_weather_forecast",

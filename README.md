@@ -28,6 +28,8 @@ Some features / functions may be kind of niche to things I work on but could be 
 - Typer for CLI interface
 - Support for multiple AI providers (OpenAI, Ollama, Bedrock)
 - Uses my [PAR AI Core](https://github.com/paulrobello/par_ai_core)
+- **PAR Utils** - Internal utilities package for performance, security, and error management
+- **PARGPTLazyImportManager** - Application-specific lazy loading system extending PAR Utils
 
 ## Prerequisites
 
@@ -420,18 +422,30 @@ If the REPL tool is enabled the Code sandbox tool will not be used.
 - Image Gen - Generate image using Dall-E-3
   - keywords: image
 
+## PAR Utils Package
+
+PAR GPT is built around the **PAR Utils** package - a fully-integrated collection of reusable Python utilities that replaced legacy duplicate modules:
+
+- 🚀 **Performance Optimization**: Timing measurement and lazy loading systems
+- 🔒 **Security Validation**: Path traversal protection and filename sanitization  
+- 📝 **Error Management**: Centralized error registry with structured messaging
+- 💾 **Caching System**: Thread-safe disk caching with URL download support
+- 🖥️ **Console Management**: Rich-based terminal output management
+
+For detailed documentation, see [PAR Utils README](src/par_utils/README.md).
+
 ## Security Features
 
-PAR GPT implements comprehensive security measures to protect against common vulnerabilities:
+PAR GPT implements comprehensive security measures to protect against common vulnerabilities, powered by the PAR Utils security module:
 
-### Path Traversal Protection
+### Path Traversal Protection (PAR Utils)
 - **Comprehensive validation** of all user-provided file paths
 - **Directory traversal prevention** using regex patterns and path resolution
 - **Filename sanitization** to remove dangerous characters and reserved names
 - **Base directory enforcement** to ensure paths stay within allowed directories
 - **Cross-platform compatibility** for Windows and Unix systems
 
-### File Operation Security
+### File Operation Security (PAR Utils)
 - **Secure file validation** for all read/write operations
 - **Content type validation** for uploaded files and downloads
 - **Atomic file operations** with backup and restore capabilities
@@ -480,7 +494,7 @@ For detailed security implementation, see [PATH_SECURITY_SUMMARY.md](PATH_SECURI
 
 ## Performance Monitoring
 
-PAR GPT includes built-in timing utilities to help analyze performance and identify bottlenecks across different operations.
+PAR GPT includes built-in timing utilities (powered by PAR Utils) to help analyze performance and identify bottlenecks across different operations.
 
 ### Timing Options
 
@@ -489,36 +503,63 @@ PAR GPT includes built-in timing utilities to help analyze performance and ident
 
 ### What Gets Timed
 
-The timing system tracks key performance areas:
+The timing system tracks key performance areas across two categories:
 
+**Processing Operations:**
 - **Startup Operations**: Environment loading, LLM configuration setup, context processing
 - **LLM Operations**: Chat model building, LLM invoke calls, agent executor calls  
 - **Tool Loading**: Core tools loading, conditional tool loading based on keywords
 - **Agent Operations**: Tool execution, multi-step agent workflows
 
+**User Interaction Operations:**
+- **Interactive Input**: User prompts in loop mode and question entry
+- **Security Confirmations**: Command execution, environment modification, code execution warnings
+- **REPL Confirmations**: Python code execution prompts in agent mode
+- **AI Tool Prompts**: Agent-requested user input during execution
+
 ### Example Output
 
 **Simple Summary (`--show-times`):**
 ```
-                  Timing Summary                   
-┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┓
-┃ Operation        ┃ Total Time ┃ Count ┃ Average ┃
-┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━┩
-│ llm_invoke       │     5.327s │     1 │  5.327s │
-│ build_chat_model │     0.070s │     1 │  0.070s │
-│ llm_config_setup │     0.000s │     1 │  0.000s │
-├──────────────────┼────────────┼───────┼─────────┤
-│ Grand Total      │     5.397s │     3 │  1.799s │
-└──────────────────┴────────────┴───────┴─────────┘
+                     Timing Summary                      
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┓
+┃ Operation              ┃ Total Time ┃ Count ┃ Average ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━┩
+│ llm_invoke             │     5.327s │     1 │  5.327s │
+│ user_input_prompt      │     2.150s │     1 │  2.150s │
+│ security_confirmation  │     0.800s │     1 │  0.800s │
+│ build_chat_model       │     0.070s │     1 │  0.070s │
+│ llm_config_setup       │     0.000s │     1 │  0.000s │
+├────────────────────────┼────────────┼───────┼─────────┤
+│ Grand Total (All)      │     8.347s │     5 │  1.669s │
+│ Processing Total       │     5.397s │     3 │  1.799s │
+│ User Wait Time         │     2.950s │     2 │  1.475s │
+└────────────────────────┴────────────┴───────┴─────────┘
 ```
 
 **Detailed View (`--show-times-detailed`):**
 ```
-Timing Details (Grand Total: 5.397s, 3 operations)
+Timing Details (Grand Total: 8.347s, 5 operations | Processing: 5.397s | User Wait: 2.950s)
 ├── llm_config_setup: 0.000s
 ├── build_chat_model: 0.070s
-└── llm_invoke: 5.327s (model=gpt-4o)
+├── user_input_prompt: 2.150s
+├── llm_invoke: 5.327s (model=gpt-4o)
+└── security_confirmation: 0.800s
 ```
+
+### Timing Categories and Analysis
+
+The timing system provides three key metrics:
+
+- **Grand Total (All)**: Complete wall-clock time including all operations and user interactions
+- **Processing Total**: Pure application processing time excluding user wait time (shown in green)
+- **User Wait Time**: Time spent waiting for user input, confirmations, and interactions (shown in yellow)
+
+This dual-total approach enables:
+- **Accurate Performance Analysis**: Get true application performance without user delays
+- **User Experience Insights**: Understand how long users take to respond to prompts
+- **Bottleneck Identification**: Distinguish between slow processing vs slow user response
+- **Automation Planning**: Estimate pure processing time for automated workflows
 
 ### Environment Variables
 
@@ -687,6 +728,27 @@ par_gpt agent "list visible windows"
 ```
 
 ## What's New
+- Version 0.14.0:
+  - **PAR Utils Package Creation**: Major architectural refactoring to extract reusable utilities into a separate package
+    - **Modular Architecture** - Created `src/par_utils/` package with organized utility modules:
+      - `performance/` - Timing measurement and lazy loading systems
+      - `security/` - Path validation and filename sanitization utilities
+      - `errors/` - Centralized error registry with structured messaging
+      - `caching/` - Thread-safe disk caching with URL download support
+      - `console/` - Rich-based terminal output management
+    - **Backward Compatibility** - Maintained full compatibility via facade pattern in `par_gpt/utils/__init__.py`
+    - **Generalized Design** - Utilities made generic for broader applicability beyond PAR GPT
+    - **Enhanced Security** - Path security now uses comprehensive `SecurePathValidator` with multiple validation layers
+    - **Performance Benefits** - Improved lazy loading with `LazyImportManager` and `LazyUtilsLoader`
+    - **Documentation** - Complete API documentation and usage examples in PAR Utils README.md
+  - **Architecture Documentation**: Updated ARCHITECTURE.md to reflect the new modular package structure
+  - **Advanced User Interaction Timing**: Enhanced timing system to distinguish between processing time and user wait time
+    - **Dual Grand Totals** - Shows both "Grand Total (All)" and "Processing Total" (excluding user wait time)
+    - **User Interaction Categorization** - Tracks time spent waiting for user input/confirmations separately
+    - **Comprehensive Coverage** - Times all user prompts: interactive input, security confirmations, REPL confirmations, AI tool prompts
+    - **Enhanced Analytics** - Get accurate performance metrics without user think time skewing results
+  - **Duplicate Code Cleanup**: Removed legacy duplicate files (timing.py, error_registry.py, console_manager.py, cache_manager.py) after confirming all functionality is preserved in par_utils
+  - **Comprehensive Testing**: All utilities moved successfully with maintained functionality across 26+ files
 - Version 0.13.0:
   - **AI Tools Import Fix**: Resolved critical import issues affecting 10+ AI tools
     - **Screen capture tools** - Fixed `ai_capture_screen_image()` and `ai_capture_window_image()` for multi-monitor support
@@ -748,38 +810,18 @@ par_gpt agent "list visible windows"
   - **File Security**: All file operations now validate user-provided paths to prevent directory traversal attacks
 - Version 0.11.0:
   - Added new stardew subcommand for creating pixel art avatar variations
-- Version 0.10.0:
-  - Fixed sixel error on windows
-- Version 0.8.0:
-  - Added the tinify image compression command
-- Version 0.7.1:
-  - Updated PAR AI CORE: Now supports OpenAI Reasoning Effort and Anthropic Reasoning token budget
-- Version 0.7.0:
-  - Updated PAR AI CORE: Now supports Deepseek and LiteLLM
-- Version 0.6.0:
-  - Added support for TTS output
-  - Added screenshot support
-  - Aider support removed (too many dependency conflicts)
-- Version 0.5.0:
-  - Added Aider command for code editing
-- Version 0.4.0:
-  - Reworked sub commands and cli options 
-- Version 0.3.0:
-  - Added support for LlamaCPP (use base_url and run llamacpp in option ai server mode)
-  - Added code review agent
-  - Added prompt generation agent (work in progress)
-  - Updated pricing data
-  - Lots of bug fixes and improvements
-- Version 0.2.1:
-  - Removed --context-source cli option as it is now auto-detected
-  - When working with images and model is not specified a suitable vision model will be selected
-  - added options to copy context from clipboard and results to clipboard
-- Version 0.2.0:
-  - Added confirmation prompt for agent mode REPL tool
-  - Added yes-to-all flag to skip confirmation prompts
-  - Updated pricing data
-- Version 0.1.0:
-  - Initial release
+- **older...**
+  - Version 0.10.0: Fixed sixel error on windows
+  - Version 0.8.0: Added the tinify image compression command
+  - Version 0.7.1: Updated PAR AI CORE: Now supports OpenAI Reasoning Effort and Anthropic Reasoning token budget
+  - Version 0.7.0: Updated PAR AI CORE: Now supports Deepseek and LiteLLM
+  - Version 0.6.0: Added support for TTS output, screenshot support, removed Aider support
+  - Version 0.5.0: Added Aider command for code editing
+  - Version 0.4.0: Reworked sub commands and cli options
+  - Version 0.3.0: Added LlamaCPP support, code review agent, prompt generation agent
+  - Version 0.2.1: Auto-detected context source, vision model selection, clipboard options
+  - Version 0.2.0: Added confirmation prompts, yes-to-all flag, updated pricing data
+  - Version 0.1.0: Initial release
 
 ## Architecture
 
@@ -788,8 +830,10 @@ PAR GPT follows a sophisticated modular architecture with comprehensive security
 ### Key Architectural Features
 
 - **Modular Design**: Clean separation between CLI, commands, and core logic
-- **Security First**: Comprehensive path validation and execution safety
-- **Performance Optimized**: Lazy loading reducing startup time by 25-50%
+- **PAR Utils Integration**: Reusable utilities package for performance, security, and error management
+- **Two-Layer Lazy Loading**: Generic `LazyImportManager` (PAR Utils) + `PARGPTLazyImportManager` (application-specific)
+- **Security First**: Comprehensive path validation and execution safety (powered by PAR Utils)
+- **Performance Optimized**: Lazy loading reducing startup time by 25-50% (PAR Utils timing system)
 - **Thread Safety**: Thread-safe context management for concurrent operations
 - **Extensible**: Plugin-style tool loading and command patterns
 

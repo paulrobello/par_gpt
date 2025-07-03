@@ -1,6 +1,6 @@
 """Tests for the centralized error registry."""
 
-from par_gpt.utils.error_registry import (
+from par_utils import (
     ErrorCategory,
     ErrorMessage,
     ErrorRegistry,

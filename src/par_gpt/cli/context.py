@@ -11,8 +11,15 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
-from par_gpt.lazy_import_manager import lazy_import
-from par_gpt.utils.path_security import PathSecurityError
+from par_utils import LazyImportManager, PathSecurityError
+
+# Create a global lazy import manager instance
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 class ContextProcessor:
@@ -114,7 +121,7 @@ class ContextProcessor:
             """Basic image display - functionality limited due to import restrictions."""
             self.console.print(f"[dim]Image at: {image_path}[/dim]")
 
-        from par_gpt.utils.timing import timer
+        from par_utils import timer
 
         with timer("context_processing"):
             context, context_is_image = self._process_content_core(
@@ -140,7 +147,9 @@ class ContextProcessor:
                 try_get_image_type = lazy_import("par_ai_core.llm_image_utils", "try_get_image_type")
                 image_to_base64 = lazy_import("par_ai_core.llm_image_utils", "image_to_base64")
                 UnsupportedImageTypeError = lazy_import("par_ai_core.llm_image_utils", "UnsupportedImageTypeError")
-                cache_manager = lazy_import("par_gpt.cache_manager", "cache_manager")
+                from par_utils import CacheManager
+
+                cache_manager = CacheManager()
 
                 image_type = try_get_image_type(context_location)
                 self.console.print(f"[bold green]Image type {image_type} detected.")

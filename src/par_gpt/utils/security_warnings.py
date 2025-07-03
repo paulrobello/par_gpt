@@ -54,11 +54,14 @@ def warn_command_execution(
     console.print(Panel(warning_text, border_style="red", title="[bold red]DANGER[/bold red]"))
 
     try:
-        response = Prompt.ask(
-            "[bold]Do you want to proceed?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
-            default="N",
-            console=console,
-        )
+        from par_utils import user_timer
+        
+        with user_timer("security_confirmation", {"type": "command_execution", "command": command[:50] + "..." if len(command) > 50 else command}):
+            response = Prompt.ask(
+                "[bold]Do you want to proceed?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
+                default="N",
+                console=console,
+            )
         return response.lower() in ["y", "yes"]
     except KeyboardInterrupt:
         console.print("\n[red]Operation cancelled by user.[/red]")
@@ -108,11 +111,14 @@ def warn_environment_modification(
         return True
 
     try:
-        response = Prompt.ask(
-            "[bold]Continue with environment modification?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
-            default="Y",
-            console=console,
-        )
+        from par_utils import user_timer
+        
+        with user_timer("security_confirmation", {"type": "environment_modification", "variable": var_name}):
+            response = Prompt.ask(
+                "[bold]Continue with environment modification?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
+                default="Y",
+                console=console,
+            )
         return response.lower() in ["y", "yes"]
     except KeyboardInterrupt:
         console.print("\n[red]Environment modification cancelled.[/red]")
@@ -164,11 +170,14 @@ def warn_code_execution(
     console.print(Panel(warning_text, border_style="red", title="[bold red]⚠️  DANGER: CODE EXECUTION ⚠️[/bold red]"))
 
     try:
-        response = Prompt.ask(
-            "[bold red]Execute this code?[/bold red] [green][[Y]es[/green]/[red][N]o[/red]]",
-            default="N",
-            console=console,
-        )
+        from par_utils import user_timer
+        
+        with user_timer("security_confirmation", {"type": "code_execution", "code_preview": code[:100] + "..." if len(code) > 100 else code}):
+            response = Prompt.ask(
+                "[bold red]Execute this code?[/bold red] [green][[Y]es[/green]/[red][N]o[/red]]",
+                default="N",
+                console=console,
+            )
         return response.lower() in ["y", "yes"]
     except KeyboardInterrupt:
         console.print("\n[red]Code execution cancelled by user.[/red]")

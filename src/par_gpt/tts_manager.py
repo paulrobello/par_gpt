@@ -17,8 +17,16 @@ from par_ai_core.utils import timer_block
 from rich.console import Console
 from strenum import StrEnum
 
-from par_gpt.cache_manager import cache_manager
-from par_gpt.lazy_import_manager import lazy_import
+from par_utils import CacheManager, LazyImportManager
+
+# Create instances for backward compatibility
+cache_manager = CacheManager()
+_lazy_import_manager = LazyImportManager()
+
+
+def lazy_import(module_path: str, item_name: str | None = None):
+    """Backward compatibility function for lazy imports."""
+    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 def summarize_for_tts(text: str) -> str:

@@ -32,9 +32,11 @@ from strenum import StrEnum
 
 # Heavy imports (PIL, rich_pixels, sixel) moved inside functions
 from par_gpt import __env_var_prefix__
-from par_gpt.cache_manager import cache_manager
 from par_gpt.repo.repo import ANY_GIT_ERROR, GitRepo
-from par_gpt.utils.path_security import PathSecurityError, validate_relative_path
+from par_utils import CacheManager, PathSecurityError, validate_relative_path
+
+# Create cache manager instance for backward compatibility
+cache_manager = CacheManager()
 
 # Sixel imports moved inside show_image_in_terminal function
 
@@ -704,7 +706,7 @@ def list_available_screens_mac() -> list[AvailableScreen]:
             if is_primary:
                 name = f"Primary Display ({width}x{height})"
             else:
-                name = f"Display {display_id} ({width}x{height})"
+                name = f"Secondary Display ({width}x{height})"
 
             # Add position info for multi-monitor setups
             if origin_x != 0 or origin_y != 0:
@@ -961,17 +963,30 @@ def capture_screen_image_mac(
     """
     import tempfile
 
+    # Get all screens to map system IDs to screencapture display numbers
+    screens = list_available_screens_mac()
+    if not screens:
+        raise ValueError("No displays found")
+
     # If no screen_id specified, use primary display
     if screen_id is None:
-        screens = list_available_screens_mac()
-        if not screens:
-            raise ValueError("No displays found")
         # Use primary display (should be first in list)
         screen_id = screens[0].screen_id
 
+    # Map system screen_id to screencapture display number (1-based)
+    # screencapture uses sequential numbering: -D 1 is main, -D 2 is secondary, etc.
+    screencapture_display_num = None
+    for i, screen in enumerate(screens, 1):
+        if screen.screen_id == screen_id:
+            screencapture_display_num = i
+            break
+
+    if screencapture_display_num is None:
+        raise ValueError(f"Screen ID {screen_id} not found in available displays")
+
     with tempfile.NamedTemporaryFile(suffix=".png") as temp_image:
-        # -x mutes sound, -D specifies display ID, -t specifies format
-        cmd = f"screencapture -x -t png -D {screen_id} {temp_image.name}"
+        # -x mutes sound, -D specifies display number (1-based), -t specifies format
+        cmd = f"screencapture -x -t png -D {screencapture_display_num} {temp_image.name}"
 
         # Security warning for command execution
         try:
@@ -979,7 +994,7 @@ def capture_screen_image_mac(
 
             if not warn_command_execution(
                 command=cmd,
-                operation_description=f"Capture screenshot of display {screen_id}",
+                operation_description=f"Capture screenshot of display {screen_id} (screencapture display {screencapture_display_num})",
                 skip_confirmation=skip_confirmation,
             ):
                 raise ValueError("Screen capture cancelled by user for security reasons")
@@ -1412,7 +1427,7 @@ def github_publish_repo(repo_name: str | None = None, public: bool = False) -> s
     try:
         from git import Remote
 
-        from par_gpt.lazy_import_manager import lazy_import
+        from par_utils import lazy_import
 
         # Lazy load GitHub classes
         Auth = lazy_import("github", "Auth")

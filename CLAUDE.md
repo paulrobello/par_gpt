@@ -36,6 +36,36 @@ make package        # Build the package
 
 ## Development Patterns
 
+### Lazy Loading Architecture
+PAR GPT uses a two-layer lazy loading system:
+
+1. **Generic Layer** (`par_utils.LazyImportManager`):
+   - Thread-safe import caching
+   - Module and item-specific lazy loading
+   - Used directly in AI tools for simple imports
+
+2. **Application Layer** (`par_gpt.lazy_import_manager.PARGPTLazyImportManager`):
+   - Extends the generic LazyImportManager
+   - Provides command-specific loading methods:
+     - `load_agent_imports()` - For agent mode
+     - `load_basic_llm_imports()` - For LLM mode
+     - `load_media_imports()` - For image/TTS operations
+     - And many more specialized loaders
+   - Used in CLI config and command infrastructure
+
+Example usage:
+```python
+# For generic lazy loading (e.g., in AI tools)
+from par_utils import LazyImportManager
+manager = LazyImportManager()
+module = manager.get_cached_import("requests")
+
+# For PAR GPT-specific loading (e.g., in commands)
+from par_gpt.lazy_import_manager import PARGPTLazyImportManager
+manager = PARGPTLazyImportManager()
+imports = manager.load_agent_imports()
+```
+
 ### AI Tools Development
 When working with AI tools in `src/par_gpt/ai_tools/ai_tools.py`:
 
@@ -84,3 +114,95 @@ uv run par_gpt agent "list available screens"
 uv run par_gpt agent "create figlet text that says TEST"
 uv run par_gpt agent "take a screenshot of my screen"
 ```
+
+### Performance Timing Development
+
+PAR GPT includes an advanced timing system for performance analysis that distinguishes between processing time and user interaction time.
+
+#### Timing Categories
+
+**Processing Operations** (Category: "processing"):
+- LLM operations, tool loading, agent execution
+- Default category for all `timer()` context managers
+- Counted in "Processing Total" metric
+
+**User Interaction Operations** (Category: "user_interaction"):
+- User prompts, security confirmations, REPL confirmations
+- Use `user_timer()` context manager or `timer(category="user_interaction")`
+- Counted in "User Wait Time" metric
+
+#### Adding Timing to Code
+
+**For Processing Operations:**
+```python
+from par_utils import timer
+
+# Standard processing timing
+with timer("llm_invoke", {"model": model_name}):
+    result = llm.invoke(messages)
+
+# Explicit processing category
+with timer("tool_loading", category="processing"):
+    tools = load_tools()
+```
+
+**For User Interactions:**
+```python
+from par_utils import user_timer, timer
+
+# User interaction timing (recommended)
+with user_timer("user_prompt", {"prompt_type": "confirmation"}):
+    response = Prompt.ask("Do you want to continue?")
+
+# Alternative explicit syntax
+with timer("security_confirmation", category="user_interaction"):
+    response = Prompt.ask("Execute this code?")
+```
+
+#### Timing Integration Points
+
+When adding new user interaction features, ensure timing is captured:
+
+1. **Rich Prompt Usage**:
+   ```python
+   with user_timer("feature_confirmation"):
+       response = Prompt.ask("Your question here")
+   ```
+
+2. **Security Warnings**:
+   ```python
+   with user_timer("security_warning", {"warning_type": "code_execution"}):
+       confirmed = get_user_confirmation()
+   ```
+
+3. **Interactive Modes**:
+   ```python
+   with user_timer("interactive_input"):
+       user_input = get_user_input()
+   ```
+
+#### Testing Timing Features
+
+```bash
+# Test timing display
+uv run par_gpt --show-times llm "test prompt"
+uv run par_gpt --show-times-detailed agent "complex task"
+
+# Test timing categories with Python
+uv run python -c "
+from par_utils import enable_timing, timer, user_timer, show_timing_summary
+import time
+
+enable_timing()
+
+with timer('processing_example'):
+    time.sleep(0.1)
+
+with user_timer('user_interaction_example'):
+    time.sleep(0.05)
+
+show_timing_summary()
+"
+```
+
+This will show dual totals: "Grand Total (All)" and "Processing Total" (excluding user wait time).

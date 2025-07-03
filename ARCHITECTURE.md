@@ -15,7 +15,7 @@ This document provides a comprehensive overview of PAR GPT's architecture, desig
 
 ## Overview
 
-PAR GPT is a sophisticated command-line AI interface built with Python 3.11+. The architecture follows modern software engineering principles including modularity, separation of concerns, lazy loading, and comprehensive security measures.
+PAR GPT is a sophisticated command-line AI interface built with Python 3.11+. The architecture follows modern software engineering principles including modularity, separation of concerns, lazy loading, and comprehensive security measures. The application is built around the **PAR Utils** package - a fully-integrated reusable utilities framework that provides core functionalities like performance monitoring, security validation, error handling, and caching systems.
 
 ### Key Architectural Principles
 
@@ -99,16 +99,30 @@ src/par_gpt/
 ├── ai_tools/                  # AI Tools (Plugin System)
 │   ├── ai_tools.py            # Tool implementations
 │   └── par_python_repl.py     # REPL tool
-├── utils/                     # Shared Utilities
+├── utils/                     # Backward Compatibility Layer
+│   ├── __init__.py            # Imports from par_utils
 │   ├── config_validation.py   # Pydantic validation
 │   ├── context_manager.py     # Thread-safe context
-│   ├── error_registry.py      # Centralized errors
-│   ├── path_security.py       # Security utilities
-│   ├── timing.py              # Performance monitoring
 │   └── utils_facade.py        # Import facade
 ├── agents.py                  # Agent orchestration
-├── lazy_import_manager.py     # Lazy loading system
+├── lazy_import_manager.py     # PAR GPT-specific lazy loading
 └── tool_context.py           # Global tool context
+
+src/par_utils/                  # PAR Utils Package
+├── __init__.py                # Main exports
+├── py.typed                   # Type declarations
+├── performance/               # Performance Utilities
+│   ├── timing.py              # Performance measurement
+│   └── lazy_loading.py        # Lazy import management
+├── security/                  # Security Utilities
+│   └── path_validation.py     # Path security validation
+├── errors/                    # Error Management
+│   ├── registry.py            # Error message registry
+│   └── handlers.py            # Error handling utilities
+├── caching/                   # Caching System
+│   └── disk_cache.py          # Thread-safe disk cache
+└── console/                   # Console Management
+    └── manager.py             # Rich console utilities
 ```
 
 ### Layer Responsibilities
@@ -130,6 +144,13 @@ src/par_gpt/
 - **Memory Management**: Redis-based persistent memory
 - **Utility Functions**: Shared functionality across modules
 - **Security Framework**: Path validation and execution safety
+
+#### PAR Utils Package
+- **Performance Optimization**: Timing measurement and lazy loading
+- **Security Validation**: Path traversal protection and filename sanitization
+- **Error Management**: Centralized error registry with structured messaging
+- **Caching System**: Thread-safe disk caching with URL downloads
+- **Console Management**: Rich-based terminal output management
 
 ## Design Patterns
 
@@ -250,6 +271,15 @@ classDiagram
         +_utils_cache: dict
     }
     
+    class ParUtilsPackage {
+        +timing utilities
+        +lazy loading
+        +path security
+        +error management
+        +caching system
+        +console management
+    }
+    
     class ComplexUtils {
         +capture_window_image()
         +capture_screen_image()
@@ -262,15 +292,25 @@ classDiagram
     }
     
     class LazyImportManager {
-        +lazy_import()
         +get_cached_import()
+        +clear_cache()
+    }
+    
+    class PARGPTLazyImportManager {
+        +load_agent_imports()
+        +load_basic_llm_imports()
+        +... other loaders
     }
     
     AITools --> UtilsFacade : uses facade
+    UtilsFacade --> ParUtilsPackage : imports from
     UtilsFacade --> ComplexUtils : delegates to
     UtilsFacade --> LazyImportManager : lazy loads via
+    ParUtilsPackage --> LazyImportManager : contains
+    PARGPTLazyImportManager --|> LazyImportManager : extends
     
     note for UtilsFacade "Resolves circular imports\nProvides clean interface\nCaches loaded functions\nFixed in v0.13.0: Added dynamic loading"
+    note for ParUtilsPackage "Reusable utilities package\nModular architecture\nGeneralized for broader use"
     note for ComplexUtils "Large utils.py module\nWith complex dependencies\nPotential circular imports"
 ```
 
@@ -306,16 +346,27 @@ classDiagram
     }
     
     class LazyImportManager {
-        -_instance: LazyImportManager
-        -_cache: dict
-        +__new__()
-        +lazy_import()
+        -_import_cache: dict
         +get_cached_import()
+        +clear_cache()
+        +get_cache_size()
+        +get_cached_modules()
+    }
+    
+    class PARGPTLazyImportManager {
+        +load_minimal_imports()
+        +load_basic_llm_imports()
+        +load_agent_imports()
+        +load_media_imports()
+        +load_git_imports()
+        +... other load methods
     }
     
     class Client1
     class Client2
     class ClientN
+    
+    PARGPTLazyImportManager --|> LazyImportManager : extends
     
     Client1 --> TimingRegistry : uses
     Client2 --> TimingRegistry : uses
@@ -323,10 +374,12 @@ classDiagram
     
     Client1 --> ErrorRegistry : uses
     Client2 --> ContextManager : uses
-    ClientN --> LazyImportManager : uses
+    ClientN --> PARGPTLazyImportManager : uses
     
-    note for TimingRegistry "Singleton ensures single\ninstance across threads"
-    note for ErrorRegistry "Centralized error message\nregistry with validation"
+    note for TimingRegistry "From par_utils package\nSingleton ensures single\ninstance across threads"
+    note for ErrorRegistry "From par_utils package\nCentralized error message\nregistry with validation"
+    note for LazyImportManager "From par_utils package\nGeneric lazy loading base class"
+    note for PARGPTLazyImportManager "From par_gpt package\nExtends generic with\nPAR GPT-specific loaders"
 ```
 
 ## Data Flow
@@ -420,7 +473,7 @@ flowchart TD
     C --> D[Layer 3: Execution Isolation]
     D --> E[Safe Execution]
     
-    subgraph Layer1 ["🛡️ Layer 1: Input Validation"]
+    subgraph Layer1 ["🛡️ Layer 1: Input Validation (PAR Utils)"]
         B1[Path traversal detection]
         B2[Filename sanitization]
         B3[Size limits]
@@ -452,7 +505,7 @@ flowchart TD
     style Layer3 fill:#6a1b9a
 ```
 
-### 2. Path Security Implementation
+### 2. Path Security Implementation (PAR Utils)
 
 ```mermaid
 flowchart TD
@@ -475,6 +528,15 @@ flowchart TD
     E -.-> E1
     F -.-> F1
     
+    subgraph ParUtils ["PAR Utils Security Module"]
+        H[SecurePathValidator]
+        I[validate_within_base]
+        J[sanitize_filename]
+        K[PathSecurityError]
+    end
+    
+    G --> ParUtils
+    
     style A fill:#1565c0
     style G fill:#1b5e20
     style B fill:#ef6c00
@@ -482,11 +544,12 @@ flowchart TD
     style D fill:#6a1b9a
     style E fill:#00838f
     style F fill:#c62828
+    style ParUtils fill:#2e7d32
 ```
 
 ## Performance Optimizations
 
-### 1. Lazy Loading System
+### 1. Lazy Loading System (PAR Utils)
 
 ```mermaid
 flowchart TD
@@ -503,11 +566,13 @@ flowchart TD
     G --> H[Thread-safe & Persistent Caching]
     H --> I[⚡ 25-50% startup time reduction]
     
-    subgraph "Import Manager"
+    subgraph "Import Management"
         C
         D
         E
         F
+        M[LazyImportManager - Generic]
+        N[PARGPTLazyImportManager - Specific]
     end
     
     subgraph "Performance Benefits"
@@ -520,6 +585,9 @@ flowchart TD
     I --> J
     I --> K  
     I --> L
+    
+    G --> M
+    N --|> M : extends
     
     style A fill:#1565c0
     style I fill:#1b5e20
@@ -553,6 +621,96 @@ graph LR
     style A1 fill:#1b5e20
     style B1 fill:#f57f17
     style C1 fill:#ff6f00
+```
+
+### 3. Advanced Timing System (PAR Utils)
+
+```mermaid
+flowchart TD
+    A[User Action] --> B{Action Type}
+    
+    B -->|Processing| C[Processing Timer]
+    B -->|User Input| D[User Interaction Timer]
+    
+    C --> E[Category: processing]
+    D --> F[Category: user_interaction]
+    
+    E --> G[TimingRegistry]
+    F --> G
+    
+    G --> H[Dual Totals Calculation]
+    
+    H --> I[Grand Total All]
+    H --> J[Processing Total]
+    H --> K[User Wait Time]
+    
+    subgraph "Processing Operations"
+        C1[LLM Invoke]
+        C2[Tool Loading]
+        C3[Agent Execution]
+        C4[Context Processing]
+    end
+    
+    subgraph "User Interaction Operations"
+        D1[Interactive Prompts]
+        D2[Security Confirmations]
+        D3[REPL Confirmations]
+        D4[AI Tool Prompts]
+    end
+    
+    C --> C1
+    C --> C2
+    C --> C3
+    C --> C4
+    
+    D --> D1
+    D --> D2
+    D --> D3
+    D --> D4
+    
+    style I fill:#1565c0
+    style J fill:#2e7d32
+    style K fill:#f9a825
+    style C fill:#1b5e20
+    style D fill:#ff6f00
+```
+
+**Key Benefits:**
+- **Accurate Performance Metrics**: Pure processing time without user delay skew
+- **User Experience Analytics**: Track actual user response times
+- **Bottleneck Identification**: Distinguish processing vs user interaction delays
+- **Automation Planning**: Estimate true processing time for automated workflows
+
+## Lazy Loading Architecture
+
+PAR GPT uses a two-layer lazy loading system:
+
+### Generic Layer (PAR Utils)
+The base `LazyImportManager` from PAR Utils provides:
+- Thread-safe import caching
+- Module and item-specific lazy loading
+- Cache management and statistics
+
+### Application Layer (PAR GPT)
+The `PARGPTLazyImportManager` extends the base class with:
+- Command-specific import loading (`load_agent_imports`, `load_basic_llm_imports`, etc.)
+- Integration with PAR GPT's command structure
+- Provider and tool-specific loading strategies
+
+### Usage Pattern
+
+```python
+# For PAR GPT-specific functionality
+from par_gpt.lazy_import_manager import PARGPTLazyImportManager
+
+manager = PARGPTLazyImportManager()
+agent_imports = manager.load_agent_imports()
+
+# For generic lazy loading (e.g., in AI tools)
+from par_utils import LazyImportManager
+
+generic_manager = LazyImportManager()
+module = generic_manager.get_cached_import("some_module")
 ```
 
 ## Extension Points
@@ -680,11 +838,13 @@ graph TB
 This architecture provides a solid foundation for a secure, performant, and extensible AI CLI tool. The modular design allows for easy maintenance and extension, while the comprehensive security measures ensure safe operation even with potentially dangerous AI-generated code execution.
 
 Key architectural strengths:
-- **Clean separation of concerns** between layers
-- **Comprehensive security** with multiple validation layers
-- **High performance** through lazy loading optimization
-- **Easy extensibility** via plugin patterns
-- **Thread safety** for concurrent operations
-- **Consistent error handling** with centralized registry
+- **Clean separation of concerns** between layers and packages
+- **Comprehensive security** with multiple validation layers powered by PAR Utils
+- **High performance** through lazy loading optimization from PAR Utils
+- **Easy extensibility** via plugin patterns and modular utilities
+- **Thread safety** for concurrent operations using PAR Utils registries
+- **Consistent error handling** with centralized registry in PAR Utils
+- **Reusable utilities** via the generalized PAR Utils package
+- **Backward compatibility** maintained through facade patterns
 
-The architecture has evolved through multiple iterations to address technical debt while maintaining backward compatibility and enhancing security and performance.
+The architecture has evolved through multiple iterations to address technical debt while maintaining backward compatibility and enhancing security and performance. The extraction of PAR Utils creates a reusable foundation that can benefit other projects while keeping PAR GPT's core functionality intact.

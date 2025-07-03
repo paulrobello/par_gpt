@@ -1,7 +1,7 @@
 """Centralized error message registry for consistent user experience.
 
 This module provides a centralized registry for all error messages used throughout
-PAR GPT, ensuring consistent formatting, tone, and helpful guidance for users.
+applications, ensuring consistent formatting, tone, and helpful guidance for users.
 """
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ class ErrorCategory(Enum):
     SYSTEM = "system"
     USER_INPUT = "user_input"
     TOOLS = "tools"
+    PERFORMANCE = "performance"
+    CACHE = "cache"
 
 
 class ErrorSeverity(Enum):
@@ -173,47 +175,15 @@ class ErrorRegistry:
         return [error for error in self._errors.values() if error.severity == severity]
 
     def _register_default_errors(self) -> None:
-        """Register default error messages used throughout PAR GPT."""
+        """Register default error messages for common scenarios."""
         # Configuration errors
         self.register(
             ErrorMessage(
-                "CONFIG_INVALID_PROVIDER",
-                "Invalid AI provider '{provider}'. Supported providers: {supported_providers}",
+                "CONFIG_INVALID_VALUE",
+                "Invalid configuration value for '{key}': {value}",
                 ErrorCategory.CONFIGURATION,
                 ErrorSeverity.ERROR,
-                "Use one of the supported providers or check your configuration",
-                "https://github.com/paulrobello/par_gpt#ai-providers",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "CONFIG_INVALID_TEMPERATURE",
-                "Temperature must be between 0.0 and 2.0, got {temperature}",
-                ErrorCategory.CONFIGURATION,
-                ErrorSeverity.ERROR,
-                "Set temperature to a value between 0.0 and 2.0",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "CONFIG_MISSING_API_KEY",
-                "API key not found for provider '{provider}'. Environment variable '{key_name}' is not set",
-                ErrorCategory.AUTHENTICATION,
-                ErrorSeverity.CRITICAL,
-                "Set the required API key in your environment or ~/.par_gpt.env file",
-                "https://github.com/paulrobello/par_gpt#environment-variables",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "CONFIG_INVALID_BASE_URL",
-                "Invalid base URL '{base_url}'. URL must start with http:// or https://",
-                ErrorCategory.CONFIGURATION,
-                ErrorSeverity.ERROR,
-                "Provide a valid HTTP or HTTPS URL",
+                "Check the configuration documentation for valid values",
             )
         )
 
@@ -238,57 +208,6 @@ class ErrorRegistry:
             )
         )
 
-        self.register(
-            ErrorMessage(
-                "SECURITY_FILE_TOO_LARGE",
-                "File size {size_mb:.1f}MB exceeds maximum allowed size of {max_size_mb:.1f}MB",
-                ErrorCategory.SECURITY,
-                ErrorSeverity.ERROR,
-                "Use a smaller file or increase the maximum file size limit",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "SECURITY_CODE_EXECUTION_DENIED",
-                "Code execution was denied by user or security policy",
-                ErrorCategory.SECURITY,
-                ErrorSeverity.WARNING,
-                "Enable code execution if needed using --repl flag or configure security settings",
-            )
-        )
-
-        # Network errors
-        self.register(
-            ErrorMessage(
-                "NETWORK_CONNECTION_FAILED",
-                "Failed to connect to {service} at {url}: {error}",
-                ErrorCategory.NETWORK,
-                ErrorSeverity.ERROR,
-                "Check your internet connection and verify the service URL",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "NETWORK_TIMEOUT",
-                "Request to {service} timed out after {timeout}s",
-                ErrorCategory.NETWORK,
-                ErrorSeverity.ERROR,
-                "Try again or increase the timeout value",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "NETWORK_API_RATE_LIMIT",
-                "API rate limit exceeded for {provider}. Rate limit: {limit}, reset time: {reset_time}",
-                ErrorCategory.NETWORK,
-                ErrorSeverity.WARNING,
-                "Wait for the rate limit to reset or use a different provider",
-            )
-        )
-
         # File operation errors
         self.register(
             ErrorMessage(
@@ -310,86 +229,25 @@ class ErrorRegistry:
             )
         )
 
+        # Performance errors
         self.register(
             ErrorMessage(
-                "FILE_INVALID_FORMAT",
-                "Invalid file format for {file_path}. Expected {expected_format}, got {actual_format}",
-                ErrorCategory.FILE_OPERATIONS,
-                ErrorSeverity.ERROR,
-                "Use a file with the correct format",
-            )
-        )
-
-        # AI Provider errors
-        self.register(
-            ErrorMessage(
-                "AI_MODEL_NOT_FOUND",
-                "Model '{model}' not found for provider '{provider}'",
-                ErrorCategory.AI_PROVIDER,
-                ErrorSeverity.ERROR,
-                "Use a valid model name or check available models for the provider",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "AI_PROVIDER_ERROR",
-                "Error from {provider}: {error_message}",
-                ErrorCategory.AI_PROVIDER,
-                ErrorSeverity.ERROR,
-                "Check the error message and verify your API configuration",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "AI_CONTEXT_TOO_LARGE",
-                "Context size {context_size} exceeds maximum {max_size} for model '{model}'",
-                ErrorCategory.AI_PROVIDER,
-                ErrorSeverity.ERROR,
-                "Reduce context size or use a model with larger context limit",
-            )
-        )
-
-        # Tool errors
-        self.register(
-            ErrorMessage(
-                "TOOL_NOT_AVAILABLE",
-                "Tool '{tool_name}' is not available: {reason}",
-                ErrorCategory.TOOLS,
+                "PERFORMANCE_TIMEOUT",
+                "Operation timed out after {timeout}s",
+                ErrorCategory.PERFORMANCE,
                 ErrorSeverity.WARNING,
-                "Install required dependencies or enable the tool in configuration",
+                "Try again or increase the timeout value",
             )
         )
 
+        # Cache errors
         self.register(
             ErrorMessage(
-                "TOOL_EXECUTION_FAILED",
-                "Failed to execute tool '{tool_name}': {error}",
-                ErrorCategory.TOOLS,
-                ErrorSeverity.ERROR,
-                "Check the tool configuration and error details",
-            )
-        )
-
-        # User input errors
-        self.register(
-            ErrorMessage(
-                "INPUT_VALIDATION_FAILED",
-                "Invalid input for {field}: {validation_error}",
-                ErrorCategory.USER_INPUT,
-                ErrorSeverity.ERROR,
-                "Provide valid input according to the field requirements",
-            )
-        )
-
-        self.register(
-            ErrorMessage(
-                "INPUT_REQUIRED",
-                "Required input missing: {field}",
-                ErrorCategory.USER_INPUT,
-                ErrorSeverity.ERROR,
-                "Provide the required input",
+                "CACHE_WRITE_FAILED",
+                "Failed to write to cache: {error}",
+                ErrorCategory.CACHE,
+                ErrorSeverity.WARNING,
+                "Check cache directory permissions and available disk space",
             )
         )
 
@@ -397,20 +255,32 @@ class ErrorRegistry:
         self.register(
             ErrorMessage(
                 "SYSTEM_DEPENDENCY_MISSING",
-                "Required system dependency missing: {dependency}",
+                "Required dependency missing: {dependency}",
                 ErrorCategory.SYSTEM,
                 ErrorSeverity.CRITICAL,
-                "Install the required dependency using your system package manager",
+                "Install the required dependency using your package manager",
             )
         )
 
+        # Network errors
         self.register(
             ErrorMessage(
-                "SYSTEM_PLATFORM_UNSUPPORTED",
-                "Operation not supported on platform '{platform}'",
-                ErrorCategory.SYSTEM,
+                "NETWORK_CONNECTION_FAILED",
+                "Failed to connect to {service}: {error}",
+                ErrorCategory.NETWORK,
                 ErrorSeverity.ERROR,
-                "Use a supported platform or find an alternative approach",
+                "Check your internet connection and verify the service URL",
+            )
+        )
+
+        # Validation errors
+        self.register(
+            ErrorMessage(
+                "VALIDATION_FAILED",
+                "Validation failed for {field}: {error}",
+                ErrorCategory.VALIDATION,
+                ErrorSeverity.ERROR,
+                "Provide valid input according to the field requirements",
             )
         )
 

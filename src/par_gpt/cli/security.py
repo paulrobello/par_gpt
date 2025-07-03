@@ -8,7 +8,7 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
-from par_gpt.utils.path_security import (
+from par_utils import (
     PathSecurityError,
     sanitize_filename,
     validate_relative_path,
