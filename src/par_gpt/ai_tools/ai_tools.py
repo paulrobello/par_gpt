@@ -846,7 +846,7 @@ def user_prompt(prompt: str, default_value: str | None = None, choices: list[str
     # Lazy load Rich Prompt component and user timer
     Prompt = lazy_import("rich.prompt", "Prompt")
     user_timer = lazy_import("par_utils", "user_timer")
-    
+
     with user_timer("ai_tool_user_prompt", {"prompt": prompt[:50] + "..." if len(prompt) > 50 else prompt}):
         return Prompt.ask(prompt, console=console_err, default=default_value, choices=choices) or ""
 

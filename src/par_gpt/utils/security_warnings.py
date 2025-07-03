@@ -55,8 +55,11 @@ def warn_command_execution(
 
     try:
         from par_utils import user_timer
-        
-        with user_timer("security_confirmation", {"type": "command_execution", "command": command[:50] + "..." if len(command) > 50 else command}):
+
+        with user_timer(
+            "security_confirmation",
+            {"type": "command_execution", "command": command[:50] + "..." if len(command) > 50 else command},
+        ):
             response = Prompt.ask(
                 "[bold]Do you want to proceed?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
                 default="N",
@@ -112,7 +115,7 @@ def warn_environment_modification(
 
     try:
         from par_utils import user_timer
-        
+
         with user_timer("security_confirmation", {"type": "environment_modification", "variable": var_name}):
             response = Prompt.ask(
                 "[bold]Continue with environment modification?[/bold] [green][[Y]es[/green]/[red][N]o[/red]]",
@@ -171,8 +174,11 @@ def warn_code_execution(
 
     try:
         from par_utils import user_timer
-        
-        with user_timer("security_confirmation", {"type": "code_execution", "code_preview": code[:100] + "..." if len(code) > 100 else code}):
+
+        with user_timer(
+            "security_confirmation",
+            {"type": "code_execution", "code_preview": code[:100] + "..." if len(code) > 100 else code},
+        ):
             response = Prompt.ask(
                 "[bold red]Execute this code?[/bold red] [green][[Y]es[/green]/[red][N]o[/red]]",
                 default="N",

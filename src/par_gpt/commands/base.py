@@ -215,7 +215,7 @@ class LoopableCommandMixin:
                 while not question:
                     Prompt = lazy_import("rich.prompt", "Prompt")
                     from par_utils import user_timer
-                    
+
                     with user_timer("user_input_prompt"):
                         question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
                     if question.lower() == "exit":

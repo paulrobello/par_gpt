@@ -98,8 +98,10 @@ class ParPythonAstREPLTool(BaseTool):
                 query = sanitize_input(query)
             if self.prompt_before_exec:
                 from par_utils import user_timer
-                
-                with user_timer("repl_execution_confirmation", {"code_preview": query[:100] + "..." if len(query) > 100 else query}):
+
+                with user_timer(
+                    "repl_execution_confirmation", {"code_preview": query[:100] + "..." if len(query) > 100 else query}
+                ):
                     ans = Prompt.ask(
                         f"Execute>>>\n[yellow]{query}[/yellow]\n<<<[[green]Y[/green]/[red]n[/red]] ? ",
                         default="y",

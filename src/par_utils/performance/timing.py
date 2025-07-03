@@ -278,11 +278,11 @@ class TimingRegistry:
         if sorted_ops:
             table.add_section()
             overall_average = grand_total / total_operations if total_operations > 0 else 0.0
-            
+
             # Calculate processing and user interaction totals
             processing_total = self.get_processing_total()
             user_interaction_total = self.get_user_interaction_total()
-            
+
             # Grand Total (All Operations)
             table.add_row(
                 "[bold]Grand Total (All)[/bold]",
@@ -290,11 +290,10 @@ class TimingRegistry:
                 f"[bold]{total_operations}[/bold]",
                 f"[bold]{overall_average:.3f}s[/bold]",
             )
-            
+
             # Processing Total (Excluding User Wait Time)
             if processing_total > 0.0:
-                processing_ops = sum(1 for t in self._timings.values() 
-                                   if t.is_complete and t.category == "processing")
+                processing_ops = sum(1 for t in self._timings.values() if t.is_complete and t.category == "processing")
                 processing_avg = processing_total / processing_ops if processing_ops > 0 else 0.0
                 table.add_row(
                     "[bold green]Processing Total[/bold green]",
@@ -302,11 +301,10 @@ class TimingRegistry:
                     f"[bold green]{processing_ops}[/bold green]",
                     f"[bold green]{processing_avg:.3f}s[/bold green]",
                 )
-            
+
             # User Interaction Total (if any)
             if user_interaction_total > 0.0:
-                user_ops = sum(1 for t in self._timings.values() 
-                             if t.is_complete and t.category == "user_interaction")
+                user_ops = sum(1 for t in self._timings.values() if t.is_complete and t.category == "user_interaction")
                 user_avg = user_interaction_total / user_ops if user_ops > 0 else 0.0
                 table.add_row(
                     "[bold yellow]User Wait Time[/bold yellow]",
@@ -335,7 +333,7 @@ class TimingRegistry:
         if user_interaction_total > 0.0:
             title += f" | Processing: {processing_total:.3f}s | User Wait: {user_interaction_total:.3f}s"
         title += ")"
-        
+
         tree = Tree(title)
 
         # Build tree from root timings
@@ -404,7 +402,9 @@ def show_timing_details() -> None:
 
 
 @contextmanager
-def timer(name: str, metadata: dict[str, Any] | None = None, category: str = "processing") -> Generator[str, None, None]:
+def timer(
+    name: str, metadata: dict[str, Any] | None = None, category: str = "processing"
+) -> Generator[str, None, None]:
     """Context manager for timing operations.
 
     Args:
@@ -419,7 +419,7 @@ def timer(name: str, metadata: dict[str, Any] | None = None, category: str = "pr
         with timer("database_query", {"query": "SELECT * FROM users"}):
             # Your code here
             pass
-        
+
         with timer("user_prompt", category="user_interaction"):
             # User input here
             pass
