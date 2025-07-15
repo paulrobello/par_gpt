@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 from typing import Annotated
 
@@ -98,12 +99,39 @@ class TinifyCommand(BaseCommand):
         import tinify
 
         tinify.key = os.environ["TINIFY_KEY"]  # type: ignore
-        output_path = Path(output_file) if output_file else image_path
 
-        source = tinify.from_file(image_path)  # type: ignore
-        source.to_file(str(output_path))
-        compression_ratio = output_path.stat().st_size / image_path.stat().st_size
+        # Store original file size before any compression
+        original_size = image_path.stat().st_size
+
+        # Handle in-place vs separate output file compression
+        if output_file:
+            # Direct compression to specified output file
+            output_path = Path(output_file)
+            source = tinify.from_file(image_path)  # type: ignore
+            source.to_file(str(output_path))
+            compressed_size = output_path.stat().st_size
+        else:
+            # In-place compression using temporary file
+            with tempfile.NamedTemporaryFile(suffix=image_path.suffix, delete=False) as temp_file:
+                temp_path = Path(temp_file.name)
+
+            try:
+                source = tinify.from_file(image_path)  # type: ignore
+                source.to_file(str(temp_path))
+                compressed_size = temp_path.stat().st_size
+
+                # Replace original file with compressed version
+                temp_path.replace(image_path)
+                output_path = image_path
+            finally:
+                # Clean up temp file if it still exists
+                if temp_path.exists():
+                    temp_path.unlink()
+
+        # Calculate reduction percentage using original size
+        compression_ratio = compressed_size / original_size
         reduction_percentage = (1 - compression_ratio) * 100
+
         self.console.print(f"Tinified image saved to {output_path} with a reduction of {reduction_percentage:.2f}%")
 
 

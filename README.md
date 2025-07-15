@@ -728,6 +728,12 @@ par_gpt agent "list visible windows"
 ```
 
 ## What's New
+- Version 0.14.1:
+  - **Tinify Command Fix**: Fixed image compression percentage calculation that was always showing 0% reduction
+    - **Root Cause**: When no output file was specified, the command overwrote the original file and compared compressed size with itself
+    - **Solution**: Implemented proper temporary file handling for in-place compression with accurate size comparison
+    - **Features**: Now correctly shows actual compression percentages for both in-place and separate output file scenarios
+    - **Safety**: Added proper error handling and temporary file cleanup to prevent data loss
 - Version 0.14.0:
   - **PAR Utils Package Creation**: Major architectural refactoring to extract reusable utilities into a separate package
     - **Modular Architecture** - Created `src/par_utils/` package with organized utility modules:
