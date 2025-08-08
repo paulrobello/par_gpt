@@ -122,7 +122,7 @@ def get_console(console: Console | None = None) -> Console:
     return _console_manager.get_console(console)
 
 
-def with_console[F](func: F) -> F:
+def with_console(func: F) -> F:
     """Decorator that ensures a console is available for the function.
 
     If the decorated function has a 'console' parameter and it's None,

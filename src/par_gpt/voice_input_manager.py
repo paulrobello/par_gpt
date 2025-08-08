@@ -29,9 +29,9 @@ def lazy_import(module_path: str, item_name: str | None = None):
     return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
-def get_console():
+def get_console(console=None):
     """Backward compatibility function for get_console."""
-    return _console_manager.get_console()
+    return _console_manager.get_console(console)
 
 
 def is_complete_sentence(text: str, llm_config: LlmConfig | None = None) -> bool:

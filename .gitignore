@@ -1,4 +1,7 @@
-### PythonVanilla template
+# =============================================================================
+# PYTHON CORE
+# =============================================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -6,6 +9,8 @@ __pycache__/
 
 # C extensions
 *.so
+*.dylib
+*.dll
 
 # Distribution / packaging
 .Python
@@ -15,6 +20,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+lib/
 lib64/
 parts/
 sdist/
@@ -26,9 +32,44 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# PyInstaller
+*.manifest
+*.spec
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# =============================================================================
+# PYTHON ENVIRONMENT MANAGEMENT
+# =============================================================================
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.env/
+.python-version
+
+# UV (modern Python package manager)
+uv.lock
+
+# Pipenv
+#Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# PEP 582
+__pypackages__/
+
+# pyenv
+.python-version
+
+# =============================================================================
+# TESTING & COVERAGE
+# =============================================================================
 
 # Unit test / coverage reports
 htmlcov/
@@ -44,43 +85,178 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# =============================================================================
+# DEVELOPMENT TOOLS
+# =============================================================================
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Code formatters and linters
+.ruff_cache/
+.mypy_cache/
+.pytype/
+
+# Pre-commit
+.pre-commit-cache/
+
+# Profilers
+.prof
+
+# =============================================================================
+# AI/ML SPECIFIC
+# =============================================================================
+
+# Model files
+*.pkl
+*.joblib
+*.model
+*.h5
+*.hdf5
+*.pb
+*.onnx
+*.bin
+*.safetensors
+
+# Data files
+*.csv
+*.json
+*.jsonl
+*.parquet
+*.feather
+*.npy
+*.npz
+
+# Checkpoints and training artifacts
+checkpoints/
+runs/
+logs/
+tensorboard/
+wandb/
+mlruns/
+.neptune/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# =============================================================================
+# APPLICATION SPECIFIC
+# =============================================================================
+
+# Configuration and secrets
+config.json
+.env
+.env.local
+.env.*.local
+secrets.json
+*.key
+*.pem
+
+# Application data and outputs
+output/
+data/
+temp/
+tmp/
+cache/
+history.json
+temp_prompt.txt
+todos.md
+
+# Voice and media files
+voice_data/
+*.wav
+*.mp3
+*.mp4
+*.avi
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.webp
+
+# Chat and conversation logs
+*chat.json
+*_chat.json
+conversation*.json
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore
+
+# =============================================================================
+# SYSTEM FILES
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# =============================================================================
+# LOGS AND TEMPORARY FILES
+# =============================================================================
+
+# Log files
+*.log
+*.out
+*.err
+logs/
+log/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Lock files
+*.lock
+!uv.lock
+!poetry.lock
+!package-lock.json
+!yarn.lock
+
+# =============================================================================
+# SPECIFIC EXCLUSIONS (from original .gitignore)
+# =============================================================================
+
+# Aider (AI coding assistant)
+.aider*
+
+# Specific excluded files
+/src/par_gpt/lib/gh_utils.py
+
+# Graph outputs
+/graph.png
 
 # Translations
 *.mo
 *.pot
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-.ruff_Cache
-
-.aider*
-**/venv
-**/.venv
-**/.env
-**/.idea
-**/.vscode
-/config.json
-/output/
-/history.json
-/data.csv
-/graph.png
-*~
-/temp_prompt.txt
-/src/par_gpt/lib/gh_utils.py
-**/.DS_Store
-*.log
-/src/par_gpt/voice_data/
-**/*chat.json
-/todos.md

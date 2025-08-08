@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 import typer
 from par_ai_core.llm_config import ReasoningEffort
 from par_ai_core.llm_providers import LlmProvider
@@ -20,7 +21,7 @@ class LoopMode(StrEnum):
     INFINITE = "infinite"
 
 
-def get_global_options() -> dict[str, tuple[type, typer.Option]]:
+def get_global_options() -> dict[str, tuple[Any, typer.Option]]:
     """Get all global CLI options as a dictionary for reuse."""
     return {
         "ai_provider": (
@@ -306,7 +307,7 @@ def get_global_options() -> dict[str, tuple[type, typer.Option]]:
     }
 
 
-def get_agent_options() -> dict[str, tuple[type, typer.Option]]:
+def get_agent_options() -> dict[str, tuple[Any, typer.Option]]:
     """Get agent-specific CLI options."""
     return {
         "max_iterations": (
