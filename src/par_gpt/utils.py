@@ -1184,7 +1184,7 @@ def update_pyproject_deps(
     Update dependencies in pyproject.toml with the currently installed versions.
 
     This function:
-      1. Runs 'uv sync -U' to update packages to latest compatible versions
+      1. Runs 'uv sync -U --all-extras' to update packages to latest compatible versions
       2. Gets the list of installed packages from UV
       3. Updates pyproject.toml to match the installed versions
 
@@ -1218,9 +1218,9 @@ def update_pyproject_deps(
         except ImportError:
             console.print("[blue]🔧 SUBPROCESS: Running UV package update operation[/blue]")
 
-        console.print("[cyan]Running 'uv sync -U' to update packages...")
+        console.print("[cyan]Running 'uv sync -U --all-extras' to update packages...")
         try:
-            subprocess.run(["uv", "sync", "-U"], check=True)
+            subprocess.run(["uv", "sync", "-U", "--all-extras"], check=True)
             console.print("[green]Successfully updated packages with UV")
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Error: uv sync failed: {e}")

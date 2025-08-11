@@ -40,7 +40,7 @@ remove-venv:			# Remove the virtual environment
 
 .PHONY: depsupdate
 depsupdate:			# Update all dependencies
-	uv sync -U
+	uv sync -U --all-extras
 
 .PHONY: depsshow
 depsshow:			# Show the dependency graph
