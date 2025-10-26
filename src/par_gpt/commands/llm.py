@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import typer
 
 from par_gpt.commands.base import BaseCommand, ChatHistoryMixin, LLMCommandMixin, LoopableCommandMixin
@@ -50,7 +52,7 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
     ) -> None:
         """Process the LLM interaction loop."""
 
-        def process_question(q: str, s: dict) -> tuple[str, str, any]:
+        def process_question(q: str, s: dict) -> tuple[str, str, Any]:
             """Process a single question."""
             content, thinking, result = self.do_single_llm_call(
                 chat_model=chat_model,

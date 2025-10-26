@@ -402,9 +402,7 @@ def show_timing_details() -> None:
 
 
 @contextmanager
-def timer(
-    name: str, metadata: dict[str, Any] | None = None, category: str = "processing"
-) -> Generator[str, None, None]:
+def timer(name: str, metadata: dict[str, Any] | None = None, category: str = "processing") -> Generator[str]:
     """Context manager for timing operations.
 
     Args:
@@ -432,7 +430,7 @@ def timer(
 
 
 @contextmanager
-def user_timer(name: str, metadata: dict[str, Any] | None = None) -> Generator[str, None, None]:
+def user_timer(name: str, metadata: dict[str, Any] | None = None) -> Generator[str]:
     """Context manager for timing user interactions.
 
     Args:

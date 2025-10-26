@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 import typer
@@ -159,6 +160,8 @@ class BaseCommand(ABC):
 class LLMCommandMixin:
     """Mixin for commands that use LLM functionality."""
 
+    console: Console  # Expected to be provided by the mixed-in class
+
     def do_single_llm_call(
         self,
         chat_model: Any,
@@ -193,12 +196,15 @@ class LLMCommandMixin:
 class LoopableCommandMixin:
     """Mixin for commands that support loop modes."""
 
+    console: Console  # Expected to be provided by the mixed-in class
+    handle_output: Callable  # Expected to be provided by the mixed-in class
+
     def handle_interactive_loop(
         self,
         state: dict[str, Any],
         callback_context: Any,
         chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
-        process_question_func: callable | None = None,
+        process_question_func: Callable | None = None,
     ) -> None:
         """Handle interactive loop for commands that support it."""
         from par_gpt.cli.options import LoopMode
@@ -249,6 +255,8 @@ class LoopableCommandMixin:
 
 class ChatHistoryMixin:
     """Mixin for commands that handle chat history."""
+
+    console: Console  # Expected to be provided by the mixed-in class
 
     def load_chat_history(self, state: dict[str, Any]) -> list[tuple[str, str | list[dict[str, Any]]]]:
         """Load chat history from file if available."""

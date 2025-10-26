@@ -106,7 +106,7 @@ class AudioResourceManager:
         model: str = "small.en",
         max_listen_time: float = 300.0,
         verbose: bool = False,
-    ) -> Generator[VoiceInputManager, None, None]:
+    ) -> Generator[VoiceInputManager]:
         """
         Context manager for voice input with automatic resource cleanup.
 
@@ -149,7 +149,7 @@ class AudioResourceManager:
         voice_name: str | None = None,
         speed: float = 1.0,
         verbose: bool = False,
-    ) -> Generator[TTSManger, None, None]:
+    ) -> Generator[TTSManger]:
         """
         Context manager for TTS with automatic resource cleanup.
 
@@ -185,7 +185,7 @@ class AudioResourceManager:
                 gc.collect()
 
     @contextmanager
-    def safe_audio_session(self) -> Generator[AudioResourceManager, None, None]:
+    def safe_audio_session(self) -> Generator[AudioResourceManager]:
         """
         Context manager for a complete audio session with guaranteed cleanup.
 
@@ -240,7 +240,7 @@ def safe_voice_input(
     model: str = "small.en",
     max_listen_time: float = 300.0,
     verbose: bool = False,
-) -> Generator[VoiceInputManager, None, None]:
+) -> Generator[VoiceInputManager]:
     """
     Convenience function for safe voice input with automatic cleanup.
 
@@ -270,7 +270,7 @@ def safe_tts(
     voice_name: str | None = None,
     speed: float = 1.0,
     verbose: bool = False,
-) -> Generator[TTSManger, None, None]:
+) -> Generator[TTSManger]:
     """
     Convenience function for safe TTS with automatic cleanup.
 

@@ -50,7 +50,7 @@ class ThreadSafeContextManager:
             self._contexts.clear()
 
     @contextmanager
-    def context_scope(self, **kwargs: Any) -> Generator[None, None, None]:
+    def context_scope(self, **kwargs: Any) -> Generator[None]:
         """Context manager for setting temporary context values."""
         thread_id = self._get_thread_id()
 

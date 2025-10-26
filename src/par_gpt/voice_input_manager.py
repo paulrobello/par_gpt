@@ -229,7 +229,7 @@ class VoiceInputManager:
         self.shutdown()
 
     @contextmanager
-    def listen_context(self) -> Generator["VoiceInputManager", None, None]:
+    def listen_context(self) -> Generator["VoiceInputManager"]:
         """Context manager for safe listening with automatic cleanup."""
         try:
             yield self

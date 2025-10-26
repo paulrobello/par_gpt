@@ -5,7 +5,7 @@ dynamic = [
 ]
 description = "Par Gpt"
 readme = "README.md"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 authors = [
     { name = "Paul Robello", email = "probello@gmail.com" },
 ]

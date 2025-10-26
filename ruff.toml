@@ -32,15 +32,15 @@ exclude = [
 line-length = 120
 indent-width = 4
 
-# Assume Python 3.12
-target-version = "py312"
+# Assume Python 3.13
+target-version = "py313"
 
 [lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 select = ["E4", "E5", "E7", "E9", "F", "W", "UP", "I"]
-ignore = ["E501"]
+ignore = ["E501", "UP047"]  # UP047: Ignore type parameter syntax (requires Python 3.12+, we support 3.11+)
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]

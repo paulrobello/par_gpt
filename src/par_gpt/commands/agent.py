@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Any
 
 import typer
 
@@ -84,7 +85,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
     ) -> None:
         """Process the agent interaction loop."""
 
-        def process_question(q: str, s: dict) -> tuple[str, str, any]:
+        def process_question(q: str, s: dict) -> tuple[str, str, Any]:
             """Process a single question with agent tools."""
             # Build AI tool list based on question keywords
             build_ai_tool_list = lazy_import("par_gpt.lazy_tool_loader", "build_ai_tool_list")
@@ -146,7 +147,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 # Start with interactive loop
                 self.handle_interactive_loop(state, callback_context, chat_history, process_question)
 
-    def _handle_voice_agent_loop(self, state: dict, process_question_func: callable, callback_context) -> None:
+    def _handle_voice_agent_loop(self, state: dict, process_question_func: Callable, callback_context) -> None:
         """Handle voice input agent loop."""
         from par_gpt.cli.options import LoopMode
 

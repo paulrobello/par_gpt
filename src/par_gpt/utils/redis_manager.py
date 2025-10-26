@@ -72,7 +72,7 @@ class RedisOperationManager:
         return self._client
 
     @contextmanager
-    def redis_operation(self, operation_name: str = "Redis operation") -> Generator[redis.Redis | None, None, None]:
+    def redis_operation(self, operation_name: str = "Redis operation") -> Generator[redis.Redis | None]:
         """
         Context manager for Redis operations with error handling.
 

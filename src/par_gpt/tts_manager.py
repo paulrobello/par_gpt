@@ -319,7 +319,7 @@ class TTSManger:
         self.shutdown()
 
     @contextmanager
-    def speak_context(self, text: str) -> Generator[None, None, None]:
+    def speak_context(self, text: str) -> Generator[None]:
         """Context manager for safe speech synthesis with automatic cleanup."""
         try:
             self.speak(text)

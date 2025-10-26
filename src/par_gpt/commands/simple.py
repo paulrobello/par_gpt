@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import typer
 
 from par_gpt.commands.base import BaseCommand
@@ -24,8 +26,8 @@ def create_show_env_command():
 
         # Create a minimal context for this command
         class FakeContext:
-            obj = {}
+            obj: dict[str, Any] = {}
 
-        command.execute(FakeContext())
+        command.execute(cast(typer.Context, FakeContext()))
 
     return show_env
