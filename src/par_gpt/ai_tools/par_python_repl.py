@@ -6,7 +6,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from typing import Any
 
-from langchain.callbacks.manager import (
+from langchain_classic.callbacks.manager import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )

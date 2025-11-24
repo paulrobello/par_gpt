@@ -63,10 +63,6 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         except Exception as e:
             self.handle_exception(e, state)
         finally:
-            # Cleanup voice input if used
-            if state.get("voice_input_man"):
-                state["voice_input_man"].shutdown()
-
             # Show timing information if requested
             self.show_timing_summary(state)
 
@@ -97,10 +93,6 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 enable_redis=s["enable_redis"],
             )
 
-            if s.get("tts_man"):
-                get_random_message = lazy_import("par_gpt.agent_messages", "get_random_message")
-                s["tts_man"].speak(get_random_message(), do_async=True)
-
             # Set tool context for AI tools to access global state
             from par_gpt.tool_context import set_tool_context
 
@@ -120,7 +112,6 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 debug=s["debug"],
                 chat_history=chat_history,
                 console=self.console,
-                use_tts=s["tts"],
             )
 
             # Add to chat history and save
@@ -129,11 +120,8 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
 
             return content, "", result  # Agent doesn't return thinking separately
 
-        # Handle voice input or regular interaction
-        if state.get("voice_input_man"):
-            self._handle_voice_agent_loop(state, process_question, callback_context)
-        else:
-            if question:
+        # Handle regular interaction
+        if question:
                 # Process initial question
                 content, thinking, result = process_question(question, state)
                 self.handle_output(content, thinking, result, state)
@@ -143,32 +131,9 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
 
                 if state["loop_mode"] == LoopMode.INFINITE:
                     self.handle_interactive_loop(state, callback_context, chat_history, process_question)
-            else:
-                # Start with interactive loop
-                self.handle_interactive_loop(state, callback_context, chat_history, process_question)
-
-    def _handle_voice_agent_loop(self, state: dict, process_question_func: Callable, callback_context) -> None:
-        """Handle voice input agent loop."""
-        from par_gpt.cli.options import LoopMode
-
-        while True:
-            question = state["voice_input_man"].get_text()
-            if not question:
-                continue
-            if question.lower() == "exit":
-                return
-
-            content, thinking, result = process_question_func(question, state)
-            self.handle_output(content, thinking, result, state)
-
-            if not state.get("voice_input_man") and state["loop_mode"] != LoopMode.INFINITE:
-                break
-
-            if state["loop_mode"] == LoopMode.INFINITE:
-                show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
-                from par_ai_core.pricing_lookup import PricingDisplay
-
-                show_llm_cost(callback_context.usage_metadata, console=self.console, show_pricing=PricingDisplay.PRICE)
+        else:
+            # Start with interactive loop
+            self.handle_interactive_loop(state, callback_context, chat_history, process_question)
 
 
 def create_agent_command():

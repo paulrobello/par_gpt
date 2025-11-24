@@ -23,13 +23,11 @@ from par_gpt.cli.config import (
     set_environment_variables,
     setup_redis,
     setup_timing,
-    setup_tts_and_voice_input,
     validate_provider_api_key,
 )
 from par_gpt.cli.context import ContextProcessor
 from par_gpt.cli.options import GLOBAL_OPTION_DEFAULTS, LoopMode
 from par_gpt.cli.security import check_mutual_exclusivity
-from par_gpt.tts_manager import TTSProvider
 from par_utils import LazyImportManager
 
 # Create a global lazy import manager instance
@@ -254,45 +252,6 @@ def main(
             help="Enable Redis memory functionality.",
         ),
     ] = GLOBAL_OPTION_DEFAULTS["enable_redis"],
-    tts: Annotated[
-        bool,
-        typer.Option(
-            "--tts",
-            "-T",
-            envvar=f"{__env_var_prefix__}_TTS",
-            help="Use TTS for LLM response.",
-        ),
-    ] = GLOBAL_OPTION_DEFAULTS["tts"],
-    tts_provider: Annotated[
-        TTSProvider | None,
-        typer.Option(
-            "--tts-provider",
-            envvar=f"{__env_var_prefix__}_TTS_PROVIDER",
-            help="Provider to use for TTS. Defaults to kokoro",
-        ),
-    ] = GLOBAL_OPTION_DEFAULTS["tts_provider"],
-    tts_voice: Annotated[
-        str | None,
-        typer.Option(
-            "--tts-voice",
-            envvar=f"{__env_var_prefix__}_TTS_VOICE",
-            help="Voice to use for TTS. Depends on TTS provider chosen.",
-        ),
-    ] = GLOBAL_OPTION_DEFAULTS["tts_voice"],
-    tts_list_voices: Annotated[
-        bool | None,
-        typer.Option(
-            "--tts-list-voices",
-            help="List voices for selected TTS provider.",
-        ),
-    ] = GLOBAL_OPTION_DEFAULTS["tts_list_voices"],
-    voice_input: Annotated[
-        bool,
-        typer.Option(
-            "--voice-input",
-            help="Use voice input.",
-        ),
-    ] = GLOBAL_OPTION_DEFAULTS["voice_input"],
     chat_history: Annotated[
         str | None,
         typer.Option(
@@ -360,60 +319,71 @@ def main(
     # Set environment variables with security warnings
     set_environment_variables(user, redis_host, redis_port, console)
 
-    # Validate provider API key
-    validate_provider_api_key(ai_provider, console)
+    # Commands that require LLM model selection
+    llm_commands = {"llm", "agent", "git", "code-review", "generate-prompt", "stardew"}
 
-    # Check for mutually exclusive options
-    check_mutual_exclusivity(copy_from_clipboard, context_location, console)
+    # Only perform LLM-specific setup for commands that need it
+    if command in llm_commands:
+        # Validate provider API key
+        validate_provider_api_key(ai_provider, console)
 
-    # Process context
-    context_processor = ContextProcessor(console)
-    context_location = context_processor.process_clipboard(copy_from_clipboard, context_location)
-    context_is_url, context_is_file = context_processor.validate_context_location(context_location)
-    context = context_processor.process_stdin(context_location, copy_from_clipboard)
+        # Check for mutually exclusive options
+        check_mutual_exclusivity(copy_from_clipboard, context_location, console)
 
-    # Process context content (images, URLs, files)
-    if context_location:
-        context_content, context_is_image = context_processor.process_context_content(
-            context_location, context_is_url, context_is_file, show_times, show_times_detailed
-        )
-        if context_content:
-            context = context_content
+        # Process context
+        context_processor = ContextProcessor(console)
+        context_location = context_processor.process_clipboard(copy_from_clipboard, context_location)
+        context_is_url, context_is_file = context_processor.validate_context_location(context_location)
+        context = context_processor.process_stdin(context_location, copy_from_clipboard)
+
+        # Process context content (images, URLs, files)
+        if context_location:
+            context_content, context_is_image = context_processor.process_context_content(
+                context_location, context_is_url, context_is_file, show_times, show_times_detailed
+            )
+            if context_content:
+                context = context_content
+        else:
+            context_is_image = False
     else:
+        # For non-LLM commands, skip context processing
+        context = None
         context_is_image = False
+        context_location = ""
+        context_processor = ContextProcessor(console)
 
-    # Get appropriate model for context
-    try:
-        model, model_type = get_model_for_context(ai_provider, model, light_model, context_is_image, command)
-        console.print(f"[bold green]Auto selected {model_type} model: {model}")
-    except ValueError as e:
-        console.print(f"[bold red]{e}. Exiting...")
-        raise typer.Exit(1)
+    # Only perform model selection and LLM config for commands that need it
+    if command in llm_commands:
+        # Get appropriate model for context
+        try:
+            model, model_type = get_model_for_context(ai_provider, model, light_model, context_is_image, command)
+            console.print(f"[bold green]Auto selected {model_type} model: {model}")
+        except ValueError as e:
+            console.print(f"[bold red]{e}. Exiting...")
+            raise typer.Exit(1)
 
-    # Get base URL
-    ai_base_url = get_base_url(ai_provider, ai_base_url)
+        # Get base URL
+        ai_base_url = get_base_url(ai_provider, ai_base_url)
 
-    # Create LLM config with timing
-    from par_utils import timer
+        # Create LLM config with timing
+        from par_utils import timer
 
-    with timer("llm_config_setup"):
-        llm_config = create_llm_config(
-            ai_provider,
-            model,
-            fallback_models,
-            temperature,
-            ai_base_url,
-            user_agent_appid,
-            max_context_size,
-            reasoning_effort,
-            reasoning_budget,
-            command,
-        )
-
-    # Setup TTS and voice input
-    tts_man, voice_input_man = setup_tts_and_voice_input(
-        tts, tts_provider, tts_voice, tts_list_voices, voice_input, debug, console
-    )
+        with timer("llm_config_setup"):
+            llm_config = create_llm_config(
+                ai_provider,
+                model,
+                fallback_models,
+                temperature,
+                ai_base_url,
+                user_agent_appid,
+                max_context_size,
+                reasoning_effort,
+                reasoning_budget,
+                command,
+            )
+    else:
+        # For non-LLM commands, set minimal config to avoid errors
+        llm_config = None
 
     # Validate chat history path
     history_file = context_processor.validate_chat_history_path(chat_history)
@@ -441,10 +411,6 @@ def main(
             redis_host,
             redis_port,
             enable_redis,
-            tts,
-            tts_provider,
-            tts_voice,
-            voice_input,
             debug,
             yes_to_all,
             console,
@@ -482,11 +448,6 @@ def main(
         "redis_host": redis_host,
         "redis_port": redis_port,
         "enable_redis": enable_redis,
-        "tts": tts,
-        "tts_provider": tts_provider,
-        "tts_voice": tts_voice,
-        "tts_man": tts_man,
-        "voice_input_man": voice_input_man,
         "show_times": show_times,
         "show_times_detailed": show_times_detailed,
         "yes_to_all": yes_to_all,
@@ -516,10 +477,6 @@ def display_configuration(
     redis_host,
     redis_port,
     enable_redis,
-    tts,
-    tts_provider,
-    tts_voice,
-    voice_input,
     debug,
     yes_to_all,
     console: Console,
@@ -591,18 +548,6 @@ def display_configuration(
                 "\n",
                 ("Redis Enabled: ", "cyan"),
                 (f"{enable_redis}", "green"),
-                "\n",
-                ("TTS: ", "cyan"),
-                (f"{tts}", "green"),
-                "\n",
-                ("TTS Provider: ", "cyan"),
-                (f"{tts_provider}", "green"),
-                "\n",
-                ("TTS Voice: ", "cyan"),
-                (f"{tts_voice or 'Default'}", "green"),
-                "\n",
-                ("Voice Input: ", "cyan"),
-                (f"{voice_input}", "green"),
                 "\n",
                 ("Debug: ", "cyan"),
                 (f"{debug}", "green"),

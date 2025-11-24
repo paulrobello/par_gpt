@@ -86,43 +86,41 @@ class PublishRepoCommand(BaseCommand):
 class TinifyCommand(BaseCommand):
     """Image compression command using Tinify."""
 
-    def execute(self, ctx: typer.Context, image_file: str, output_file: str | None) -> None:
-        """Execute the tinify command."""
-        image_path = Path(image_file)
-        if not image_path.exists():
-            self.console.print("[bold red]Image not found")
-            raise typer.Exit(1)
-        if image_path.suffix.lower() not in [".png", ".jpg", ".webp"]:
-            self.console.print("[bold red]Only png, jpg, and webp images are supported")
-            raise typer.Exit(1)
+    def _compress_single_image(self, image_path: Path, output_path: Path | None = None) -> tuple[Path, float]:
+        """Compress a single image and return output path and reduction percentage.
 
+        Args:
+            image_path: Path to the image to compress.
+            output_path: Optional path to save compressed image. If None, compresses in-place.
+
+        Returns:
+            Tuple of (output_path, reduction_percentage).
+        """
         import tinify
-
-        tinify.key = os.environ["TINIFY_KEY"]  # type: ignore
 
         # Store original file size before any compression
         original_size = image_path.stat().st_size
 
         # Handle in-place vs separate output file compression
-        if output_file:
+        if output_path:
             # Direct compression to specified output file
-            output_path = Path(output_file)
-            source = tinify.from_file(image_path)  # type: ignore
+            source = tinify.from_file(str(image_path))  # type: ignore
             source.to_file(str(output_path))
             compressed_size = output_path.stat().st_size
+            final_output_path = output_path
         else:
             # In-place compression using temporary file
             with tempfile.NamedTemporaryFile(suffix=image_path.suffix, delete=False) as temp_file:
                 temp_path = Path(temp_file.name)
 
             try:
-                source = tinify.from_file(image_path)  # type: ignore
+                source = tinify.from_file(str(image_path))  # type: ignore
                 source.to_file(str(temp_path))
                 compressed_size = temp_path.stat().st_size
 
                 # Replace original file with compressed version
                 temp_path.replace(image_path)
-                output_path = image_path
+                final_output_path = image_path
             finally:
                 # Clean up temp file if it still exists
                 if temp_path.exists():
@@ -132,7 +130,129 @@ class TinifyCommand(BaseCommand):
         compression_ratio = compressed_size / original_size
         reduction_percentage = (1 - compression_ratio) * 100
 
-        self.console.print(f"Tinified image saved to {output_path} with a reduction of {reduction_percentage:.2f}%")
+        return final_output_path, reduction_percentage
+
+    def execute(
+        self,
+        ctx: typer.Context,
+        image_file: str | None,
+        output_file: str | None,
+        pattern: str | None,
+        output_dir: str | None,
+    ) -> None:
+        """Execute the tinify command."""
+        # Validate mutually exclusive options
+        if image_file and pattern:
+            self.console.print("[bold red]Cannot specify both --image and --pattern")
+            raise typer.Exit(1)
+
+        if not image_file and not pattern:
+            self.console.print("[bold red]Must specify either --image or --pattern")
+            raise typer.Exit(1)
+
+        if pattern and output_file:
+            self.console.print("[bold red]Cannot use --output-image with --pattern. Use --output-dir instead.")
+            raise typer.Exit(1)
+
+        import tinify
+
+        # Validate API key
+        try:
+            tinify.key = os.environ["TINIFY_KEY"]  # type: ignore
+        except KeyError:
+            self.console.print("[bold red]TINIFY_KEY environment variable not set")
+            raise typer.Exit(1)
+
+        # Pattern mode: process multiple files
+        if pattern:
+            # Find all matching files
+            matching_files = list(Path.cwd().glob(pattern))
+
+            # Filter for supported image types
+            supported_extensions = {".png", ".jpg", ".jpeg", ".webp"}
+            image_files = [f for f in matching_files if f.is_file() and f.suffix.lower() in supported_extensions]
+
+            if not image_files:
+                self.console.print(f"[bold yellow]No images found matching pattern: {pattern}")
+                raise typer.Exit(0)
+
+            # Validate or create output directory if specified
+            out_dir: Path | None = None
+            if output_dir:
+                out_dir = Path(output_dir)
+                if not out_dir.exists():
+                    out_dir.mkdir(parents=True, exist_ok=True)
+                    self.console.print(f"[cyan]Created output directory: {out_dir}")
+
+            self.console.print(f"[cyan]Found {len(image_files)} image(s) matching pattern: {pattern}")
+
+            # Process all matching images
+            total_original_size = 0
+            total_compressed_size = 0
+            successful = 0
+            failed = 0
+
+            for img_path in image_files:
+                try:
+                    original_size = img_path.stat().st_size
+                    total_original_size += original_size
+
+                    # Determine output path
+                    if out_dir:
+                        output_path = out_dir / img_path.name
+                    else:
+                        output_path = None  # In-place compression
+
+                    # Compress the image
+                    final_output_path, reduction_pct = self._compress_single_image(img_path, output_path)
+
+                    compressed_size = final_output_path.stat().st_size
+                    total_compressed_size += compressed_size
+
+                    self.console.print(
+                        f"[green]✓[/green] {img_path.name}: {reduction_pct:.2f}% reduction "
+                        f"({original_size:,} → {compressed_size:,} bytes)"
+                    )
+                    successful += 1
+
+                except Exception as e:
+                    self.console.print(f"[red]✗[/red] {img_path.name}: {e}")
+                    failed += 1
+
+            # Print summary
+            self.console.print("\n[bold cyan]Summary:[/bold cyan]")
+            self.console.print(f"  Total files processed: {successful + failed}")
+            self.console.print(f"  Successful: [green]{successful}[/green]")
+            if failed > 0:
+                self.console.print(f"  Failed: [red]{failed}[/red]")
+
+            if total_original_size > 0:
+                total_reduction_pct = (1 - total_compressed_size / total_original_size) * 100
+                self.console.print(
+                    f"  Total size: {total_original_size:,} → {total_compressed_size:,} bytes "
+                    f"({total_reduction_pct:.2f}% reduction)"
+                )
+
+            if failed > 0:
+                raise typer.Exit(1)
+
+        # Single file mode
+        else:
+            assert image_file is not None  # For type checker
+            image_path = Path(image_file)
+            if not image_path.exists():
+                self.console.print("[bold red]Image not found")
+                raise typer.Exit(1)
+            if image_path.suffix.lower() not in [".png", ".jpg", ".jpeg", ".webp"]:
+                self.console.print("[bold red]Only png, jpg, jpeg, and webp images are supported")
+                raise typer.Exit(1)
+
+            output_path = Path(output_file) if output_file else None
+            final_output_path, reduction_percentage = self._compress_single_image(image_path, output_path)
+
+            self.console.print(
+                f"Tinified image saved to {final_output_path} with a reduction of {reduction_percentage:.2f}%"
+            )
 
 
 class ProfileCommand(BaseCommand):
@@ -208,15 +328,55 @@ def create_tinify_command():
 
     def tinify_command(
         ctx: typer.Context,
-        image_file: Annotated[str, typer.Option("--image", "-i", help="Image to tinify.")],
+        image_file: Annotated[
+            str | None, typer.Option("--image", "-i", help="Image to tinify. Mutually exclusive with --pattern.")
+        ] = None,
         output_file: Annotated[
             str | None,
-            typer.Option("--output-image", "-o", help="File to save compressed image to. Defaults to image_file."),
+            typer.Option(
+                "--output-image",
+                "-o",
+                help="File to save compressed image to. Defaults to in-place. Single file mode only.",
+            ),
+        ] = None,
+        pattern: Annotated[
+            str | None,
+            typer.Option(
+                "--pattern",
+                "-p",
+                help="Glob pattern to match multiple images (e.g., '*.png', 'images/**/*.jpg'). Mutually exclusive with --image.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            str | None,
+            typer.Option(
+                "--output-dir",
+                "-d",
+                help="Directory to save compressed images when using --pattern. If not specified, compresses in-place.",
+            ),
         ] = None,
     ) -> None:
-        """Compress image using tinify."""
+        """Compress image(s) using tinify.
+
+        Supports two modes:
+        1. Single file mode: Use --image to compress one image
+        2. Pattern mode: Use --pattern to compress multiple images matching a glob pattern
+
+        Examples:
+          # Compress single image in-place
+          par_gpt tinify --image photo.png
+
+          # Compress single image to new file
+          par_gpt tinify --image photo.png --output-image compressed.png
+
+          # Compress all PNG files in current directory
+          par_gpt tinify --pattern "*.png"
+
+          # Compress all images recursively and save to output directory
+          par_gpt tinify --pattern "**/*.{png,jpg}" --output-dir compressed/
+        """
         command = TinifyCommand()
-        command.execute(ctx, image_file, output_file)
+        command.execute(ctx, image_file, output_file, pattern, output_dir)
 
     return tinify_command
 

@@ -128,10 +128,6 @@ class BaseCommand(ABC):
         display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
         display_formatted_output(content, state["display_format"], console=self.console)
 
-        # TTS if enabled
-        if state.get("tts_man"):
-            state["tts_man"].speak(content)
-
     def show_timing_summary(self, state: dict[str, Any]) -> None:
         """Show timing summary if requested."""
         if state.get("show_times") or state.get("show_times_detailed"):
@@ -188,7 +184,6 @@ class LLMCommandMixin:
                 display_format=state["display_format"],
                 debug=state["debug"],
                 console=self.console,
-                use_tts=state["tts"],
                 chat_history=chat_history,
             )
 
@@ -211,14 +206,7 @@ class LoopableCommandMixin:
 
         question = ""
         while True:
-            if state.get("voice_input_man"):
-                question = state["voice_input_man"].get_text()
-                if not question:
-                    continue
-                if question.lower() == "exit":
-                    return
-            else:
-                while not question:
+            while not question:
                     Prompt = lazy_import("rich.prompt", "Prompt")
                     from par_utils import user_timer
 

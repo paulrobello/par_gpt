@@ -14,7 +14,6 @@ from rich.console import Console
 
 from par_gpt import __application_binary__, __env_var_prefix__
 from par_gpt.lazy_import_manager import PARGPTLazyImportManager
-from par_gpt.tts_manager import TTSProvider
 from par_gpt.utils.config_validation import PARGPTConfig, load_and_validate_config
 
 # Create a global lazy import manager instance
@@ -215,38 +214,6 @@ def create_llm_config(
         reasoning_effort=reasoning_effort,
         reasoning_budget=reasoning_budget,
     ).set_env()
-
-
-def setup_tts_and_voice_input(
-    tts: bool,
-    tts_provider: TTSProvider | None,
-    tts_voice: str | None,
-    tts_list_voices: bool | None,
-    voice_input: bool,
-    debug: bool,
-    console: Console | None = None,
-) -> tuple[Any | None, Any | None]:
-    """Setup TTS and voice input managers."""
-    if console is None:
-        console = console_err
-
-    # Lazy import TTS and voice input managers
-    TTSManger = lazy_import("par_gpt.tts_manager", "TTSManger")
-    VoiceInputManager = lazy_import("par_gpt.voice_input_manager", "VoiceInputManager")
-
-    tts_man: Any | None = None
-    if tts:
-        if tts_list_voices:
-            voices = TTSManger(tts_provider or TTSProvider.KOKORO, console=console).list_voices()
-            console.print("\nAvailable voices:", voices)
-            raise typer.Exit(0)
-        tts_man = TTSManger(tts_provider or TTSProvider.KOKORO, voice_name=tts_voice, console=console)
-
-    voice_input_man: Any | None = None
-    if voice_input:
-        voice_input_man = VoiceInputManager(wake_word="jenny", verbose=debug or True, sanity_check_sentence=False)
-
-    return tts_man, voice_input_man
 
 
 def setup_timing(show_times: bool, show_times_detailed: bool) -> None:

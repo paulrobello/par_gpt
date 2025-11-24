@@ -728,6 +728,13 @@ par_gpt agent "list visible windows"
 ```
 
 ## What's New
+- Version 0.15.0:
+  - **Python 3.13 Support**: Updated project to support Python 3.13 as the target version
+    - **Type Safety Improvements**: Fixed type checking issues across multiple modules
+    - **Dependency Updates**: Updated dependencies to use `--all-extras` flag for comprehensive dependency management
+    - **CLI Enhancements**: Improved CLI configuration and command handling with better type annotations
+    - **Agent Improvements**: Enhanced agent command handling and lazy import management
+    - **Python REPL Updates**: Improved Python REPL AI tool with better type safety
 - Version 0.14.1:
   - **Tinify Command Fix**: Fixed image compression percentage calculation that was always showing 0% reduction
     - **Root Cause**: When no output file was specified, the command overwrote the original file and compared compressed size with itself

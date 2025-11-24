@@ -59,7 +59,7 @@ class PARGPTLazyImportManager(_LazyImportManager):
         return imports
 
     def load_media_imports(self) -> dict[str, Any]:
-        """Load imports needed for media operations (images, TTS, etc.)."""
+        """Load imports needed for media operations (images, etc.)."""
         imports = {}
 
         # Image utilities
@@ -68,14 +68,6 @@ class PARGPTLazyImportManager(_LazyImportManager):
         imports["UnsupportedImageTypeError"] = self.get_cached_import(
             "par_ai_core.llm_image_utils", "UnsupportedImageTypeError"
         )
-
-        # TTS functionality
-        imports["TTSManger"] = self.get_cached_import("par_gpt.tts_manager", "TTSManger")
-        imports["TTSProvider"] = self.get_cached_import("par_gpt.tts_manager", "TTSProvider")
-        imports["summarize_for_tts"] = self.get_cached_import("par_gpt.tts_manager", "summarize_for_tts")
-
-        # Voice input
-        imports["VoiceInputManager"] = self.get_cached_import("par_gpt.voice_input_manager", "VoiceInputManager")
 
         return imports
 
@@ -148,23 +140,6 @@ class PARGPTLazyImportManager(_LazyImportManager):
 
         return imports
 
-    def load_tts_imports(self) -> dict[str, Any]:
-        """Load TTS functionality when needed."""
-        imports = {}
-        imports["pyttsx3"] = self.get_cached_import("pyttsx3")
-        imports["ElevenLabs"] = self.get_cached_import("elevenlabs.client", "ElevenLabs")
-        imports["OpenAI"] = self.get_cached_import("openai", "OpenAI")
-        imports["Kokoro"] = self.get_cached_import("kokoro_onnx", "Kokoro")
-        imports["play"] = self.get_cached_import("elevenlabs", "play")
-        imports["numpy"] = self.get_cached_import("numpy")
-        return imports
-
-    def load_voice_input_imports(self) -> dict[str, Any]:
-        """Load voice input functionality when needed."""
-        imports = {}
-        imports["AudioToTextRecorder"] = self.get_cached_import("RealtimeSTT", "AudioToTextRecorder")
-        return imports
-
     def load_github_imports(self) -> dict[str, Any]:
         """Load GitHub API functionality when needed."""
         imports = {}
@@ -206,9 +181,6 @@ def get_command_imports(command: str, **kwargs) -> dict[str, Any]:
         return imports
     elif command == "agent":
         imports = _lazy_import_manager.load_agent_imports()
-        # Add additional imports based on agent requirements
-        if kwargs.get("has_tts", False):
-            imports.update(_lazy_import_manager.load_media_imports())
         return imports
     elif command == "git":
         imports = _lazy_import_manager.load_basic_llm_imports()

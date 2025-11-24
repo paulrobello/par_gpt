@@ -6,7 +6,7 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from langchain.agents import AgentExecutor, create_react_agent, create_tool_calling_agent
+from langchain_classic.agents import AgentExecutor, create_react_agent, create_tool_calling_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
@@ -43,7 +43,6 @@ def do_single_llm_call(
     chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
     debug: bool,
     console: Console | None = None,
-    use_tts: bool = False,
 ) -> tuple[str, str, BaseMessage]:
     console = get_console(console)
 
@@ -61,15 +60,7 @@ def do_single_llm_call(
     if memories:
         default_system_prompt += memories
     if not no_system_prompt:
-        if use_tts:
-            output_format = """<output_instructions>
-<instruction>Your output will be used by TTS please avoid emojis, special characters or other un-pronounceable things.</instruction>
-<instruction>When outputting URLs, ensure they are absolute and do not contain any relative paths.</instruction>
-<instruction>URLs should be in markdown format.</instruction>
-</output_instructions>
-"""
-        else:
-            output_format = get_output_format_prompt(display_format)
+        output_format = get_output_format_prompt(display_format)
         if chat_history and chat_history[0][0] == "system":
             chat_history.pop(0)
         chat_history.insert(
@@ -204,7 +195,6 @@ def do_tool_agent(
     image: str | None = None,
     max_iterations: int = 5,
     chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
-    use_tts: bool = False,
     debug: bool = True,
     verbose: bool = False,
     console: Console | None = None,
@@ -272,15 +262,6 @@ def do_tool_agent(
     <rule>Use console.print() to output text to the user. This console.print supports markup formatting using the rich library.</rule>
     <rule>If an "AbortedByUserError" is raised by a tool, return its message to the user as the final answer.</rule>
 </repl_rules>
-"""
-
-    if use_tts:
-        default_system_prompt += """
-<output_instructions>
-<instruction>Your output will be used by TTS please keep final answer concise and avoid emojis, special characters or other un-pronounceable things.</instruction>
-<instruction>When outputting URLs, ensure they are absolute and do not contain any relative paths.</instruction>
-<instruction>URLs should be in markdown format.</instruction>
-</output_instructions>
 """
 
     default_system_prompt += """

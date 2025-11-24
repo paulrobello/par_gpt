@@ -12,7 +12,6 @@ from par_ai_core.pricing_lookup import PricingDisplay
 from strenum import StrEnum
 
 from par_gpt import __env_var_prefix__
-from par_gpt.tts_manager import TTSProvider
 
 
 class LoopMode(StrEnum):
@@ -224,45 +223,6 @@ def get_global_options() -> dict[str, tuple[Any, Any]]:
                 help="Enable Redis memory functionality.",
             ),
         ),
-        "tts": (
-            bool,
-            typer.Option(
-                "--tts",
-                "-T",
-                envvar=f"{__env_var_prefix__}_TTS",
-                help="Use TTS for LLM response.",
-            ),
-        ),
-        "tts_provider": (
-            TTSProvider | None,
-            typer.Option(
-                "--tts-provider",
-                envvar=f"{__env_var_prefix__}_TTS_PROVIDER",
-                help="Provider to use for TTS. Defaults to kokoro",
-            ),
-        ),
-        "tts_voice": (
-            str | None,
-            typer.Option(
-                "--tts-voice",
-                envvar=f"{__env_var_prefix__}_TTS_VOICE",
-                help="Voice to use for TTS. Depends on TTS provider chosen.",
-            ),
-        ),
-        "tts_list_voices": (
-            bool | None,
-            typer.Option(
-                "--tts-list-voices",
-                help="List voices for selected TTS provider.",
-            ),
-        ),
-        "voice_input": (
-            bool,
-            typer.Option(
-                "--voice-input",
-                help="Use voice input.",
-            ),
-        ),
         "chat_history": (
             str | None,
             typer.Option(
@@ -374,11 +334,6 @@ GLOBAL_OPTION_DEFAULTS = {
     "redis_host": "localhost",
     "redis_port": 6379,
     "enable_redis": False,
-    "tts": False,
-    "tts_provider": None,
-    "tts_voice": None,
-    "tts_list_voices": None,
-    "voice_input": False,
     "chat_history": None,
     "loop_mode": LoopMode.ONE_SHOT,
     "show_times": False,
