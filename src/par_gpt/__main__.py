@@ -1,11 +1,24 @@
 """Main application entry point for PAR GPT."""
 
+# ruff: noqa: E402
+# E402 is intentionally ignored because we must configure warning filters
+# before importing LangChain modules that trigger Python 3.14 compatibility warnings
+
 from __future__ import annotations
 
-# Import the main Typer app from CLI infrastructure
-from par_gpt.cli.app import app
+# Suppress Pydantic v1 compatibility warning on Python 3.14+
+# This is a known issue with LangChain's pydantic.v1 imports
+# Will be resolved when Pydantic 2.13 is released with Python 3.14 support
+# See: https://github.com/langchain-ai/langchain/issues/33926
+import warnings
 
-# Import all command creators
+warnings.filterwarnings(
+    "ignore",
+    message="Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater",
+    category=UserWarning,
+)
+
+from par_gpt.cli.app import app
 from par_gpt.commands.agent import create_agent_command
 from par_gpt.commands.code_review import create_code_review_command
 from par_gpt.commands.generate_prompt import create_generate_prompt_command
