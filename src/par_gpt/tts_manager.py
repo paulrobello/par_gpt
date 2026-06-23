@@ -249,7 +249,7 @@ class TTSManger:
                 play = lazy_import("elevenlabs", "play")
                 play(audio)
             elif self.tts_provider == TTSProvider.OPENAI:
-                import sounddevice as sd
+                import sounddevice as sd  # type: ignore[reportMissingImports]
 
                 audio_response = self.engine.audio.speech.create(  # type: ignore
                     model="tts-1-hd",
@@ -270,7 +270,7 @@ class TTSManger:
                     del audio_data
 
             elif self.tts_provider == TTSProvider.KOKORO:
-                import sounddevice as sd
+                import sounddevice as sd  # type: ignore[reportMissingImports]
 
                 samples, sample_rate = self.engine.create(text, voice=self.voice_name, speed=self.speed, lang="en-us")  # type: ignore
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Annotated, Any
 
 import typer
@@ -122,15 +121,15 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
 
         # Handle regular interaction
         if question:
-                # Process initial question
-                content, thinking, result = process_question(question, state)
-                self.handle_output(content, thinking, result, state)
+            # Process initial question
+            content, thinking, result = process_question(question, state)
+            self.handle_output(content, thinking, result, state)
 
-                # Continue with loop if needed
-                from par_gpt.cli.options import LoopMode
+            # Continue with loop if needed
+            from par_gpt.cli.options import LoopMode
 
-                if state["loop_mode"] == LoopMode.INFINITE:
-                    self.handle_interactive_loop(state, callback_context, chat_history, process_question)
+            if state["loop_mode"] == LoopMode.INFINITE:
+                self.handle_interactive_loop(state, callback_context, chat_history, process_question)
         else:
             # Start with interactive loop
             self.handle_interactive_loop(state, callback_context, chat_history, process_question)

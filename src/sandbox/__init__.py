@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from threading import Thread
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import docker
@@ -147,7 +147,7 @@ class SandboxRun:
             self.install_cached_dependencies()
 
         exec_log = container.exec_run(cmd="uv pip list", workdir="/code")
-        exit_code, output = exec_log.exit_code, exec_log.output.decode("utf-8")
+        exit_code, output = exec_log.exit_code, cast(bytes, exec_log.output).decode("utf-8")
         if not exit_code:
             installed_packages = output.splitlines()
             self.cached_dependencies = [
@@ -225,7 +225,8 @@ class SandboxRun:
         def target():
             nonlocal exit_code, output
             exec_log = container.exec_run(cmd=cmd, workdir="/code", demux=True)
-            exit_code, output = exec_log.exit_code, exec_log.output
+            exit_code = cast(int, exec_log.exit_code)
+            output = cast(tuple[Any, Any], exec_log.output)
 
         thread = Thread(target=target)
         thread.start()
@@ -377,7 +378,7 @@ class SandboxRun:
             if self.verbose:
                 self.console.print(command)
             exec_log = container.exec_run(cmd=command, workdir="/code")
-            exit_code, output = exec_log.exit_code, exec_log.output.decode("utf-8")
+            exit_code, output = exec_log.exit_code, cast(bytes, exec_log.output).decode("utf-8")
             if exit_code != 0:
                 self.console.print(output)
                 return SandboxRunResult(status=False, message="Failed to install dependencies")

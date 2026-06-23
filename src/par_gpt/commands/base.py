@@ -207,13 +207,13 @@ class LoopableCommandMixin:
         question = ""
         while True:
             while not question:
-                    Prompt = lazy_import("rich.prompt", "Prompt")
-                    from par_utils import user_timer
+                Prompt = lazy_import("rich.prompt", "Prompt")
+                from par_utils import user_timer
 
-                    with user_timer("user_input_prompt"):
-                        question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
-                    if question.lower() == "exit":
-                        return
+                with user_timer("user_input_prompt"):
+                    question = Prompt.ask("Type 'exit' or press ctrl+c to quit.\nEnter question").strip()
+                if question.lower() == "exit":
+                    return
 
             if process_question_func:
                 content, thinking, result = process_question_func(question, state)

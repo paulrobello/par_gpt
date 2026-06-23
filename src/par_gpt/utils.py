@@ -1120,8 +1120,8 @@ def describe_image_with_llm(img: str | Path, llm_config: LlmConfig | None = None
 
 
 def speak(text: str):
-    from elevenlabs import play
-    from elevenlabs.client import ElevenLabs
+    from elevenlabs import play  # type: ignore[reportMissingImports]
+    from elevenlabs.client import ElevenLabs  # type: ignore[reportMissingImports]
 
     # start_time = time.time()
     model = "eleven_flash_v2_5"
