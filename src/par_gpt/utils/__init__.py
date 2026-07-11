@@ -1,10 +1,19 @@
-"""Backward compatibility module for PAR GPT utilities.
+"""PAR GPT utilities package.
 
-This module provides backward compatibility by importing utilities from par_utils
-and the original utils.py, and exposing them through a consistent interface.
+Public surface for ``par_gpt.utils``. Domain logic lives in concrete submodules
+(``weather``, ``screen_capture``, ``figlet_utils``, ``media_generation``, etc.);
+this module re-exports their names for backward compatibility.
+
+All lazy attribute access resolves through *normal* Python submodule imports
+(cached in ``sys.modules``). The legacy ``utils.py`` monolith and its off-disk
+``importlib.util.spec_from_file_location`` re-execution have been removed -- see
+ARC-001. Singletons (``cache_manager``) live in ``_singletons`` and are
+constructed exactly once.
 """
 
-# Import essential utilities from par_utils
+from __future__ import annotations
+
+# Essential utilities re-exported from par_utils (external package; no cycle).
 from par_utils import (
     CacheManager,
     ConsoleManager,
@@ -30,7 +39,43 @@ from par_utils import (
     validate_within_base,
 )
 
-# Create instances for backward compatibility
+# Shared singleton -- constructed exactly once here (normal module caching).
+from ._singletons import cache_manager
+
+# Light submodules: top-level deps are already loaded above (par_utils,
+# par_ai_core, pydantic, rich, stdlib). All heavy dependencies (PIL, Quartz,
+# pyfiglet, elevenlabs, DALL-E, redis, requests) are imported lazily *inside*
+# the functions, so importing these names does not regress startup. Importing
+# them eagerly here also makes them statically visible to pyright.
+from .env_context import mk_env_context
+from .figlet_utils import FigletFontName, figlet_horizontal, figlet_vertical
+from .image_description import describe_image_with_llm
+from .media_generation import image_gen_dali, speak
+from .pyproject_deps import update_pyproject_deps
+from .redis_client import get_redis_client
+from .screen_capture import (
+    AvailableScreen,
+    ImageCaptureOutputType,
+    VisibleWindow,
+    capture_screen_image,
+    capture_screen_image_mac,
+    capture_window_image,
+    capture_window_image_mac,
+    list_available_screens,
+    list_available_screens_mac,
+    list_visible_windows,
+    list_visible_windows_mac,
+)
+from .security_warnings import (
+    warn_code_execution,
+    warn_command_execution,
+    warn_environment_modification,
+    warn_subprocess_operation,
+)
+from .terminal_image import show_image_in_terminal
+from .weather import get_weather_current, get_weather_forecast
+
+# Create shared instances for backward compatibility.
 _console_manager = ConsoleManager()
 _lazy_import_manager = LazyImportManager()
 
@@ -40,139 +85,70 @@ def get_console(console=None):
     return _console_manager.get_console(console)
 
 
-def _import_from_original_utils(function_name: str):
-    """Import function from the original utils.py file."""
-    # Import the original utils module with importlib to avoid conflicts
-    import importlib.util
-    from pathlib import Path
-
-    # Get the path to the original utils.py file
-    utils_py_path = Path(__file__).parent.parent / "utils.py"
-
-    # Load the module dynamically
-    spec = importlib.util.spec_from_file_location("original_utils", utils_py_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load original utils.py from {utils_py_path}")
-
-    original_utils = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(original_utils)
-
-    # Get the requested function
-    if not hasattr(original_utils, function_name):
-        raise AttributeError(f"Function '{function_name}' not found in original utils.py")
-
-    return getattr(original_utils, function_name)
-
-
-def _import_from_par_utils(function_name: str):
-    """Import function from par_utils package."""
-    import par_utils
-
-    return getattr(par_utils, function_name)
-
-
 def lazy_utils_import(module_name: str, item_name: str):
-    """Import a specific item from a utils module."""
+    """Import a specific item from a utils submodule (backward compatibility)."""
     from par_utils import LazyUtilsLoader
 
     loader = LazyUtilsLoader()
     return loader.get_utils_item(module_name, item_name)
 
 
-def __getattr__(name: str):
-    """Dynamically import utils items when accessed."""
-    # Try to get the item from various utils modules lazily
-    utils_maps = {
-        # Audio utilities
-        "AudioResourceManager": lambda: lazy_utils_import("audio_manager", "AudioResourceManager"),
-        "get_audio_manager": lambda: lazy_utils_import("audio_manager", "get_audio_manager"),
-        "safe_tts": lambda: lazy_utils_import("audio_manager", "safe_tts"),
-        "safe_voice_input": lambda: lazy_utils_import("audio_manager", "safe_voice_input"),
-        # Config utilities
-        "EnvironmentConfig": lambda: lazy_utils_import("config", "EnvironmentConfig"),
-        "get_config": lambda: lazy_utils_import("config", "get_config"),
-        # Console utilities
-        "ConsoleManager": lambda: lazy_utils_import("console_manager", "ConsoleManager"),
-        "get_console": lambda: lazy_utils_import("console_manager", "get_console"),
-        # Image utilities
-        "ImageProcessor": lambda: lazy_utils_import("image_processor", "ImageProcessor"),
-        "process_image": lambda: lazy_utils_import("image_processor", "process_image"),
-        # LLM utilities
-        "LLMInvoker": lambda: lazy_utils_import("llm_invoker", "LLMInvoker"),
-        "invoke_llm": lambda: lazy_utils_import("llm_invoker", "invoke_llm"),
-        # Path security utilities
-        "SecurePathValidator": lambda: lazy_utils_import("path_security", "SecurePathValidator"),
-        "is_safe_download_path": lambda: lazy_utils_import("path_security", "is_safe_download_path"),
-        "sanitize_filename": lambda: lazy_utils_import("path_security", "sanitize_filename"),
-        "secure_path_join": lambda: lazy_utils_import("path_security", "secure_path_join"),
-        "validate_path_component": lambda: lazy_utils_import("path_security", "validate_path_component"),
-        "validate_relative_path": lambda: lazy_utils_import("path_security", "validate_relative_path"),
-        "validate_url_path": lambda: lazy_utils_import("path_security", "validate_url_path"),
-        "validate_within_base": lambda: lazy_utils_import("path_security", "validate_within_base"),
-        # Redis utilities
-        "RedisOperationManager": lambda: lazy_utils_import("redis_manager", "RedisOperationManager"),
-        "get_redis_manager": lambda: lazy_utils_import("redis_manager", "get_redis_manager"),
-        "with_redis_fallback": lambda: lazy_utils_import("redis_manager", "with_redis_fallback"),
-        # Security warnings
-        "warn_code_execution": lambda: lazy_utils_import("security_warnings", "warn_code_execution"),
-        "warn_command_execution": lambda: lazy_utils_import("security_warnings", "warn_command_execution"),
-        "warn_environment_modification": lambda: lazy_utils_import(
-            "security_warnings", "warn_environment_modification"
-        ),
-        "warn_subprocess_operation": lambda: lazy_utils_import("security_warnings", "warn_subprocess_operation"),
-        # Timing utilities
-        "TimingData": lambda: _import_from_par_utils("TimingData"),
-        "TimingRegistry": lambda: _import_from_par_utils("TimingRegistry"),
-        "clear_timings": lambda: _import_from_par_utils("clear_timings"),
-        "disable_timing": lambda: _import_from_par_utils("disable_timing"),
-        "enable_timing": lambda: _import_from_par_utils("enable_timing"),
-        "get_timing_summary": lambda: _import_from_par_utils("get_timing_summary"),
-        "is_timing_enabled": lambda: _import_from_par_utils("is_timing_enabled"),
-        "show_timing_summary": lambda: _import_from_par_utils("show_timing_summary"),
-        "show_timing_details": lambda: _import_from_par_utils("show_timing_details"),
-        "time_operation": lambda: _import_from_par_utils("time_operation"),
-        "timed": lambda: _import_from_par_utils("timed"),
-        "timer": lambda: _import_from_par_utils("timer"),
-        "user_timer": lambda: _import_from_par_utils("user_timer"),
-        # Weather utilities (from original utils.py)
-        "get_weather_current": lambda: _import_from_original_utils("get_weather_current"),
-        "get_weather_forecast": lambda: _import_from_original_utils("get_weather_forecast"),
-        # Original utils.py functions for AI tools
-        "show_image_in_terminal": lambda: _import_from_original_utils("show_image_in_terminal"),
-        "github_publish_repo": lambda: _import_from_original_utils("github_publish_repo"),
-        "figlet_horizontal": lambda: _import_from_original_utils("figlet_horizontal"),
-        "figlet_vertical": lambda: _import_from_original_utils("figlet_vertical"),
-        "list_visible_windows_mac": lambda: _import_from_original_utils("list_visible_windows_mac"),
-        "list_available_screens": lambda: _import_from_original_utils("list_available_screens"),
-        "capture_screen_image": lambda: _import_from_original_utils("capture_screen_image"),
-        "capture_window_image": lambda: _import_from_original_utils("capture_window_image"),
-        "describe_image_with_llm": lambda: _import_from_original_utils("describe_image_with_llm"),
-        "image_gen_dali": lambda: _import_from_original_utils("image_gen_dali"),
-        "update_pyproject_deps": lambda: _import_from_original_utils("update_pyproject_deps"),
-    }
+# Heavy submodules kept lazy: their top-level imports pull optional/heavy deps
+# (audio_manager -> TTS/voice backends, image_processor -> rich_pixels,
+# redis_manager -> redis, config -> pydantic_settings, llm_invoker ->
+# langchain_core, github_utils -> git). They are resolved on first access via a
+# normal cached importlib import -- never the deleted off-disk re-execution.
+_SUBMODULE_MAP: dict[str, tuple[str, str]] = {
+    # Audio utilities (TTS / voice backends)
+    "AudioResourceManager": ("audio_manager", "AudioResourceManager"),
+    "get_audio_manager": ("audio_manager", "get_audio_manager"),
+    "safe_tts": ("audio_manager", "safe_tts"),
+    "safe_voice_input": ("audio_manager", "safe_voice_input"),
+    # Config utilities (pydantic_settings)
+    "EnvironmentConfig": ("config", "EnvironmentConfig"),
+    "get_config": ("config", "get_config"),
+    # Image utilities (rich_pixels)
+    "ImageProcessor": ("image_processor", "ImageProcessor"),
+    "process_image": ("image_processor", "process_image"),
+    # LLM utilities (langchain_core)
+    "LLMInvoker": ("llm_invoker", "LLMInvoker"),
+    "invoke_llm": ("llm_invoker", "invoke_llm"),
+    # Redis operation manager (redis)
+    "RedisOperationManager": ("redis_manager", "RedisOperationManager"),
+    "get_redis_manager": ("redis_manager", "get_redis_manager"),
+    "with_redis_fallback": ("redis_manager", "with_redis_fallback"),
+    # GitHub repo publishing (git)
+    "github_publish_repo": ("github_utils", "github_publish_repo"),
+}
 
-    if name in utils_maps:
-        return utils_maps[name]()
+
+def _load(submodule: str, item: str):
+    """Import ``item`` from sibling ``par_gpt.utils.<submodule>`` (cached import)."""
+    import importlib
+
+    return getattr(importlib.import_module(f".{submodule}", __name__), item)
+
+
+def __getattr__(name: str):
+    """Lazily resolve utils names through normal submodule imports.
+
+    This replaces the legacy off-disk ``importlib.util`` re-execution. Submodules
+    are imported once and cached in ``sys.modules``, so module-level singletons
+    are constructed exactly once.
+    """
+    entry = _SUBMODULE_MAP.get(name)
+    if entry is not None:
+        submodule, item = entry
+        return _load(submodule, item)
 
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 
-# Note: Functions from original utils.py are NOT imported here to avoid circular imports
-# Files that need these functions should implement basic versions directly
-# This is a temporary solution to resolve import conflicts
-
 __all__ = [
-    # Lazy loader functions
-    "get_audio_utils",
-    "get_config_utils",
-    "get_console_utils",
-    "get_image_utils",
-    "get_llm_utils",
-    "get_path_security_utils",
-    "get_redis_utils",
-    "get_security_utils",
-    "get_timing_utils",
+    # Lazy loader helper
     "lazy_utils_import",
+    # Shared singleton
+    "cache_manager",
     # New utils modules
     "AudioResourceManager",
     "get_audio_manager",
@@ -190,6 +166,7 @@ __all__ = [
     "RedisOperationManager",
     "get_redis_manager",
     "with_redis_fallback",
+    "get_redis_client",
     # Error handling
     "ErrorCategory",
     "ErrorHandler",
@@ -199,12 +176,8 @@ __all__ = [
     # Path security
     "PathSecurityError",
     "SecurePathValidator",
-    "is_safe_download_path",
     "sanitize_filename",
-    "secure_path_join",
-    "validate_path_component",
     "validate_relative_path",
-    "validate_url_path",
     "validate_within_base",
     # Security warnings
     "warn_code_execution",
@@ -212,32 +185,45 @@ __all__ = [
     "warn_environment_modification",
     "warn_subprocess_operation",
     # Timing utilities
-    "TimingData",
     "TimingRegistry",
-    "clear_timings",
     "disable_timing",
     "enable_timing",
-    "get_timing_summary",
     "is_timing_enabled",
     "show_timing_details",
     "show_timing_summary",
-    "time_operation",
     "timed",
     "timer",
     "user_timer",
     # Weather utilities
     "get_weather_current",
     "get_weather_forecast",
-    # Original utils.py functions for AI tools
+    # Terminal image display
     "show_image_in_terminal",
-    "github_publish_repo",
+    # Environment context
+    "mk_env_context",
+    # Figlet
+    "FigletFontName",
     "figlet_horizontal",
     "figlet_vertical",
+    # Screen / window enumeration + capture
+    "VisibleWindow",
+    "AvailableScreen",
+    "ImageCaptureOutputType",
     "list_visible_windows_mac",
+    "list_visible_windows",
+    "list_available_screens_mac",
     "list_available_screens",
-    "capture_screen_image",
+    "capture_window_image_mac",
     "capture_window_image",
+    "capture_screen_image_mac",
+    "capture_screen_image",
+    # Image description via LLM
     "describe_image_with_llm",
+    # Media generation
+    "speak",
     "image_gen_dali",
+    # Pyproject dependency syncing
     "update_pyproject_deps",
+    # GitHub repo publishing
+    "github_publish_repo",
 ]
