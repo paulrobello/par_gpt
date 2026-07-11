@@ -21,7 +21,7 @@ import docker
 import docker.errors
 from docker import DockerClient
 from pydantic import BaseModel
-from RestrictedPython import compile_restricted
+from RestrictedPython.compile import compile_restricted
 from rich.console import Console
 from strenum import StrEnum
 

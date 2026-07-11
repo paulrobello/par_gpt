@@ -216,7 +216,7 @@ class LazyToolLoader:
             tools.append(self._import_tool("ai_serper_search"))
         elif os.environ.get("GOOGLE_CSE_ID") and os.environ.get("GOOGLE_CSE_API_KEY"):
             # Import web_search from par_ai_core
-            from par_ai_core.web_tools import web_search
+            from par_ai_core.search_utils import web_search
 
             tools.append(web_search)  # type: ignore
         elif os.environ.get("BRAVE_API_KEY"):

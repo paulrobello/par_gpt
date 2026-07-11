@@ -15,8 +15,16 @@ from langchain_core.tools import tool
 from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider, provider_light_models
 from par_ai_core.par_logging import console_err
-from par_ai_core.search_utils import brave_search, reddit_search, serper_search, youtube_get_transcript, youtube_search
-from par_ai_core.web_tools import GoogleSearchResult, fetch_url_and_convert_to_markdown, web_search
+from par_ai_core.search_utils import (
+    SearchResult,
+    brave_search,
+    reddit_search,
+    serper_search,
+    web_search,
+    youtube_get_transcript,
+    youtube_search,
+)
+from par_ai_core.web_tools import fetch_url_and_convert_to_markdown
 
 # Memory utils imports moved inside ai_memory_db function to prevent Redis connection when disabled
 from par_gpt.utils import get_console
@@ -54,7 +62,7 @@ def ai_image_search(query: str, max_results: int = 10) -> list[str]:
         A list of Markdown Image URLs.
     """
     all_links = []
-    for result in serper_search(query, type="images", max_results=max_results, include_images=True, scrape=True):
+    for result in serper_search(query, search_type="images", max_results=max_results, include_images=True, scrape=True):
         content = result["raw_content"].replace("\n", "")
 
         md_url_matcher = r"(!\[.*?\]\(https?://[^\s]+?\))"
@@ -84,7 +92,7 @@ def ai_fetch_url(
 
 
 @tool(parse_docstring=True)
-def ai_web_search(query: str) -> list[GoogleSearchResult]:
+def ai_web_search(query: str) -> list[SearchResult]:
     """
     Performs a Google web search.
 
@@ -100,7 +108,7 @@ def ai_web_search(query: str) -> list[GoogleSearchResult]:
 @tool(parse_docstring=True)
 def ai_reddit_search(
     query: str, subreddit: str = "all", max_comments: int = 0, max_results: int = 3
-) -> list[dict[str, Any]]:
+) -> list[SearchResult]:
     """
     Performs a Reddit search.
 
@@ -276,7 +284,7 @@ def ai_youtube_get_transcript(video_id: str) -> str:
 @tool(parse_docstring=True)
 def ai_youtube_search(
     query: str, days: int = 0, max_results: int = 3, fetch_transcript: bool = False
-) -> list[dict[str, Any]]:
+) -> list[SearchResult]:
     """
     Search YouTube for videos and optionally fetch transcripts.
 
@@ -297,7 +305,7 @@ def ai_youtube_search(
 
 
 @tool(parse_docstring=True)
-def ai_brave_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[dict[str, Any]]:
+def ai_brave_search(query: str, days: int = 0, max_results: int = 3, scrape: bool = False) -> list[SearchResult]:
     """
     Search the web using Brave.
 
@@ -324,7 +332,7 @@ def ai_serper_search(
     days: int = 0,
     max_results: int = 3,
     scrape: bool = False,
-) -> list[dict[str, Any]]:
+) -> list[SearchResult]:
     """
     Search the web using Google Serper.
 
@@ -343,7 +351,7 @@ def ai_serper_search(
             - raw_content (str): Full content of the page if available
     """
 
-    return serper_search(query, type=type, days=days, max_results=max_results, scrape=scrape)
+    return serper_search(query, search_type=type, days=days, max_results=max_results, scrape=scrape)
 
 
 # this tool is only used to test nested llm calls
