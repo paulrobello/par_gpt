@@ -54,12 +54,15 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
 
         def process_question(q: str, s: dict) -> tuple[str, str, Any]:
             """Process a single question."""
+            # Local import keeps par_gpt.agents (and langchain_classic) lazy at startup.
+            from par_gpt.agents import is_reasoning_model
+
             content, thinking, result = self.do_single_llm_call(
                 chat_model=chat_model,
                 user_input=q,
                 state=s,
                 system_prompt=s["system_prompt"],
-                no_system_prompt=(chat_model.name is not None and chat_model.name[:2] in ["o1", "o3"])
+                no_system_prompt=is_reasoning_model(chat_model)
                 or (len(chat_history) > 0 and chat_history[0][0] == "system"),
                 env_info=env_info,
                 image=s["context"] if s["context_is_image"] else None,

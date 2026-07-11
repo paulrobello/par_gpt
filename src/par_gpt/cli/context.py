@@ -73,10 +73,10 @@ class ContextProcessor:
 
         return context_is_url, context_is_file
 
-    def process_stdin(self, context_location: str, copy_from_clipboard: bool) -> str:
+    def process_stdin(self, context_location: str, copy_from_clipboard: bool, context_is_url: bool) -> str:
         """Process stdin content if available."""
         context: str = ""
-        if copy_from_clipboard and not self.validate_context_location(context_location)[0]:  # not URL
+        if copy_from_clipboard and not context_is_url:  # not URL
             context = context_location
             return context
 

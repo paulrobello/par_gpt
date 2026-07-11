@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,21 @@ from rich.pretty import Pretty
 
 # Memory utils import moved inside functions to prevent Redis connection when disabled
 from par_gpt.utils import get_console
+
+# Matches OpenAI reasoning-family model names: the o-series (o1, o3, o4, ...) and
+# gpt-5.x variants, including -mini/-preview/-nano suffixes. These models need special
+# prompt handling (e.g. suppressing the system prompt).
+_REASONING_MODEL_RE = re.compile(r"^(o\d|gpt-5)", re.IGNORECASE)
+
+
+def is_reasoning_model(chat_model: BaseChatModel) -> bool:
+    """Return True if ``chat_model`` is an OpenAI reasoning-family model.
+
+    Covers the o-series (o1, o3, o4 and successors) and gpt-5.x variants. These models
+    require special prompt handling such as suppressing the system prompt.
+    """
+    name = getattr(chat_model, "name", None) or ""
+    return bool(_REASONING_MODEL_RE.match(name))
 
 
 def do_single_llm_call(
@@ -368,7 +384,7 @@ def do_prompt_generation_agent(
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
     prompt_template = ChatPromptTemplate.from_template(prompt)
-    if chat_model.name and chat_model.name[:2] in ["o1", "o3"]:
+    if is_reasoning_model(chat_model):
         return do_single_llm_call(
             chat_model=chat_model,
             user_input=prompt_template.format(user_input=user_input),

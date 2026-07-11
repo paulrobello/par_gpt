@@ -18,6 +18,9 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
+from collections.abc import Callable
+from typing import Any
+
 from par_gpt.cli.app import app
 from par_gpt.commands.agent import create_agent_command
 from par_gpt.commands.code_review import create_code_review_command
@@ -34,29 +37,31 @@ from par_gpt.commands.utils import (
     create_update_deps_command,
 )
 
+# Context settings for commands that accept arbitrary extra args / unknown options.
+_EXTRA_ARGS_SETTINGS = {"allow_extra_args": True, "ignore_unknown_options": True}
+
+# (command name, factory, accepts_extra_args) — registration order is preserved.
+_COMMANDS: list[tuple[str, Callable[[], Any], bool]] = [
+    ("show-env", create_show_env_command, False),
+    ("llm", create_llm_command, True),
+    ("agent", create_agent_command, True),
+    ("git", create_git_command, True),
+    ("code-review", create_code_review_command, True),
+    ("generate-prompt", create_generate_prompt_command, True),
+    ("sandbox", create_sandbox_command, False),
+    ("update-deps", create_update_deps_command, False),
+    ("pub-repo-gh", create_publish_repo_command, False),
+    ("tinify", create_tinify_command, False),
+    ("pi-profile", create_pi_profile_command, False),
+    ("stardew", create_stardew_command, False),
+]
+
 # Register all commands with the app
-app.command(name="show-env")(create_show_env_command())
-app.command(name="llm", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
-    create_llm_command()
-)
-app.command(name="agent", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
-    create_agent_command()
-)
-app.command(name="git", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
-    create_git_command()
-)
-app.command(name="code-review", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
-    create_code_review_command()
-)
-app.command(name="generate-prompt", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(
-    create_generate_prompt_command()
-)
-app.command(name="sandbox")(create_sandbox_command())
-app.command(name="update-deps")(create_update_deps_command())
-app.command(name="pub-repo-gh")(create_publish_repo_command())
-app.command(name="tinify")(create_tinify_command())
-app.command(name="pi-profile")(create_pi_profile_command())
-app.command(name="stardew")(create_stardew_command())
+for _name, _factory, _accepts_extra_args in _COMMANDS:
+    _kwargs: dict[str, Any] = {"name": _name}
+    if _accepts_extra_args:
+        _kwargs["context_settings"] = _EXTRA_ARGS_SETTINGS
+    app.command(**_kwargs)(_factory())
 
 
 if __name__ == "__main__":

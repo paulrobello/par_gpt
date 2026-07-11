@@ -21,6 +21,16 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         """Execute the agent command."""
         state = ctx.obj
 
+        # Image context is not supported in agent mode: do_tool_agent rejects it.
+        # Fail early with an actionable message instead of a confusing ValueError.
+        if state["context_is_image"]:
+            self.console.print("[bold red]Error: Image input is not supported in agent mode.[/bold red]")
+            self.console.print(
+                "[yellow]Hint: use the LLM command instead, which supports image context:[/yellow]\n"
+                '  [green]par_gpt llm -f <image_path> "your question"[/green]'
+            )
+            raise typer.Exit(1)
+
         # Get user prompt from args
         if not state["user_prompt"] and len(ctx.args) > 0:
             state["user_prompt"] = ctx.args.pop(0)
@@ -87,7 +97,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
             # Set tool context for AI tools to access global state
             from par_gpt.tool_context import set_tool_context
 
-            set_tool_context(yes_to_all=s["yes_to_all"])
+            set_tool_context(yes_to_all=s["yes_to_all"], llm_config=s["llm_config"])
 
             # Execute agent with tools
             do_tool_agent = lazy_import("par_gpt.agents", "do_tool_agent")

@@ -13,7 +13,7 @@ from typing import Any, Literal, cast
 import requests
 from langchain_core.tools import tool
 from par_ai_core.llm_config import LlmConfig, LlmMode, llm_run_manager
-from par_ai_core.llm_providers import LlmProvider, provider_light_models
+from par_ai_core.llm_providers import provider_light_models
 from par_ai_core.par_logging import console_err
 from par_ai_core.search_utils import (
     SearchResult,
@@ -37,6 +37,36 @@ from sandbox import ExecuteCommandResult
 
 # Get the utils facade instance for clean function access
 _utils = get_utils_facade()
+
+
+def _get_tool_llm_config() -> LlmConfig | None:
+    """Return a light LlmConfig derived from the user's active tool-context config.
+
+    Honors the user's configured provider/credentials (threaded in via ``tool_context``)
+    instead of hardcoding OpenAI. Overrides the model with the provider's light model to
+    preserve the original cost-conscious behavior of the internal helper tools. Returns
+    ``None`` when no config is available so callers degrade gracefully rather than
+    crashing or silently spending OpenAI credits.
+    """
+    try:
+        from par_gpt.tool_context import get_tool_context
+
+        user_config: LlmConfig | None = get_tool_context("llm_config", None)
+    except ImportError:
+        user_config = None
+    if user_config is None:
+        return None
+    provider = user_config.provider
+    light_model = provider_light_models.get(provider)
+    return LlmConfig(
+        mode=LlmMode.CHAT,
+        provider=provider,
+        model_name=light_model or user_config.model_name,
+        temperature=user_config.temperature,
+        base_url=user_config.base_url,
+        user_agent_appid=user_config.user_agent_appid,
+        env_prefix=user_config.env_prefix,
+    ).set_env()
 
 
 @tool(parse_docstring=True)
@@ -178,15 +208,13 @@ def git_commit_tool(message_only: bool, files: list[str], context: str | None = 
     # Lazy load GitRepo
     GitRepo = lazy_import("par_gpt.repo.repo", "GitRepo")
 
-    ai_provider: LlmProvider = LlmProvider.OPENAI
-    repo = GitRepo(
-        llm_config=LlmConfig(
-            provider=ai_provider,
-            model_name=provider_light_models[ai_provider],
-            temperature=0,
-            mode=LlmMode.CHAT,
+    llm_config = _get_tool_llm_config()
+    if llm_config is None:
+        return (
+            "git_commit_tool is unavailable: no LLM configuration is present in the tool "
+            "context. Run via `par_gpt agent ...` so your configured provider is used."
         )
-    )
+    repo = GitRepo(llm_config=llm_config)
     if not repo.is_dirty():
         return "No changes to commit."
     if message_only:
@@ -365,10 +393,12 @@ def ai_joke(subject: str | None = None) -> str:
     Returns:
         str: The joke
     """
-    llm_config = LlmConfig(
-        provider=LlmProvider.OPENAI,
-        model_name=provider_light_models[LlmProvider.OPENAI],
-    )
+    llm_config = _get_tool_llm_config()
+    if llm_config is None:
+        return (
+            "ai_joke is unavailable: no LLM configuration is present in the tool context. "
+            "Run via `par_gpt agent ...` so your configured provider is used."
+        )
     chat_model = llm_config.build_chat_model()
 
     prompt = f"Tell me a {subject} joke"
@@ -712,9 +742,7 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
                 return "No displays found to capture."
 
             # Use the first screen (should be the primary display after sorting) or show options
-            from rich.console import Console
-
-            console = Console()
+            console = get_console()
 
             if len(screens) == 1:
                 # Only one screen, use it
@@ -782,9 +810,7 @@ def ai_capture_window_image(
                 return "No visible application windows found to capture. You may need to specify an app_name manually."
 
             # Use the first window (should be the frontmost/active after sorting) or show options
-            from rich.console import Console
-
-            console = Console()
+            console = get_console()
 
             if len(windows) == 1:
                 # Only one window, use it

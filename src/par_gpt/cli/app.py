@@ -326,7 +326,7 @@ def main(
         context_processor = ContextProcessor(console)
         context_location = context_processor.process_clipboard(copy_from_clipboard, context_location)
         context_is_url, context_is_file = context_processor.validate_context_location(context_location)
-        context = context_processor.process_stdin(context_location, copy_from_clipboard)
+        context = context_processor.process_stdin(context_location, copy_from_clipboard, context_is_url)
 
         # Process context content (images, URLs, files)
         if context_location:
