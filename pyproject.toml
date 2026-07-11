@@ -177,7 +177,6 @@ include = [
     "src/sandbox",
     "LICENSE",
     "README.md",
-    "extraction_prompt.md",
     "pyproject.toml",
 ]
 exclude = [

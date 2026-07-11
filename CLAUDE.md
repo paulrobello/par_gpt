@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PAR GPT is a flexible command-line interface for interacting with multiple AI language models. It operates in two modes: basic LLM mode and Agent mode with dynamic tool loading. Built with Python 3.11+ using UV package manager, Typer for CLI, and Rich for terminal output.
+PAR GPT is a flexible command-line interface for interacting with multiple AI language models. It operates in two modes: basic LLM mode and Agent mode with dynamic tool loading. Built with Python 3.12 or higher (3.13 recommended) using UV package manager, Typer for CLI, and Rich for terminal output.
 
 ## Development Commands
 
@@ -17,10 +17,11 @@ make depsupdate     # Update all dependencies
 
 ### Code Quality (Run Before Commits)
 ```bash
-make checkall       # Format, lint, and typecheck - REQUIRED before commits
+make checkall       # Format, lint, typecheck, and run tests - REQUIRED before commits
 make format         # Format code with ruff
 make lint           # Lint code with ruff
 make typecheck      # Type check with pyright
+make test           # Run the pytest test suite (tests live in tests/)
 make pre-commit     # Run pre-commit hooks manually
 ```
 
@@ -58,7 +59,12 @@ Example usage:
 # For generic lazy loading (e.g., in AI tools)
 from par_utils import LazyImportManager
 manager = LazyImportManager()
-module = manager.get_cached_import("requests")
+
+# Import an entire module (module_path only)
+requests_module = manager.get_cached_import("requests")
+
+# Import a specific item (module_path + item_name)
+JSONEncoder = manager.get_cached_import("json", "JSONEncoder")
 
 # For PAR GPT-specific loading (e.g., in commands)
 from par_gpt.lazy_import_manager import PARGPTLazyImportManager
@@ -96,16 +102,8 @@ If adding a new utility function that AI tools need to access:
        return _utils.your_function_name()
    ```
 
-#### Recently Fixed AI Tools (v0.13.0)
-The following AI tools were restored by fixing utils imports:
-- `ai_capture_screen_image()` - Screen capture with multi-monitor support
-- `ai_capture_window_image()` - Window capture functionality  
-- `ai_image_gen_dali()` - DALL-E image generation
-- `ai_figlet()` - ASCII art text generation
-- `ai_github_publish_repo()` - GitHub repository publishing
-- `ai_list_visible_windows()` - Window listing for macOS
-- `ai_list_available_screens()` - Display/screen detection
-- `ai_display_image_in_terminal()` - Terminal image display
+#### AI Tools Notes
+AI tools live in `src/par_gpt/ai_tools/ai_tools.py` and are loaded conditionally based on keywords in the user prompt (see the README "Agent mode" section). When a tool stops working after a refactor, the cause is almost always a broken utils facade import — verify the function is exposed in `src/par_gpt/utils/__init__.py` (both `utils_maps` and `__all__`). For version-specific fix history, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Testing AI Tools
 ```bash

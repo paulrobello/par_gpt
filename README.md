@@ -10,6 +10,29 @@ Some features / functions may be kind of niche to things I work on but could be 
 
 **NOTE: This is a very work in progress project and may break at any time.**
 
+## Table of Contents
+
+- [Features](#features)
+- [Technology](#technology)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Update](#update)
+- [Usage](#usage)
+- [CLI Args](#cli-args)
+- [Environment Variables](#environment-variables)
+- [Agent mode](#agent-mode)
+- [PAR Utils Package](#par-utils-package)
+- [Security Features](#security-features)
+- [Performance Monitoring](#performance-monitoring)
+- [Code sandbox](#code-sandbox)
+- [Code Review mode](#code-review-mode)
+- [Example Usage](#example-usage)
+- [What's New](#whats-new)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
+
 ## Features
 
 * Can be run in basic LLM mode or agent mode that can use tools
@@ -23,17 +46,17 @@ Some features / functions may be kind of niche to things I work on but could be 
 
 ## Technology
 
-- Python 3.11+
+- Python 3.12 or higher (3.13 recommended)
 - Rich for terminal output
 - Typer for CLI interface
-- Support for multiple AI providers (OpenAI, Ollama, Bedrock)
+- Support for multiple AI providers — see the [CLI Args](#cli-args) table for the full list
 - Uses my [PAR AI Core](https://github.com/paulrobello/par_ai_core)
 - **PAR Utils** - Internal utilities package for performance, security, and error management
 - **PARGPTLazyImportManager** - Application-specific lazy loading system extending PAR Utils
 
 ## Prerequisites
 
-- Python 3.11 or higher
+- Python 3.12 or higher (3.13 recommended)
 - UV package manager
 - API keys for chosen AI provider (except for Ollama and LlamaCpp)
     - See provider-specific documentation for required API key environment variables
@@ -311,12 +334,107 @@ PARGPT_REDIS_PORT=6379
 PARGPT_REDIS_DB=0
 PARGPT_ENABLE_REDIS=1 # set to 1 to enable Redis memory functionality, comment out or omit to disable (default: disabled)
 
-# NEO4J (Just testing)
+# NEO4J (experimental — not required for any current feature)
 PARGPT_NEO4J_HOST=localhost
 PARGPT_NEO4J_PORT=7687
 PARGPT_NEO4J_USER=neo4j
 PARGPT_NEO4J_PASS=neo4j
 ```
+
+### Environment Variable Reference
+
+The tables below list every supported environment variable. Variables marked **Required** must be set for the corresponding provider or feature to work.
+
+#### Application Configuration
+
+| Variable | Type | Default | Description |
+| --- | --- | --- | --- |
+| `PARGPT_AI_PROVIDER` | enum | `OpenAI` | Provider: Ollama, LlamaCpp, OpenRouter, OpenAI, Google, Github, XAI, Anthropic, Groq, Mistral, Bedrock, LiteLLM |
+| `PARGPT_MODEL` | string | provider default | Model identifier |
+| `PARGPT_FALLBACK_MODELS` | string (multi) | none | Fallback models if the primary is unavailable |
+| `PARGPT_LIGHT_MODEL` | flag | off | Use a light/fast model |
+| `PARGPT_AI_BASE_URL` | string | none | Override the provider base URL |
+| `PARGPT_TEMPERATURE` | float | `0.5` | Sampling temperature |
+| `PARGPT_USER_AGENT_APPID` | string | none | Extra User-Agent header data |
+| `PARGPT_PRICING` | enum | `none` | Pricing display: `none`, `price`, `details` |
+| `PARGPT_DISPLAY_OUTPUT` | enum | `md` | Output format: `none`, `plain`, `md`, `csv`, `json` |
+| `PARGPT_MAX_CONTEXT_SIZE` | integer | `0` | Max context size (`0` = provider default) |
+| `PARGPT_REASONING_EFFORT` | enum | unset | Reasoning effort for o1/o3: `low`, `medium`, `high` |
+| `PARGPT_REASONING_BUDGET` | integer | unset | Reasoning token budget (Sonnet 3.7+; minimum 1024) |
+| `PARGPT_USER` | string | logged-in user | User identity for memory and preferences |
+| `PARGPT_CHAT_HISTORY` | string | none | File to save/resume chat history |
+| `PARGPT_LOOP_MODE` | enum | `one_shot` | `one_shot` or `infinite` |
+| `PARGPT_MAX_ITERATIONS` | integer | `5` | Max agent iterations (agent mode) |
+| `PARGPT_DEBUG` | flag | off | Enable debug output |
+| `PARGPT_SHOW_CONFIG` | flag | off | Print configuration on startup |
+| `PARGPT_SHOW_TOOL_CALLS` | flag | off | Show tool calls in agent mode |
+| `PARGPT_SHOW_TIMES` | flag | off | Show timing summary |
+| `PARGPT_SHOW_TIMES_DETAILED` | flag | off | Show detailed timing breakdown |
+| `PARGPT_YES_TO_ALL` | flag | off | Auto-accept all security warnings and confirmation prompts |
+| `PARGPT_REPL` | flag | off | Enable REPL tool (writes/executes code on host) |
+| `PARGPT_CODE_SANDBOX` | flag | off | Enable Docker code sandbox tool |
+| `PARGPT_TTS` | flag | off | Enable text-to-speech for responses |
+| `PARGPT_TTS_PROVIDER` | enum | `kokoro` | TTS provider: `local`, `kokoro`, `elevenlabs`, `openai` |
+| `PARGPT_TTS_VOICE` | string | none | Voice for TTS (provider-dependent) |
+
+#### Redis Memory (optional)
+
+| Variable | Type | Default | Description |
+| --- | --- | --- | --- |
+| `PARGPT_ENABLE_REDIS` | flag | off | Enable Redis-backed memory |
+| `PARGPT_REDIS_HOST` | string | `localhost` | Redis server host |
+| `PARGPT_REDIS_PORT` | integer | `6379` | Redis server port |
+| `PARGPT_REDIS_DB` | integer | `0` | Redis database number |
+
+#### Neo4j (experimental — not used by any current feature)
+
+| Variable | Type | Default | Description |
+| --- | --- | --- | --- |
+| `PARGPT_NEO4J_HOST` | string | `localhost` | Neo4j host |
+| `PARGPT_NEO4J_PORT` | integer | `7687` | Neo4j port |
+| `PARGPT_NEO4J_USER` | string | `neo4j` | Neo4j username |
+| `PARGPT_NEO4J_PASS` | string | `neo4j` | Neo4j password |
+
+#### AI Provider API Keys
+
+Set the key(s) for the provider(s) you use. Ollama and LlamaCpp require no key.
+
+| Variable | Required for | Where to get it |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | OpenAI | https://platform.openai.com/account/api-keys |
+| `ANTHROPIC_API_KEY` | Anthropic | https://console.anthropic.com/ |
+| `GROQ_API_KEY` | Groq | https://console.groq.com/ |
+| `XAI_API_KEY` | XAI | https://x.ai/api |
+| `GOOGLE_API_KEY` | Google | https://console.cloud.google.com |
+| `MISTRAL_API_KEY` | Mistral | https://console.mistral.ai/ |
+| `GITHUB_TOKEN` | GitHub Models | https://github.com/marketplace/models |
+| `OPENROUTER_API_KEY` | OpenRouter | https://openrouter.ai/ |
+| `DEEPSEEK_API_KEY` | DeepSeek | https://platform.deepseek.com/ |
+| `AWS_PROFILE` / `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | Bedrock | Pre-authenticated AWS environment |
+
+#### Search API Keys
+
+| Variable | Service | Where to get it |
+| --- | --- | --- |
+| `TAVILY_API_KEY` | Tavily | https://tavily.com/ |
+| `JINA_API_KEY` | Jina | https://jina.ai |
+| `BRAVE_API_KEY` | Brave | https://brave.com/search/api/ |
+| `SERPER_API_KEY` | Serper | https://serper.dev |
+| `SERPER_API_KEY_GOOGLE` | Serper (Google) | https://serpapi.com/ |
+| `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY` | Google CSE | Google Cloud Console |
+| `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET` | Reddit | https://www.reddit.com/prefs/apps/ |
+
+#### Other API Keys
+
+| Variable | Service | Where to get it |
+| --- | --- | --- |
+| `WEATHERAPI_KEY` | WeatherAPI | https://www.weatherapi.com/ |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | GitHub tools | https://github.com/settings/tokens |
+| `TINIFY_KEY` | Tinify compression | https://tinify.com/ |
+| `LANGCHAIN_API_KEY` | LangSmith tracing | https://smith.langchain.com/settings |
+| `LANGCHAIN_TRACING_V2` | LangSmith tracing | Set to `true` to enable |
+| `LANGCHAIN_ENDPOINT` | LangSmith tracing | https://api.smith.langchain.com |
+| `LANGCHAIN_PROJECT` | LangSmith tracing | `par_gpt` |
 
 ### AI API KEYS
 
@@ -490,7 +608,7 @@ export PARGPT_YES_TO_ALL=1
 par_gpt agent "take a screenshot and analyze it"
 ```
 
-For detailed security implementation, see [PATH_SECURITY_SUMMARY.md](PATH_SECURITY_SUMMARY.md).
+Path validation is powered by PAR Utils' `SecurePathValidator`, which enforces base-directory confinement, filename sanitization, and cross-platform traversal prevention across every file operation in PAR GPT.
 
 ## Performance Monitoring
 
@@ -571,10 +689,10 @@ Timing can also be enabled via environment variables:
 
 ```bash
 # Show timing summary for LLM operations
-echo "Analyze performance" | par_gpt --show-times llm
+par_gpt --show-times llm "Analyze performance"
 
 # Show detailed timing for agent operations with tools
-echo "Search web and analyze results" | par_gpt --show-times-detailed agent
+par_gpt --show-times-detailed agent "Search web and analyze results"
 
 # Combine with other debugging options
 par_gpt --show-times --debug --pricing details agent "complex task"
@@ -606,15 +724,15 @@ Change to the root of the project you want to check (or sub folder for smaller /
 and run the following:
 
 ```shell
-par_gpt code_review
+par_gpt code-review
 ```
 
 
 ## Example Usage
 
 ```shell
-# Basic usage with stdin
-echo "What is Python?" | par_gpt llm
+# Basic usage
+par_gpt llm "What is Python?"
 
 # Use a the light model with custom temperature
 par_gpt --light-model -t 0.7 llm "Explain quantum computing"
@@ -682,7 +800,7 @@ par_gpt -p details -f "https://console.groq.com/docs/vision" llm "what model ids
 par_gpt -p details -f "https://freerangestock.com/sample/157314/mystical-glowing-mushrooms-in-a-magical-forest.jpg" llm "describe this image"
 
 # check code for bugs (change to root for project you want to check)
-par_gpt code_review
+par_gpt code-review
 
 # list available screens/displays
 par_gpt agent "list available screens"
@@ -729,7 +847,7 @@ par_gpt agent "list visible windows"
 
 ## What's New
 - Version 0.15.0:
-  - **Python 3.13 Support**: Updated project to support Python 3.13 as the target version
+  - **Python Version Support**: Now requires Python 3.12+ (supports 3.12–3.14; 3.13 recommended)
     - **Type Safety Improvements**: Fixed type checking issues across multiple modules
     - **Dependency Updates**: Updated dependencies to use `--all-extras` flag for comprehensive dependency management
     - **CLI Enhancements**: Improved CLI configuration and command handling with better type annotations
@@ -854,7 +972,7 @@ PAR GPT follows a sophisticated modular architecture with comprehensive security
 
 Contributions are welcome! Please feel free to submit a Pull Request. Before contributing:
 
-1. Ensure you have Python 3.11+
+1. Ensure you have Python 3.12 or higher (3.13 recommended)
 2. Use UV for dependency management
 3. Follow the existing code style
 4. Update documentation as needed
