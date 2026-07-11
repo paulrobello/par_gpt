@@ -60,6 +60,36 @@ def do_single_llm_call(
     debug: bool,
     console: Console | None = None,
 ) -> tuple[str, str, BaseMessage]:
+    """Perform a single LLM invocation and return its content, thinking, and message.
+
+    Builds the chat history (memory prompt, system prompt, environment info, output-format
+    directive, optional image, and prior turns), invokes the model, and normalizes the response
+    into a plain content string plus any captured reasoning ("thinking") text.
+
+    Args:
+        chat_model: The chat model to invoke.
+        user_input: The user's prompt text.
+        image: Optional image to attach to the user turn (model-dependent).
+        system_prompt: Override for the system prompt. Falls back to a default that is augmented
+            with persisted memories when omitted.
+        no_system_prompt: When True, suppress the system prompt entirely (used for reasoning
+            models that require it).
+        env_info: Environment/system context appended to the system prompt.
+        display_format: Output-format directive folded into the system prompt.
+        chat_history: Prior conversation turns as ``(role, content)`` pairs. A leading ``system``
+            turn is replaced rather than duplicated.
+        debug: Print the resolved prompt panel before invoking.
+        console: Console to print debug output to. Defaults to the shared console.
+
+    Returns:
+        A ``(content, thinking, result)`` tuple where ``content`` is the normalized response
+        text, ``thinking`` is any captured reasoning text, and ``result`` is the underlying
+        ``BaseMessage`` (with ``content`` replaced by the normalized string).
+
+    Raises:
+        PydanticValidationError: If the provider rejects the constructed message history.
+        Exception: Propagates any error raised by ``chat_model.invoke``.
+    """
     console = get_console(console)
 
     if not env_info:
@@ -138,7 +168,26 @@ def do_react_agent(
     verbose: bool = True,
     console: Console | None = None,
 ):
-    """React agent"""
+    """Run a ReAct-style agent that reasons and acts over the provided tools.
+
+    Builds a ReAct prompt (tools, scratchpad, question), executes it with an
+    ``AgentExecutor``, and returns the final answer.
+
+    Args:
+        chat_model: The chat model driving the agent.
+        ai_tools: Tools the agent may call.
+        env_info: Environment/system context folded into the prompt.
+        question: The user's question to answer.
+        system_prompt: Optional override for the full ReAct prompt template.
+        max_iterations: Maximum agent iterations before forcing a final answer.
+        debug: Print the resolved prompt panel before execution.
+        verbose: Forwarded to ``AgentExecutor`` for verbose logging.
+        console: Console for debug output.
+
+    Returns:
+        A ``(content, result)`` tuple where ``content`` is the normalized final
+        answer and ``result`` is the executor's result mapping.
+    """
     console = get_console(console)
 
     default_system_prompt = (
@@ -215,7 +264,28 @@ def do_tool_agent(
     verbose: bool = False,
     console: Console | None = None,
 ):
-    """Tool agent"""
+    """Run a tool-calling agent that selects and invokes tools to answer the user.
+
+    Constructs a tool-calling agent from the model and tools, executes it with an
+    ``AgentExecutor``, and returns the final answer.
+
+    Args:
+        chat_model: The chat model driving the agent.
+        ai_tools: Tools the agent may call.
+        env_info: Environment/system context folded into the prompt.
+        user_input: The user's request.
+        system_prompt: Optional system prompt override.
+        image: Optional image attached to the user turn.
+        max_iterations: Maximum agent iterations.
+        chat_history: Prior conversation turns.
+        debug: Print the resolved prompt panel before execution.
+        verbose: Forwarded to ``AgentExecutor`` for verbose logging.
+        console: Console for debug output.
+
+    Returns:
+        A ``(content, result)`` tuple where ``content`` is the normalized final
+        answer and ``result`` is the executor's result mapping.
+    """
 
     if image:
         raise ValueError("Image not supported for tool agent")
@@ -348,7 +418,24 @@ def do_code_review_agent(
     debug: bool = True,
     console: Console | None = None,
 ) -> tuple[str, str, BaseMessage]:
-    """Code Agent"""
+    """Run a code-review pass over the project and return bug-analysis findings.
+
+    Gathers source files from the project, renders the bug-analysis prompt
+    (``prompts/prompt_bug_analysis.xml``) with that code context, and delegates to
+    ``do_single_llm_call``.
+
+    Args:
+        chat_model: The chat model performing the review.
+        env_info: Environment/system context folded into the prompt.
+        user_input: The user's review instructions.
+        system_prompt: Optional override for the bug-analysis prompt template.
+        display_format: Output-format directive.
+        debug: Print the resolved prompt panel before invocation.
+        console: Console for debug output.
+
+    Returns:
+        The ``(content, thinking, result)`` tuple from ``do_single_llm_call``.
+    """
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "prompt_bug_analysis.xml").read_text(
         encoding="utf-8"
@@ -380,7 +467,21 @@ def do_prompt_generation_agent(
     debug: bool = True,
     console: Console | None = None,
 ) -> tuple[str, str, BaseMessage]:
-    """Prompt Agent"""
+    """Generate a refined prompt from the user's request using the meta-prompt template.
+
+    Renders the meta-prompt (``prompts/meta_prompt.xml``) and delegates to
+    ``do_single_llm_call``. Reasoning models are invoked without a system prompt.
+
+    Args:
+        chat_model: The chat model generating the prompt.
+        user_input: The user's seed request.
+        system_prompt: Optional override for the meta-prompt template.
+        debug: Print the resolved prompt panel before invocation.
+        console: Console for debug output.
+
+    Returns:
+        The ``(content, thinking, result)`` tuple from ``do_single_llm_call``.
+    """
 
     prompt = system_prompt or (Path(__file__).parent / "prompts" / "meta_prompt.xml").read_text(encoding="utf-8")
     prompt_template = ChatPromptTemplate.from_template(prompt)

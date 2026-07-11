@@ -14,7 +14,20 @@ from pydantic import SecretStr
 from ._singletons import cache_manager
 
 
-def speak(text: str):
+def speak(text: str) -> None:
+    """Synthesize speech from ``text`` with ElevenLabs and play it immediately.
+
+    Uses the ``eleven_flash_v2_5`` model and a fixed voice, reading the API key from the
+    ``ELEVENLABS_API_KEY`` environment variable. Audio is generated synchronously (no
+    streaming) and played back as soon as it is fully assembled.
+
+    Args:
+        text: The text to convert to speech.
+
+    Raises:
+        ImportError: If the ``elevenlabs`` package is not installed.
+        Exception: Propagates any error from the ElevenLabs client or audio playback.
+    """
     from elevenlabs import play  # type: ignore[reportMissingImports]
     from elevenlabs.client import ElevenLabs  # type: ignore[reportMissingImports]
 

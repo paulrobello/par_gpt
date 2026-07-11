@@ -395,6 +395,67 @@ classDiagram
 > is tracked as **ARC-003** (Phase 3b, in progress); see *Lazy Loading Architecture*
 > below.
 
+### 5. Provider Dependency Boundary (`par_ai_core` / `par_utils`)
+
+PAR GPT does not implement model providers itself. It depends on the `par_ai_core` library for
+provider selection, configuration, and model construction, and on the bundled `par_utils` package
+for cross-cutting utilities. The diagram below shows that boundary: `par_gpt` wires an
+`LlmConfig` and invokes the model; `par_ai_core` owns the provider implementations and the
+`build_chat_model()` step; concrete provider SDKs are pulled in by `par_ai_core`, not by
+`par_gpt` directly.
+
+```mermaid
+flowchart TD
+    subgraph par_gpt["par_gpt (this package)"]
+        CLI["cli/app.py<br/>options + LlmConfig wiring"]
+        Commands["commands/<br/>build model per request"]
+        Agents["agents.py<br/>do_single_llm_call"]
+    end
+
+    subgraph par_ai_core["par_ai_core (provider library)"]
+        LlmConfig["LlmConfig<br/>provider, model_name, temperature"]
+        LlmProvider["LlmProvider enum"]
+        Providers["Provider impls<br/>OpenAI / Anthropic / Ollama / Groq / ..."]
+        Build["build_chat_model()<br/>returns BaseChatModel"]
+    end
+
+    subgraph par_utils["par_utils (bundled utilities)"]
+        Utils["timing / lazy_loading<br/>security / errors<br/>caching / console"]
+    end
+
+    subgraph SDKs["Provider SDKs (external)"]
+        Sdks["langchain-openai<br/>langchain-anthropic<br/>langchain-groq / ollama"]
+    end
+
+    CLI -->|"creates LlmConfig"| LlmConfig
+    Commands -->|"uses"| LlmConfig
+    Agents -->|"invokes model"| Build
+    LlmConfig -->|"selects"| LlmProvider
+    LlmProvider --> Providers
+    Providers --> Build
+    Build -->|"BaseChatModel"| Agents
+    Providers -->|"wraps"| Sdks
+
+    par_gpt -.->|"imports"| par_utils
+    par_ai_core -.->|"imports"| par_utils
+
+    style CLI fill:#ef6c00
+    style Commands fill:#ef6c00
+    style Agents fill:#ef6c00
+    style LlmConfig fill:#c62828
+    style LlmProvider fill:#c62828
+    style Providers fill:#c62828
+    style Build fill:#1b5e20
+    style Utils fill:#2e7d32
+    style Sdks fill:#6a1b9a
+```
+
+Key points:
+
+- `par_gpt` never imports a provider SDK directly; it goes through `LlmConfig.build_chat_model()`.
+- Provider routing (`LlmProvider` enum, base URLs, reasoning-model detection) is owned by `par_ai_core`.
+- `par_utils` is a dependency of both packages and supplies timing, lazy loading, path security, error handling, caching, and console management.
+
 ## Data Flow
 
 ### 1. Basic LLM Mode Flow

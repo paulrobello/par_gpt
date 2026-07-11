@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -449,28 +450,28 @@ def main(
 
 
 def display_configuration(
-    ai_provider,
-    light_model,
-    model,
-    fallback_models,
-    max_context_size,
-    reasoning_effort,
-    reasoning_budget,
-    ai_base_url,
-    temperature,
-    system_prompt,
-    user_prompt,
-    pricing,
-    display_format,
-    context_location,
-    context_is_image,
-    loop_mode,
-    history_file,
-    redis_host,
-    redis_port,
-    enable_redis,
-    debug,
-    yes_to_all,
+    ai_provider: LlmProvider,
+    light_model: bool,
+    model: str | None,
+    fallback_models: list[str] | None,
+    max_context_size: int,
+    reasoning_effort: ReasoningEffort | None,
+    reasoning_budget: int | None,
+    ai_base_url: str | None,
+    temperature: float,
+    system_prompt: str | None,
+    user_prompt: str | None,
+    pricing: PricingDisplay,
+    display_format: DisplayOutputFormat,
+    context_location: str,
+    context_is_image: bool,
+    loop_mode: LoopMode,
+    history_file: Path | None,
+    redis_host: str | None,
+    redis_port: int | None,
+    enable_redis: bool,
+    debug: bool,
+    yes_to_all: bool,
     console: Console,
 ):
     """Display configuration panel."""

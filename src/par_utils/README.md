@@ -16,16 +16,18 @@ PAR Utils provides a well-architected set of utilities that can be used across d
 
 ## Installation
 
-Since this package is included with PAR GPT, you can import it directly:
+`par_utils` is currently **bundled inside the `par_gpt` distribution** — it is not published to
+PyPI as a standalone package, so `pip install par-utils` will fail. Install PAR GPT and you get
+`par_utils` with it:
+
+```bash
+pip install par-gpt
+```
+
+Once PAR GPT is installed, import `par_utils` directly:
 
 ```python
 import par_utils
-```
-
-For standalone use, you would typically install it via pip (when published):
-
-```bash
-pip install par-utils
 ```
 
 ## Quick Start
@@ -419,6 +421,10 @@ When contributing to PAR Utils:
 - **Platforms**: Windows, macOS, Linux
 
 ## Version History
+
+> **Note:** `par_utils` is bundled with `par_gpt` and ships at `par_gpt`'s version. It is not
+> versioned or released independently. The history below records the points at which the
+> utilities' own design changed, independent of the `par_gpt` release number they shipped in.
 
 - **0.1.1**: Architecture refinement
   - Made `LazyImportManager` truly generic (removed application-specific methods)

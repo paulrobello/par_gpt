@@ -3,10 +3,10 @@ default_language_version:
     python: python3.13
 fail_fast: false
 repos:
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.21.2
-    hooks:
-      - id: gitleaks
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.21.2
+  hooks:
+    - id: gitleaks
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -56,3 +56,28 @@ repos:
       args:
         [lint]
       exclude: tests(/\w*)*/functional/|tests/input|tests(/\w*)*data/|doc/|output/.*
+
+# Markdown linting. Node-based, so pre-commit installs it automatically.
+# Scoped to the curated docs/ tree (incremental adoption): root README.md/CLAUDE.md and
+# legacy package READMEs predate the style guide and are migrated over time. Config lives
+# in .markdownlint-cli2.jsonc.
+- repo: https://github.com/DavidAnson/markdownlint-cli2
+  rev: v0.23.0
+  hooks:
+    - id: markdownlint-cli2
+      files: ^docs/
+      # The hook reads .markdownlint-cli2.jsonc from the repo root automatically.
+      exclude: ^docs/archive/
+
+# Link checking. MANUAL STAGE ONLY: the lychee hook is `language: system`, meaning the
+# `lychee` binary must already be on PATH (it is a Rust tool not installed by pre-commit).
+# Run it explicitly when you want to validate links; it never runs in the default
+# pre-commit/pre-push stages or in CI:
+#   pre-commit run --hook-stage manual lychee
+- repo: https://github.com/lycheeverse/lychee
+  rev: v0.15.1
+  hooks:
+    - id: lychee
+      stages: [manual]
+      args: [--no-progress, --max-concurrency, "16"]
+      exclude: tests(/\w*)*/functional/|tests/input|tests(/\w*)*data/|uv.lock|.venv/

@@ -1,3 +1,8 @@
+> **Historical / archived.** This is a one-time audit summary from December 2024, preserved for
+> reference only. The file paths, module layout, and claims below reflect the codebase at that
+> time and have since been superseded (see `ARCHITECTURE.md` and `CHANGELOG.md` for the current
+> state). It is not maintained.
+
 # PAR GPT Audit Implementation Summary
 
 This document summarizes all the improvements implemented based on the comprehensive project audit conducted in December 2024.

@@ -172,9 +172,11 @@ history.json
 temp_prompt.txt
 todos.md
 
-# Stray dev artifacts (ARC-016)
+# Stray dev artifacts (ARC-016 / DOC-026)
 maze.py
 transcript.txt
+demo.tape
+edit_env.sh
 
 # Voice and media files
 voice_data/
