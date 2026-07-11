@@ -12,13 +12,21 @@ The audit identified PAR GPT as an exceptionally well-architected project (Grade
 
 #### 1.1 Simplified Circular Import Resolution
 **Problem**: Complex circular import workarounds in `ai_tools.py` using `importlib.util` patterns
-**Solution**: Implemented clean facade pattern
+**Solution**: Implemented clean facade pattern (later completed by the utils-package consolidation under ARC-001)
 
 **Changes Made**:
 - Created `src/par_gpt/utils/utils_facade.py` with lazy loading facade
 - Replaced 70+ lines of complex import logic with 5 lines of clean facade usage
-- Eliminated all `importlib.util.spec_from_file_location` workarounds
 - Maintained full backward compatibility
+
+> **Status update (ARC-001):** The original facade work *relocated* the
+> `importlib.util.spec_from_file_location` re-execution into `utils/__init__.py`
+> rather than removing it, so an earlier version of this section overstated the
+> result. That workaround is **now genuinely gone**: ARC-001 deleted the 1,495-line
+> `utils.py` monolith and split it into `utils/` domain submodules (`weather`,
+> `screen_capture`, `figlet_utils`, `media_generation`, etc.), so attribute access
+> resolves through normal Python submodule imports cached in `sys.modules`. No
+> `importlib.util.spec_from_file_location` call remains in the codebase.
 
 **Benefits**:
 - Reduced code complexity by ~90%
@@ -65,10 +73,15 @@ The audit identified PAR GPT as an exceptionally well-architected project (Grade
 **Solution**: Implemented centralized error registry with Rich formatting
 
 **Changes Made**:
-- Created `src/par_gpt/utils/error_registry.py` with structured error messages
+- Created the centralized error registry with structured error messages (originally at `src/par_gpt/utils/error_registry.py`; since moved to `src/par_utils/errors/registry.py` — see note below)
 - Added `src/par_gpt/utils/error_helpers.py` for easy integration
 - Updated path security module to demonstrate integration
 - Registered 23+ common error messages with solutions and documentation links
+
+> **Status update (ARC-001):** The registry and its symbols (`ErrorMessage`,
+> `ErrorCategory`, `ErrorSeverity`, `register_error`) now live in
+> `src/par_utils/errors/registry.py`. `src/par_gpt/utils/error_helpers.py` remains
+> as a backward-compatibility shim that re-exports them from `par_utils`.
 
 **Benefits**:
 - Consistent error messaging across the application

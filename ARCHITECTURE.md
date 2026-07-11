@@ -15,7 +15,7 @@ This document provides a comprehensive overview of PAR GPT's architecture, desig
 
 ## Overview
 
-PAR GPT is a sophisticated command-line AI interface built with Python 3.11+. The architecture follows modern software engineering principles including modularity, separation of concerns, lazy loading, and comprehensive security measures. The application is built around the **PAR Utils** package - a fully-integrated reusable utilities framework that provides core functionalities like performance monitoring, security validation, error handling, and caching systems.
+PAR GPT is a sophisticated command-line AI interface built with Python 3.12 or higher (3.13 recommended). The architecture follows modern software engineering principles including modularity, separation of concerns, lazy loading, and comprehensive security measures. The application is built around the **PAR Utils** package - a fully-integrated reusable utilities framework that provides core functionalities like performance monitoring, security validation, error handling, and caching systems.
 
 ### Key Architectural Principles
 
@@ -48,9 +48,9 @@ graph TB
         
         subgraph CORE["Core Logic Layer"]
             C1[agents.py]
-            C2[utils.py]
+            C2[utils/]
             C3[ai_tools/]
-            C4[memory.py]
+            C4[memory_utils.py]
             C5[...]
         end
         
@@ -83,47 +83,69 @@ graph TB
 
 ```
 src/par_gpt/
-├── __main__.py                 # Entry point (39 lines)
+├── __main__.py                 # Entry point: Typer app + command registration
 ├── cli/                        # CLI Infrastructure Layer
-│   ├── app.py                 # Main Typer app (512 lines)
+│   ├── app.py                 # Main Typer app, state construction, option wiring
 │   ├── options.py             # CLI option definitions
-│   ├── config.py              # Configuration setup
-│   ├── context.py             # Context processing
-│   └── security.py            # Security validation
+│   ├── config.py              # Configuration setup and global initialization
+│   ├── context.py             # Context processing (files, URLs, stdin, images)
+│   └── security.py            # Security validation and mutual-exclusivity checks
 ├── commands/                   # Command Pattern Implementation
-│   ├── base.py                # BaseCommand + Mixins
+│   ├── base.py                # BaseCommand + LLMCommandMixin / LoopableCommandMixin / ChatHistoryMixin
 │   ├── llm.py                 # LLM command
 │   ├── agent.py               # Agent command
 │   ├── git.py                 # Git operations
-│   └── ...
+│   └── ...                    # code-review, sandbox, stardew, generate-prompt, etc.
 ├── ai_tools/                  # AI Tools (Plugin System)
-│   ├── ai_tools.py            # Tool implementations
-│   └── par_python_repl.py     # REPL tool
-├── utils/                     # Backward Compatibility Layer
-│   ├── __init__.py            # Imports from par_utils
-│   ├── config_validation.py   # Pydantic validation
-│   ├── context_manager.py     # Thread-safe context
-│   └── utils_facade.py        # Import facade
-├── agents.py                  # Agent orchestration
-├── lazy_import_manager.py     # PAR GPT-specific lazy loading
-└── tool_context.py           # Global tool context
+│   ├── ai_tools.py            # Tool implementations (each small, @tool(parse_docstring=True))
+│   └── par_python_repl.py     # Host & sandboxed REPL tools
+├── utils/                     # Domain submodule package (post-ARC-001; the utils.py monolith is deleted)
+│   ├── __init__.py            # Re-exports the public surface from submodules + par_utils
+│   ├── _singletons.py         # Process-wide shared singletons (cache_manager), constructed exactly once
+│   ├── utils_facade.py        # Backward-compat facade bridging ai_tools -> utils / par_utils
+│   ├── weather.py             # Weather lookup
+│   ├── figlet_utils.py        # ASCII art (figlet)
+│   ├── terminal_image.py      # Terminal image rendering (sixel / pixel blocks)
+│   ├── env_context.py         # Environment / system context gathering
+│   ├── screen_capture.py      # macOS window / screen enumeration and capture
+│   ├── image_description.py   # LLM-based image description
+│   ├── media_generation.py    # DALL-E image generation, TTS (speak)
+│   ├── pyproject_deps.py      # pyproject dependency updating
+│   ├── github_utils.py        # GitHub repo publishing
+│   ├── redis_client.py        # Redis client construction
+│   ├── audio_manager.py       # Audio playback and cleanup
+│   ├── image_processor.py     # Image preprocessing
+│   ├── redis_manager.py       # Redis-backed memory management
+│   ├── config.py              # EnvironmentConfig model
+│   ├── config_validation.py   # Pydantic-based configuration validation
+│   ├── context_manager.py     # ThreadSafeContextManager (locked, per-thread contexts)
+│   ├── llm_invoker.py         # Single LLM call helper
+│   ├── path_security.py       # Path-security helpers (re-exports par_utils validators)
+│   ├── security_warnings.py   # Security warning panels
+│   └── error_helpers.py       # Backward-compat re-export of par_utils error handlers
+├── memory_utils.py            # Redis-based persistent memory utilities
+├── agents.py                  # Agent orchestration (tool agent, single LLM call)
+├── lazy_import_manager.py     # PARGPTLazyImportManager (PAR GPT-specific loaders)
+└── tool_context.py            # Global tool context (thread-safe backend)
 
 src/par_utils/                  # PAR Utils Package
 ├── __init__.py                # Main exports
 ├── py.typed                   # Type declarations
 ├── performance/               # Performance Utilities
 │   ├── timing.py              # Performance measurement
-│   └── lazy_loading.py        # Lazy import management
+│   └── lazy_loading.py        # LazyImportManager (lazy import management)
 ├── security/                  # Security Utilities
 │   └── path_validation.py     # Path security validation
-├── errors/                    # Error Management
-│   ├── registry.py            # Error message registry
-│   └── handlers.py            # Error handling utilities
+├── errors/                    # Error Management (ErrorMessage / ErrorRegistry live here)
+│   ├── registry.py            # Error message registry (ErrorMessage, register_error, ...)
+│   └── handlers.py            # Error handling utilities (ErrorHandler)
 ├── caching/                   # Caching System
 │   └── disk_cache.py          # Thread-safe disk cache
 └── console/                   # Console Management
     └── manager.py             # Rich console utilities
 ```
+
+> Note: line counts are intentionally omitted — they rot quickly. See `wc -l` for current sizes.
 
 ### Layer Responsibilities
 
@@ -316,6 +338,9 @@ classDiagram
 
 ### 4. Singleton Pattern (Registries)
 
+The process-wide registries use a `__new__`-based singleton so a single instance is
+shared across threads:
+
 ```mermaid
 classDiagram
     class TimingRegistry {
@@ -345,28 +370,9 @@ classDiagram
         +clear_context()
     }
     
-    class LazyImportManager {
-        -_import_cache: dict
-        +get_cached_import()
-        +clear_cache()
-        +get_cache_size()
-        +get_cached_modules()
-    }
-    
-    class PARGPTLazyImportManager {
-        +load_minimal_imports()
-        +load_basic_llm_imports()
-        +load_agent_imports()
-        +load_media_imports()
-        +load_git_imports()
-        +... other load methods
-    }
-    
     class Client1
     class Client2
     class ClientN
-    
-    PARGPTLazyImportManager --|> LazyImportManager : extends
     
     Client1 --> TimingRegistry : uses
     Client2 --> TimingRegistry : uses
@@ -374,13 +380,20 @@ classDiagram
     
     Client1 --> ErrorRegistry : uses
     Client2 --> ContextManager : uses
-    ClientN --> PARGPTLazyImportManager : uses
+    ClientN --> ContextManager : uses
     
     note for TimingRegistry "From par_utils package\nSingleton ensures single\ninstance across threads"
     note for ErrorRegistry "From par_utils package\nCentralized error message\nregistry with validation"
-    note for LazyImportManager "From par_utils package\nGeneric lazy loading base class"
-    note for PARGPTLazyImportManager "From par_gpt package\nExtends generic with\nPAR GPT-specific loaders"
+    note for ContextManager "From par_gpt.utils package\nLocked, per-thread contexts"
 ```
+
+> `LazyImportManager` is intentionally **not** shown here. It is currently *not* a
+> singleton: each module constructs its own instance with a private `_import_cache`
+> (20+ `LazyImportManager()` constructions across the codebase), and `get_cached_import`
+> holds no lock, so the cache is not coordinated across modules or safe under
+> concurrent first-access. Consolidating to a single process-wide, thread-safe manager
+> is tracked as **ARC-003** (Phase 3b, in progress); see *Lazy Loading Architecture*
+> below.
 
 ## Data Flow
 
@@ -563,7 +576,7 @@ flowchart TD
     E --> G
     F --> G
     
-    G --> H[Thread-safe and Persistent Caching]
+    G --> H[Persistent Module Cache]
     H --> I[⚡ 25-50% startup time reduction]
     
     subgraph "Import Management"
@@ -687,9 +700,16 @@ PAR GPT uses a two-layer lazy loading system:
 
 ### Generic Layer (PAR Utils)
 The base `LazyImportManager` from PAR Utils provides:
-- Thread-safe import caching
-- Module and item-specific lazy loading
+- Module and item-specific lazy loading (per-instance `_import_cache`)
 - Cache management and statistics
+
+> Current-state caveat: `LazyImportManager` is **not** a process-wide singleton and
+> `get_cached_import` holds **no lock**. Each module constructs its own instance
+> (20+ `LazyImportManager()` constructions across the codebase, plus 16 copy-pasted
+> local `def lazy_import(...)` wrappers), so caches are not shared across modules and
+> the claim of "thread-safe import caching" does not hold today. Consolidating to a
+> single shared, thread-safe manager is tracked as **ARC-003** (Phase 3b, in progress);
+> this section will be refreshed once that refactor lands.
 
 ### Application Layer (PAR GPT)
 The `PARGPTLazyImportManager` extends the base class with:
@@ -751,14 +771,21 @@ def my_new_tool(param: str) -> str:
     """
     return "Tool result"
 
-# 2. Add to lazy_tool_loader.py
-def build_ai_tool_list(keywords: set[str]) -> list[BaseTool]:
-    tools = [ai_fetch_url, ai_web_search, ...]
-    
-    if "my_keyword" in keywords:
-        tools.append(my_new_tool)
-    
-    return tools
+# 2. Register the tool in lazy_tool_loader.py
+# Tools are added inside LazyToolLoader.get_conditional_tools(), where selection is
+# gated on the question text (current behavior tracked under ARC-006). The public
+# entry point is build_ai_tool_list:
+def build_ai_tool_list(
+    question: str,
+    *,
+    repl: bool = False,
+    code_sandbox: bool = False,
+    yes_to_all: bool = False,
+    enable_redis: bool = False,
+) -> tuple[list[BaseTool], dict[str, Any]]:
+    ...
+    # Returns (all_tools, local_modules); local_modules holds any REPL namespaces
+    # the caller is responsible for cleaning up.
 ```
 
 ### 3. Adding New Providers
@@ -777,7 +804,7 @@ LlmProvider.MY_PROVIDER = "MyProvider"
 ### 4. Custom Error Messages
 
 ```python
-from par_gpt.utils.error_registry import ErrorMessage, ErrorCategory, ErrorSeverity, register_error
+from par_utils.errors.registry import ErrorMessage, ErrorCategory, ErrorSeverity, register_error
 
 # Register new error
 register_error(ErrorMessage(
