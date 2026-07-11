@@ -40,13 +40,13 @@ class UtilsFacade:
             self._utils_cache[function_name] = utils_func
             return utils_func
 
-        except (ImportError, AttributeError):
-            # Create a stub function if import fails
-            def stub_function(*args: Any, **kwargs: Any) -> Any:
-                return f"Function '{function_name}' not available due to import restrictions"
-
-            self._utils_cache[function_name] = stub_function
-            return stub_function
+        except (ImportError, AttributeError) as e:
+            # Fail loudly rather than handing the agent a plausible-looking string.
+            # A silent stub return would let the LLM present the placeholder text
+            # as a real answer (see ARC-009). Raising propagates a tool error the
+            # agent can recognize as failure; the name is deliberately not cached
+            # so a later retry can succeed once the import resolves.
+            raise ImportError(f"Utils function '{function_name}' is not available: {e}") from e
 
     def capture_window_image(self, *args: Any, **kwargs: Any) -> Any:
         """Capture window image with lazy loading."""

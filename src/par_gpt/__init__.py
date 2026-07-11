@@ -44,6 +44,10 @@ def ensure_initialized():
     """Ensure all global initialization is done."""
     _configure_warnings()
     _init_clipman()
+    # Set the USER_AGENT only when the application actually runs (CLI startup),
+    # not on bare ``import par_gpt`` -- importing a library must not mutate the
+    # process environment (ARC-012).
+    os.environ.setdefault("USER_AGENT", f"{__application_title__} {__version__}")
 
 
 __author__ = "Paul Robello"
@@ -56,9 +60,6 @@ __application_binary__ = "par_gpt"
 __env_var_prefix__ = "PARGPT"
 
 __licence__ = "MIT"
-
-
-os.environ["USER_AGENT"] = f"{__application_title__} {__version__}"
 
 
 __all__: list[str] = [

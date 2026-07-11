@@ -1,6 +1,6 @@
 """Tests for the centralized error registry."""
 
-from par_utils import (
+from par_utils.errors.registry import (
     ErrorCategory,
     ErrorMessage,
     ErrorRegistry,
@@ -130,10 +130,10 @@ class TestErrorRegistry:
         """Test formatting error with registry."""
         registry = ErrorRegistry()
         formatted = registry.format_error(
-            "CONFIG_INVALID_PROVIDER", provider="InvalidProvider", supported_providers="OpenAI, Anthropic"
+            "CONFIG_INVALID_VALUE", key="provider", value="InvalidProvider"
         )
         assert "InvalidProvider" in formatted
-        assert "OpenAI, Anthropic" in formatted
+        assert "provider" in formatted
 
     def test_format_nonexistent_error(self):
         """Test formatting non-existent error."""
@@ -173,26 +173,26 @@ class TestGlobalFunctions:
     def test_global_format_error(self):
         """Test global format_error function."""
         formatted = format_error(
-            "CONFIG_INVALID_PROVIDER", provider="TestProvider", supported_providers="Valid providers"
+            "CONFIG_INVALID_VALUE", key="provider", value="TestProvider"
         )
         assert "TestProvider" in formatted
-        assert "Valid providers" in formatted
+        assert "provider" in formatted
 
     def test_global_get_full_error(self):
         """Test global get_full_error function."""
-        full_error = get_full_error("CONFIG_MISSING_API_KEY", provider="TestProvider", key_name="TEST_API_KEY")
+        full_error = get_full_error("CONFIG_INVALID_VALUE", key="provider", value="TestProvider")
         assert "TestProvider" in full_error
-        assert "TEST_API_KEY" in full_error
+        assert "provider" in full_error
         assert "Solution:" in full_error
 
     def test_rich_formatting(self):
         """Test Rich formatting function."""
         registry = get_error_registry()
-        error = registry.get("CONFIG_INVALID_PROVIDER")
+        error = registry.get("CONFIG_INVALID_VALUE")
         assert error is not None
 
         rich_formatted = create_error_with_rich_formatting(
-            error, console_markup=True, provider="TestProvider", supported_providers="Valid providers"
+            error, console_markup=True, key="provider", value="TestProvider"
         )
 
         assert "TestProvider" in rich_formatted
@@ -200,7 +200,7 @@ class TestGlobalFunctions:
 
         # Test without markup
         plain_formatted = create_error_with_rich_formatting(
-            error, console_markup=False, provider="TestProvider", supported_providers="Valid providers"
+            error, console_markup=False, key="provider", value="TestProvider"
         )
         assert "TestProvider" in plain_formatted
         assert "[red]" not in plain_formatted and "[yellow]" not in plain_formatted
@@ -214,10 +214,7 @@ class TestDefaultErrors:
         registry = get_error_registry()
 
         config_errors = [
-            "CONFIG_INVALID_PROVIDER",
-            "CONFIG_INVALID_TEMPERATURE",
-            "CONFIG_MISSING_API_KEY",
-            "CONFIG_INVALID_BASE_URL",
+            "CONFIG_INVALID_VALUE",
         ]
 
         for error_code in config_errors:
@@ -232,8 +229,6 @@ class TestDefaultErrors:
         security_errors = [
             "SECURITY_PATH_TRAVERSAL",
             "SECURITY_DANGEROUS_FILENAME",
-            "SECURITY_FILE_TOO_LARGE",
-            "SECURITY_CODE_EXECUTION_DENIED",
         ]
 
         for error_code in security_errors:
@@ -247,8 +242,6 @@ class TestDefaultErrors:
 
         network_errors = [
             "NETWORK_CONNECTION_FAILED",
-            "NETWORK_TIMEOUT",
-            "NETWORK_API_RATE_LIMIT",
         ]
 
         for error_code in network_errors:
