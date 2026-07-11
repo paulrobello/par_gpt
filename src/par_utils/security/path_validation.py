@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
+import socket
 from pathlib import Path
+from urllib.parse import urlparse
 
 from rich.console import Console
 
@@ -278,6 +281,67 @@ def sanitize_filename(filename: str, replacement: str = "_") -> str:
 def validate_url_path(url_path: str) -> str:
     """Validate a URL path. Convenience function."""
     return _validator.validate_url_path(url_path)
+
+
+def validate_url(url: str, *, allow_loopback: bool = False) -> str:
+    """Validate that a URL uses http(s) and resolves to a public address.
+
+    Defends against SSRF (e.g. the cloud metadata endpoint 169.254.169.254) and
+    local-file schemes such as ``file://``. The hostname is resolved and every
+    resolved IP is checked; unresolved or non-public targets are rejected
+    (fail-closed).
+
+    Args:
+        url: URL to validate.
+        allow_loopback: Permit loopback addresses (e.g. for local dev servers).
+
+    Returns:
+        The validated URL string.
+
+    Raises:
+        PathSecurityError: If the scheme is not http/https, the hostname is
+            missing, resolution fails, or a resolved address is loopback (unless
+            allowed), link-local, private, unspecified, multicast, or reserved.
+    """
+    if not url or not url.strip():
+        raise PathSecurityError("Empty URL")
+
+    cleaned = url.strip()
+    parsed = urlparse(cleaned)
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in ("http", "https"):
+        raise PathSecurityError(f"Disallowed URL scheme '{scheme}': only http/https are permitted", cleaned)
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise PathSecurityError("URL is missing a hostname", cleaned)
+
+    try:
+        candidate_ips = [ipaddress.ip_address(hostname)]
+    except ValueError:
+        # hostname is not a literal IP address; resolve it.
+        try:
+            addr_infos = socket.getaddrinfo(hostname, None)
+        except OSError as e:
+            raise PathSecurityError(f"Unable to resolve hostname '{hostname}': {e}", cleaned) from e
+        candidate_ips = []
+        for info in addr_infos:
+            try:
+                candidate_ips.append(ipaddress.ip_address(info[4][0]))
+            except (ValueError, IndexError):
+                continue
+        if not candidate_ips:
+            raise PathSecurityError(f"Hostname '{hostname}' did not resolve to a usable IP address", cleaned)
+
+    for ip in candidate_ips:
+        if ip.is_loopback and not allow_loopback:
+            raise PathSecurityError(f"URL hostname '{hostname}' resolves to loopback address {ip}", cleaned)
+        if ip.is_unspecified:
+            raise PathSecurityError(f"URL hostname '{hostname}' resolves to unspecified address {ip}", cleaned)
+        if ip.is_link_local or ip.is_private or ip.is_multicast or ip.is_reserved:
+            raise PathSecurityError(f"URL hostname '{hostname}' resolves to non-public address {ip}", cleaned)
+
+    return cleaned
 
 
 def secure_path_join(base: str | Path, *components: str) -> Path:

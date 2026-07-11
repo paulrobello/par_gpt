@@ -53,8 +53,6 @@ class LazyToolLoader:
 
         # Import modules for REPL
         module_names = [
-            "os",
-            "sys",
             "re",
             "json",
             "time",
@@ -83,8 +81,20 @@ class LazyToolLoader:
         ]
         local_modules = {module_name: importlib.import_module(module_name) for module_name in module_names}
 
+        yes_to_all = kwargs.get("yes_to_all", False)
+        # Security: never skip the host REPL confirmation, even under --yes-to-all.
+        # Host exec() of AI-generated code is irreversible and reachable via prompt
+        # injection (fetched URLs/search results). Use --code-sandbox for automated runs.
+        if yes_to_all:
+            from par_ai_core.par_logging import console_err
+
+            console_err.print(
+                "[bold yellow]Security:[/] --yes-to-all is not applied to the host Python REPL "
+                "(--repl); execution confirmation stays enabled. Use --code-sandbox for "
+                "unsupervised code execution.",
+            )
         tool = ParPythonAstREPLTool(
-            prompt_before_exec=not kwargs.get("yes_to_all", False),
+            prompt_before_exec=True,
             show_exec_code=True,
             locals=local_modules,
         )
@@ -163,8 +173,6 @@ class LazyToolLoader:
             tools.append(self._import_repl_tool(**kwargs))
             # Return local modules for REPL
             module_names = [
-                "os",
-                "sys",
                 "re",
                 "json",
                 "time",

@@ -34,6 +34,7 @@ from par_gpt.utils.utils_facade import get_utils_facade
 
 # Lazy import manager for heavy dependencies
 from par_utils import LazyImportManager
+from par_utils.security import validate_url
 from sandbox import ExecuteCommandResult
 
 # Create a global lazy import manager instance
@@ -88,7 +89,13 @@ def ai_fetch_url(
     Returns:
         A list of markdown content for each url.
     """
-    return fetch_url_and_convert_to_markdown(urls[:3], include_links=True, verbose=True)
+    safe_urls: list[str] = []
+    for url in urls[:3]:
+        try:
+            safe_urls.append(validate_url(url))
+        except Exception as e:
+            return [f"URL rejected for security reasons: {url} ({e})"]
+    return fetch_url_and_convert_to_markdown(safe_urls, include_links=True, verbose=True)
 
 
 @tool(parse_docstring=True)
@@ -213,7 +220,10 @@ def ai_open_url(url: str) -> str:
     Returns:
         The URL that was opened.
     """
-
+    try:
+        validate_url(url)
+    except Exception as e:
+        return f"URL rejected for security reasons: {url} ({e})"
     webbrowser.open(url)
     return f"URL Opened: {url}"
 

@@ -131,6 +131,7 @@ class GitRepo:
         context: str | None = None,
         message: str | None = None,
         gpt_edits: bool = False,
+        no_verify: bool = False,
     ) -> tuple[str | None, str] | None:
         if not fnames and not self.repo.is_dirty():
             return
@@ -154,7 +155,9 @@ class GitRepo:
 
         full_commit_message = commit_message
 
-        cmd = ["-m", full_commit_message, "--no-verify"]
+        cmd = ["-m", full_commit_message]
+        if no_verify:
+            cmd.append("--no-verify")
         if fnames:
             fnames = [str(self.abs_root_path(fn)) for fn in fnames]
             for fname in fnames:

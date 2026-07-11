@@ -7,6 +7,7 @@ from par_utils.security.path_validation import (
     SecurePathValidator,
     sanitize_filename,
     validate_relative_path,
+    validate_url,
     validate_within_base,
 )
 
@@ -15,5 +16,6 @@ __all__ = [
     "SecurePathValidator",
     "sanitize_filename",
     "validate_relative_path",
+    "validate_url",
     "validate_within_base",
 ]

@@ -256,8 +256,7 @@ class SandboxRun:
         """
 
         # Crude check for problematic code (os, sys, subprocess, exec, eval, etc.)
-        # unsafe_modules = {"os", "sys", "subprocess", "builtins"}
-        unsafe_modules = {"sys", "subprocess", "builtins"}
+        unsafe_modules = {"os", "sys", "subprocess", "builtins"}
         unsafe_functions = {
             "exec",
             "eval",
@@ -294,7 +293,7 @@ class SandboxRun:
                 module_name = node.module if isinstance(node, ast.ImportFrom) else None
                 for alias in node.names:
                     if module_name and module_name.split(".")[0] in unsafe_modules:
-                        SandboxRunResult(status=False, message=f"Unsafe module import: {module_name}")
+                        return SandboxRunResult(status=False, message=f"Unsafe module import: {module_name}")
 
                     if alias.name.split(".")[0] in unsafe_modules:
                         return SandboxRunResult(status=False, message=f"Unsafe module import: {alias.name}")
