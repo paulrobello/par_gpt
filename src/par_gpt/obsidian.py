@@ -8,8 +8,6 @@ from urllib.parse import urljoin
 import requests
 import urllib3
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 # Default configuration similar to DEFAULT_OBSIDIAN_CONFIG in Node.js
 DEFAULT_OBSIDIAN_CONFIG: dict[str, str | int | bool] = {
     "protocol": "https",
@@ -93,6 +91,13 @@ class ObsidianClient:
 
         # Set SSL verification.
         self.session.verify = self.config["verifySSL"]
+
+        # Suppress urllib3 InsecureRequestWarning only for this client when the
+        # user has explicitly disabled SSL verification. Scoped to client
+        # construction rather than module import so importing the module does
+        # not mute warnings process-wide.
+        if not self.config["verifySSL"]:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         # Configure default headers.
         headers = self.get_headers()
@@ -268,7 +273,7 @@ class ObsidianClient:
                 error_code = 40100
             raise ObsidianError(message, error_code)
         except Exception as e:
-            raise ObsidianError(str(e), 50000) from e
+            raise ObsidianError(f"{type(e).__name__}: {e}", 50000) from e
 
     def _request(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
         """

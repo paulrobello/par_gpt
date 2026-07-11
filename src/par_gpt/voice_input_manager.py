@@ -104,7 +104,7 @@ class VoiceInputManager:
                 )
                 self._is_active = True
         except Exception as e:
-            self.console.print(f"❌ Failed to initialize recorder: {e}")
+            self.console.print(f"❌ Failed to initialize recorder: {type(e).__name__}: {e}")
             self.recorder = None
             raise
 
@@ -133,7 +133,7 @@ class VoiceInputManager:
                 self.console.print(f"🎤 USING: {text}")
             return text
         except Exception as e:
-            self.console.print(f"❌ Voice Input Error: {str(e)}")
+            self.console.print(f"❌ Voice Input Error: {type(e).__name__}: {e}")
             return ""
 
     def get_text(self) -> str:
@@ -175,18 +175,19 @@ class VoiceInputManager:
                     time.sleep(0.1)
 
                 except Exception as e:
-                    self.console.print(f"❌ Error during audio processing: {e}")
+                    self.console.print(f"❌ Error during audio processing: {type(e).__name__}: {e}")
                     break
 
         except Exception as e:
-            self.console.print(f"❌ Error in get_text: {e}")
+            self.console.print(f"❌ Error in get_text: {type(e).__name__}: {e}")
         finally:
             # Ensure recorder is stopped
             if self.recorder and hasattr(self.recorder, "stop"):
                 try:
                     self.recorder.stop()
-                except Exception:
-                    pass  # Ignore errors during cleanup
+                except Exception as e:
+                    if self.verbose:
+                        self.console.print(f"⚠️ Error stopping recorder: {type(e).__name__}: {e}")
 
         return ""
 
@@ -210,7 +211,7 @@ class VoiceInputManager:
 
             except Exception as e:
                 if self.verbose:
-                    self.console.print(f"⚠️  Warning during cleanup: {e}")
+                    self.console.print(f"⚠️  Warning during cleanup: {type(e).__name__}: {e}")
             finally:
                 self.recorder = None
 

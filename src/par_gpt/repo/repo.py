@@ -117,10 +117,13 @@ class GitRepo:
         num_repos = len(set(repo_paths))
 
         if num_repos == 0:
-            raise FileNotFoundError
+            searched = ", ".join(str(f) for f in check_fnames) or "."
+            raise FileNotFoundError(f"No git repository found for the given path(s): {searched}")
         if num_repos > 1:
             self.console.print("[bold red]Files are in different git repos.")
-            raise FileNotFoundError
+            raise FileNotFoundError(
+                f"Paths belong to {num_repos} different git repositories: {', '.join(sorted(set(repo_paths)))}"
+            )
 
         self.repo = git.Repo(repo_paths.pop(), odbt=git.GitCmdObjectDB)
         self.root = safe_abs_path(self.repo.working_tree_dir)
@@ -234,7 +237,7 @@ class GitRepo:
                 chat_model.invoke(messages, config=llm_run_manager.get_runnable_config(chat_model.name)).content
             )
         except Exception as e:
-            self.console.print(f"[bold red]Failed to generate commit message: {e}")
+            self.console.print(f"[bold red]Failed to generate commit message: {type(e).__name__}: {e}")
             commit_message = ""
 
         if not commit_message:

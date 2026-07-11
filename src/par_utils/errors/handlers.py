@@ -6,6 +6,7 @@ with existing code throughout applications.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -20,6 +21,10 @@ from par_utils.errors.registry import (
     get_error_registry,
     get_full_error,
 )
+
+# Module logger used as the fallback output channel when no Rich console is
+# configured, so error-subsystem messages never route through bare ``print()``.
+_logger = logging.getLogger(__name__)
 
 
 class ErrorHandler:
@@ -50,7 +55,7 @@ class ErrorHandler:
             else:
                 self.console.print(f"[red]Unknown error code: {code}[/red]")
         else:
-            print(get_full_error(code, **kwargs))
+            _logger.error(get_full_error(code, **kwargs))
 
         if exit_code is not None:
             import sys
@@ -76,7 +81,7 @@ class ErrorHandler:
             if self.console:
                 self.console.print(f"[yellow]{warning_text}[/yellow]")
             else:
-                print(warning_text)
+                _logger.warning(warning_text)
 
     def show_info(self, code: str, **kwargs: Any) -> None:
         """Show an info message.
@@ -94,7 +99,7 @@ class ErrorHandler:
             if self.console:
                 self.console.print(f"[blue]{info_text}[/blue]")
             else:
-                print(info_text)
+                _logger.info(info_text)
 
     def create_exception(self, code: str, exception_class: type[Exception] = ValueError, **kwargs: Any) -> Exception:
         """Create an exception with standardized error message.
@@ -257,7 +262,7 @@ def show_startup_warnings(warnings: list[str], console: Console | None = None) -
         if console:
             console.print(f"[yellow]Warning:[/yellow] {warning}")
         else:
-            print(f"Warning: {warning}")
+            _logger.warning(warning)
 
 
 def create_rich_error_panel(error_code: str, console: Console, **kwargs: Any) -> Any:
@@ -305,12 +310,13 @@ def log_error(error_code: str, logger: Any = None, **kwargs: Any) -> None:
             log_method = getattr(logger, severity_map.get(error.severity, "error"), logger.error)
             log_method(f"[{error.code}] {message}")
         else:
-            print(f"{error.severity.value.upper()}: [{error.code}] {message}")
+            log_method = getattr(_logger, severity_map.get(error.severity, "error"), _logger.error)
+            log_method(f"[{error.code}] {message}")
     else:
         if logger:
             logger.error(f"Unknown error code: {error_code}")
         else:
-            print(f"ERROR: Unknown error code: {error_code}")
+            _logger.error(f"Unknown error code: {error_code}")
 
 
 def suppress_error(error_code: str, **kwargs: Any) -> str:

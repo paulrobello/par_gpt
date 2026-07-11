@@ -6,9 +6,9 @@ import weakref
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
-import orjson as json
+import orjson
 from dotenv import load_dotenv
 from par_ai_core.llm_config import LlmConfig, llm_run_manager
 from par_ai_core.llm_providers import LlmProvider
@@ -21,6 +21,38 @@ from par_utils import CacheManager, lazy_import
 
 # Create instances for backward compatibility
 cache_manager = CacheManager()
+
+
+@runtime_checkable
+class TtsEngine(Protocol):
+    """Structural protocol for the heterogeneous TTS engine backends.
+
+    Captures the union of methods and attributes that ``TTSManger`` invokes
+    across the pyttsx3 (LOCAL), elevenlabs, openai, and kokoro-onnx backends.
+    Not every backend implements every member; callers gate access by
+    ``tts_provider`` so the missing members are never reached for a backend
+    that does not provide them. Typing ``self.engine`` against this Protocol
+    removes the per-call ``# type: ignore`` markers while accommodating the
+    intentionally pluggable engine design.
+    """
+
+    # pyttsx3 (LOCAL) surface
+    def setProperty(self, name: str, value: Any) -> None: ...
+    def getProperty(self, name: str) -> Any: ...
+    def say(self, text: str) -> None: ...
+    def runAndWait(self) -> None: ...
+    def stop(self) -> None: ...
+
+    # elevenlabs surface
+    voices: Any
+
+    def generate(self, text: str, voice: str, model: str, stream: bool) -> Any: ...
+
+    # openai surface
+    audio: Any
+
+    # kokoro-onnx surface
+    def create(self, text: str, voice: str, speed: float, lang: str) -> tuple[Any, int]: ...
 
 
 def summarize_for_tts(text: str) -> str:
@@ -122,7 +154,7 @@ class TTSManger:
         self.console = console or console_err
         self.verbose = verbose
         self.speed = speed
-        self.engine: Any = None
+        self.engine: TtsEngine | None = None
         self._audio_streams: list[Any] = []  # Track audio streams for cleanup
 
         # Get voice configuration
@@ -137,14 +169,18 @@ class TTSManger:
             if self.tts_provider == TTSProvider.LOCAL:
                 # Lazy load pyttsx3
                 pyttsx3 = lazy_import("pyttsx3")
-                self.engine = pyttsx3.init()
-                self.engine.setProperty("rate", int(self.speed * 100))  # Speed of speech
-                self.engine.setProperty("volume", 1.0)  # Volume level
+                # Bind to a non-Optional local so member access narrows correctly;
+                # ``pyttsx3.init()`` is dynamically typed (Any) but structurally
+                # satisfies ``TtsEngine``.
+                engine: TtsEngine = pyttsx3.init()
+                engine.setProperty("rate", int(self.speed * 100))  # Speed of speech
+                engine.setProperty("volume", 1.0)  # Volume level
                 if voice_name:
-                    voice = [v for v in self.engine.getProperty("voices") if v.name == self.voice_name]
+                    voice = [v for v in engine.getProperty("voices") if v.name == self.voice_name]
                     if voice:
-                        self.engine.setProperty("voice", voice[0].id)
+                        engine.setProperty("voice", voice[0].id)
                         self.voice_name = voice[0].name
+                self.engine = engine
             elif self.tts_provider == TTSProvider.KOKORO:
                 if not cache_manager.item_exists(
                     "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/kokoro-v0_19.onnx"
@@ -195,18 +231,20 @@ class TTSManger:
             list[Any]: Available voices for the configured TTS provider
         """
         if self.tts_provider == TTSProvider.LOCAL:
-            return self.engine.getProperty("voices")  # type: ignore
+            assert self.engine is not None  # set in __init__
+            return self.engine.getProperty("voices")
         elif self.tts_provider == TTSProvider.ELEVENLABS:
+            assert self.engine is not None  # set in __init__
             # return self.engine.voices.get_all().voices
             return [
                 f"{v.name} - {v.voice_id} - {','.join((v.labels or {}).values())}"
-                for v in self.engine.voices.get_all().voices  # type: ignore
+                for v in self.engine.voices.get_all().voices
             ]
         elif self.tts_provider == TTSProvider.OPENAI:
             return ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
         elif self.tts_provider == TTSProvider.KOKORO:
             return list(
-                json.loads(
+                orjson.loads(
                     cache_manager.get_item(
                         "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files/voices.json"
                     ).read_text()
@@ -229,11 +267,12 @@ class TTSManger:
             if self.verbose:
                 self.console.print(f"🔊 Speaking: {text}")
 
+            assert self.engine is not None  # set in __init__
             if self.tts_provider == TTSProvider.LOCAL:
-                self.engine.say(text)  # type: ignore
-                self.engine.runAndWait()  # type: ignore
+                self.engine.say(text)
+                self.engine.runAndWait()
             elif self.tts_provider == TTSProvider.ELEVENLABS:
-                audio = self.engine.generate(  # type: ignore
+                audio = self.engine.generate(
                     text=text,
                     voice=self.voice_name,
                     model="eleven_turbo_v2",
@@ -245,9 +284,9 @@ class TTSManger:
             elif self.tts_provider == TTSProvider.OPENAI:
                 import sounddevice as sd  # type: ignore[reportMissingImports]
 
-                audio_response = self.engine.audio.speech.create(  # type: ignore
+                audio_response = self.engine.audio.speech.create(
                     model="tts-1-hd",
-                    voice=self.voice_name,  # type: ignore
+                    voice=self.voice_name,
                     speed=self.speed,
                     response_format="wav",
                     input=text,
@@ -266,7 +305,7 @@ class TTSManger:
             elif self.tts_provider == TTSProvider.KOKORO:
                 import sounddevice as sd  # type: ignore[reportMissingImports]
 
-                samples, sample_rate = self.engine.create(text, voice=self.voice_name, speed=self.speed, lang="en-us")  # type: ignore
+                samples, sample_rate = self.engine.create(text, voice=self.voice_name, speed=self.speed, lang="en-us")
 
                 # Play with proper cleanup
                 try:
@@ -279,7 +318,7 @@ class TTSManger:
             # self.console.print(f"🔊 Spoken: {text}")
 
         except Exception as e:
-            self.console.print(f"❌ Error in speech synthesis: {str(e)}")
+            self.console.print(f"❌ Error in speech synthesis: {type(e).__name__}: {e}")
             raise
 
     def _cleanup_resources(self) -> None:
@@ -298,7 +337,7 @@ class TTSManger:
 
         except Exception as e:
             if self.verbose:
-                self.console.print(f"⚠️ Warning during TTS cleanup: {e}")
+                self.console.print(f"⚠️ Warning during TTS cleanup: {type(e).__name__}: {e}")
 
     def shutdown(self) -> None:
         """Explicitly shutdown the TTS manager and clean up resources."""

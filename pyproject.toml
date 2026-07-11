@@ -99,6 +99,17 @@ packages = [
     "src/sandbox",
 ]
 
+# Optional TTS backend dependencies. These are imported lazily by
+# ``par_gpt.tts_manager`` (and audio playback in ``speak``) and are not required
+# for the core CLI. Install via ``pip install par-gpt[tts]`` to enable TTS.
+[project.optional-dependencies]
+tts = [
+    "pyttsx3>=2.91",
+    "elevenlabs>=1.0.0",
+    "kokoro-onnx>=0.4.0",
+    "sounddevice>=0.5.0",
+]
+
 [project.license]
 file = "LICENSE"
 

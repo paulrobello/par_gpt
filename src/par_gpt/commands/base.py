@@ -130,7 +130,7 @@ class BaseCommand(ABC):
     def handle_exception(self, e: Exception, state: dict[str, Any]) -> None:
         """Handle command exceptions consistently."""
         self.console.print("[bold red]Error:")
-        self.console.print(str(e), markup=False)
+        self.console.print(f"{type(e).__name__}: {e}", markup=False)
 
         if state.get("debug"):
             import traceback

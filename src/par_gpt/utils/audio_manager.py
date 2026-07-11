@@ -58,8 +58,10 @@ class AudioResourceManager:
                     try:
                         vm.shutdown()
                         self._active_voice_managers.discard(vm)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self.console.print(
+                            f"Warning: Error shutting down inactive voice manager: {type(e).__name__}: {e}"
+                        )
 
                 # Clean up TTS managers that are no longer referenced
                 inactive_tts = {
@@ -69,11 +71,13 @@ class AudioResourceManager:
                     try:
                         tm.shutdown()
                         self._active_tts_managers.discard(tm)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self.console.print(
+                            f"Warning: Error shutting down inactive TTS manager: {type(e).__name__}: {e}"
+                        )
 
             except Exception as e:
-                console_err.print(f"Warning: Error in audio cleanup thread: {e}")
+                console_err.print(f"Warning: Error in audio cleanup thread: {type(e).__name__}: {e}")
 
     def _global_cleanup(self) -> None:
         """Global cleanup for all audio resources."""
@@ -83,14 +87,14 @@ class AudioResourceManager:
         for vm in list(self._active_voice_managers):
             try:
                 vm.shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                self.console.print(f"Warning: Error shutting down voice manager: {type(e).__name__}: {e}")
 
         for tm in list(self._active_tts_managers):
             try:
                 tm.shutdown()
-            except Exception:
-                pass
+            except Exception as e:
+                self.console.print(f"Warning: Error shutting down TTS manager: {type(e).__name__}: {e}")
 
         self._active_voice_managers.clear()
         self._active_tts_managers.clear()
@@ -135,7 +139,7 @@ class AudioResourceManager:
             try:
                 vim.shutdown()
             except Exception as e:
-                self.console.print(f"Warning: Error shutting down voice input: {e}")
+                self.console.print(f"Warning: Error shutting down voice input: {type(e).__name__}: {e}")
             finally:
                 self._active_voice_managers.discard(vim)
                 # Force cleanup
@@ -178,7 +182,7 @@ class AudioResourceManager:
             try:
                 tts.shutdown()
             except Exception as e:
-                self.console.print(f"Warning: Error shutting down TTS: {e}")
+                self.console.print(f"Warning: Error shutting down TTS: {type(e).__name__}: {e}")
             finally:
                 self._active_tts_managers.discard(tts)
                 # Force cleanup for audio buffers

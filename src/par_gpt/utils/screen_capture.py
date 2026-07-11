@@ -472,7 +472,7 @@ def capture_window_image(
         raise ValueError(f"No app '{app_name}' / title '{app_title}' found")
 
     if len(windows) > 1:
-        print(f"Multiple windows found with title '{app_title}':")
+        console_err.print(f"[yellow]Multiple windows found with title '{app_title}':[/yellow]")
         for i, title in enumerate(windows, start=1):
             console_err.print(f"{i}. {title}")
         raise ValueError(f"Multiple app '{app_name}' windows found with title '{app_title}'")
