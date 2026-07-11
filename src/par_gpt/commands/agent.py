@@ -7,6 +7,7 @@ from typing import Annotated, Any
 import typer
 
 from par_gpt import __env_var_prefix__
+from par_gpt.cli.command_state import CommandState
 from par_gpt.cli.options import AGENT_OPTION_DEFAULTS
 from par_gpt.commands.base import BaseCommand, ChatHistoryMixin, LoopableCommandMixin
 from par_utils import lazy_import
@@ -19,11 +20,11 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         self, ctx: typer.Context, max_iterations: int, show_tool_calls: bool, repl: bool, code_sandbox: bool
     ) -> None:
         """Execute the agent command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
 
         # Image context is not supported in agent mode: do_tool_agent rejects it.
         # Fail early with an actionable message instead of a confusing ValueError.
-        if state["context_is_image"]:
+        if state.context_is_image:
             self.console.print("[bold red]Error: Image input is not supported in agent mode.[/bold red]")
             self.console.print(
                 "[yellow]Hint: use the LLM command instead, which supports image context:[/yellow]\n"
@@ -32,14 +33,15 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
             raise typer.Exit(1)
 
         # Get user prompt from args
-        if not state["user_prompt"] and len(ctx.args) > 0:
-            state["user_prompt"] = ctx.args.pop(0)
+        user_prompt = state.user_prompt
+        if not user_prompt and len(ctx.args) > 0:
+            user_prompt = ctx.args.pop(0)
 
         # Load chat history
         chat_history = self.load_chat_history(state)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
+        question = self.combine_prompt_and_context(user_prompt, state.context, state.context_is_image)
 
         try:
             # Build chat model with timing
@@ -73,7 +75,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
         question: str,
         env_info: str,
         chat_history: list,
-        state: dict,
+        state: CommandState,
         callback_context,
         max_iterations: int,
         show_tool_calls: bool,
@@ -82,7 +84,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
     ) -> None:
         """Process the agent interaction loop."""
 
-        def process_question(q: str, s: dict) -> tuple[str, str, Any]:
+        def process_question(q: str, s: CommandState) -> tuple[str, str, Any]:
             """Process a single question with agent tools."""
             # Build AI tool list based on question keywords
             build_ai_tool_list = lazy_import("par_gpt.lazy_tool_loader", "build_ai_tool_list")
@@ -90,14 +92,14 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 q,
                 repl=repl,
                 code_sandbox=code_sandbox,
-                yes_to_all=s["yes_to_all"],
-                enable_redis=s["enable_redis"],
+                yes_to_all=s.yes_to_all,
+                enable_redis=s.enable_redis,
             )
 
             # Set tool context for AI tools to access global state
             from par_gpt.tool_context import set_tool_context
 
-            set_tool_context(yes_to_all=s["yes_to_all"], llm_config=s["llm_config"])
+            set_tool_context(yes_to_all=s.yes_to_all, llm_config=s.llm_config)
 
             # Execute agent with tools
             do_tool_agent = lazy_import("par_gpt.agents", "do_tool_agent")
@@ -107,10 +109,10 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
                 modules=list(local_modules.keys()),
                 env_info=env_info,
                 user_input=q,
-                image=s["context"] if s["context_is_image"] else None,
-                system_prompt=s["system_prompt"],
+                image=s.context if s.context_is_image else None,
+                system_prompt=s.system_prompt,
                 max_iterations=max_iterations,
-                debug=s["debug"],
+                debug=s.debug,
                 chat_history=chat_history,
                 console=self.console,
             )
@@ -130,7 +132,7 @@ class AgentCommand(BaseCommand, LoopableCommandMixin, ChatHistoryMixin):
             # Continue with loop if needed
             from par_gpt.cli.options import LoopMode
 
-            if state["loop_mode"] == LoopMode.INFINITE:
+            if state.loop_mode == LoopMode.INFINITE:
                 self.handle_interactive_loop(state, callback_context, chat_history, process_question)
         else:
             # Start with interactive loop

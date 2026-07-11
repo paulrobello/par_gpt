@@ -6,6 +6,7 @@ from typing import Any
 
 import typer
 
+from par_gpt.cli.command_state import CommandState
 from par_gpt.commands.base import BaseCommand, ChatHistoryMixin, LLMCommandMixin, LoopableCommandMixin
 
 
@@ -14,17 +15,18 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
 
     def execute(self, ctx: typer.Context) -> None:
         """Execute the LLM command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
 
         # Get user prompt from args
-        if not state["user_prompt"] and len(ctx.args) > 0:
-            state["user_prompt"] = ctx.args.pop(0)
+        user_prompt = state.user_prompt
+        if not user_prompt and len(ctx.args) > 0:
+            user_prompt = ctx.args.pop(0)
 
         # Load chat history
         chat_history = self.load_chat_history(state)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
+        question = self.combine_prompt_and_context(user_prompt, state.context, state.context_is_image)
 
         try:
             # Build chat model with timing
@@ -47,12 +49,12 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
         question: str,
         env_info: str,
         chat_history: list,
-        state: dict,
+        state: CommandState,
         callback_context,
     ) -> None:
         """Process the LLM interaction loop."""
 
-        def process_question(q: str, s: dict) -> tuple[str, str, Any]:
+        def process_question(q: str, s: CommandState) -> tuple[str, str, Any]:
             """Process a single question."""
             # Local import keeps par_gpt.agents (and langchain_classic) lazy at startup.
             from par_gpt.agents import is_reasoning_model
@@ -61,11 +63,11 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
                 chat_model=chat_model,
                 user_input=q,
                 state=s,
-                system_prompt=s["system_prompt"],
+                system_prompt=s.system_prompt,
                 no_system_prompt=is_reasoning_model(chat_model)
                 or (len(chat_history) > 0 and chat_history[0][0] == "system"),
                 env_info=env_info,
-                image=s["context"] if s["context_is_image"] else None,
+                image=s.context if s.context_is_image else None,
                 chat_history=chat_history,
             )
 
@@ -84,7 +86,7 @@ class LLMCommand(BaseCommand, LLMCommandMixin, LoopableCommandMixin, ChatHistory
             # Continue with loop if needed
             from par_gpt.cli.options import LoopMode
 
-            if state["loop_mode"] == LoopMode.INFINITE:
+            if state.loop_mode == LoopMode.INFINITE:
                 self.handle_interactive_loop(state, callback_context, chat_history, process_question)
         else:
             # Start with interactive loop

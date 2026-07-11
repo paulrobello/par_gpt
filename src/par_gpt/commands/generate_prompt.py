@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from par_gpt.cli.command_state import CommandState
 from par_gpt.commands.base import BaseCommand, LLMCommandMixin
 from par_utils import lazy_import
 
@@ -13,14 +14,15 @@ class GeneratePromptCommand(BaseCommand, LLMCommandMixin):
 
     def execute(self, ctx: typer.Context) -> None:
         """Execute the generate prompt command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
 
         # Get user prompt from args
-        if not state["user_prompt"] and len(ctx.args) > 0:
-            state["user_prompt"] = ctx.args.pop(0)
+        user_prompt = state.user_prompt
+        if not user_prompt and len(ctx.args) > 0:
+            user_prompt = ctx.args.pop(0)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
+        question = self.combine_prompt_and_context(user_prompt, state.context, state.context_is_image)
 
         self.validate_question(question)
         question = question.strip()
@@ -36,8 +38,8 @@ class GeneratePromptCommand(BaseCommand, LLMCommandMixin):
                 content, thinking, result = do_prompt_generation_agent(
                     chat_model=chat_model,
                     user_input=question,
-                    system_prompt=state["system_prompt"],
-                    debug=state["debug"],
+                    system_prompt=state.system_prompt,
+                    debug=state.debug,
                     console=self.console,
                 )
 
@@ -46,7 +48,7 @@ class GeneratePromptCommand(BaseCommand, LLMCommandMixin):
 
                 # Show cost information
                 show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
-                show_llm_cost(cb.usage_metadata, console=self.console, show_pricing=state["pricing"])
+                show_llm_cost(cb.usage_metadata, console=self.console, show_pricing=state.pricing)
 
         except Exception as e:
             self.handle_exception(e, state)

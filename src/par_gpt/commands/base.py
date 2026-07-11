@@ -11,6 +11,7 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
+from par_gpt.cli.command_state import CommandState
 from par_utils import lazy_import
 
 
@@ -21,16 +22,16 @@ class BaseCommand(ABC):
         """Initialize base command."""
         self.console = console or console_err
 
-    def get_user_prompt_from_args(self, state: dict[str, Any], args: list[str]) -> str | None:
+    def get_user_prompt_from_args(self, state: CommandState, args: list[str]) -> str | None:
         """Extract user prompt from state or command args."""
-        if not state.get("user_prompt") and len(args) > 0:
+        if not state.user_prompt and len(args) > 0:
             return args.pop(0)
-        return state.get("user_prompt")
+        return state.user_prompt
 
     def combine_prompt_and_context(
         self,
         user_prompt: str | None,
-        context: str,
+        context: str | None,
         context_is_image: bool = False,
     ) -> str:
         """Combine user prompt and context appropriately."""
@@ -44,21 +45,23 @@ class BaseCommand(ABC):
             self.console.print("[bold red]No context or user prompt provided. Exiting...")
             raise typer.Exit(1)
 
-    def build_chat_model_with_timing(self, state: dict[str, Any]) -> Any:
+    def build_chat_model_with_timing(self, state: CommandState) -> Any:
         """Build chat model with timing."""
         from par_utils import timer
 
+        # Only invoked for LLM commands, where llm_config is always populated.
+        assert state.llm_config is not None
         with timer("build_chat_model"):
-            return state["llm_config"].build_chat_model()
+            return state.llm_config.build_chat_model()
 
-    def get_provider_callback(self, state: dict[str, Any]) -> Any:
+    def get_provider_callback(self, state: CommandState) -> Any:
         """Get provider callback for LLM operations."""
         get_parai_callback = lazy_import("par_ai_core.provider_cb_info", "get_parai_callback")
         return get_parai_callback(
-            show_end=state["debug"],
-            show_tool_calls=state.get("show_tool_calls", state["debug"]),
-            show_pricing=state["pricing"],
-            verbose=state["debug"],
+            show_end=state.debug,
+            show_tool_calls=state.show_tool_calls if state.show_tool_calls is not None else state.debug,
+            show_pricing=state.pricing,
+            verbose=state.debug,
             console=self.console,
         )
 
@@ -92,7 +95,7 @@ class BaseCommand(ABC):
         content: str,
         thinking: str | None,
         result: Any,
-        state: dict[str, Any],
+        state: CommandState,
     ) -> None:
         """Handle common output processing."""
         # Output to stdout if not a tty
@@ -100,39 +103,39 @@ class BaseCommand(ABC):
             print(content)
 
         # Copy to clipboard if requested
-        if state["copy_to_clipboard"]:
+        if state.copy_to_clipboard:
             clipboard = lazy_import("clipman")
             clipboard.copy(content)
             self.console.print("[bold green]Copied to clipboard")
 
         # Show debug information
-        if state["debug"]:
+        if state.debug:
             Panel = lazy_import("rich.panel", "Panel")
             Pretty = lazy_import("rich.pretty", "Pretty")
             self.console.print(Panel.fit(Pretty(result), title="[bold]GPT Response", border_style="bold"))
 
         # Show thinking if available
-        if thinking and state["display_format"].value != "none":
+        if thinking and state.display_format.value != "none":
             Panel = lazy_import("rich.panel", "Panel")
             self.console.print(Panel(thinking, title="thinking", style="cyan"))
 
         # Display formatted output
         display_formatted_output = lazy_import("par_ai_core.output_utils", "display_formatted_output")
-        display_formatted_output(content, state["display_format"], console=self.console)
+        display_formatted_output(content, state.display_format, console=self.console)
 
-    def show_timing_summary(self, state: dict[str, Any]) -> None:
+    def show_timing_summary(self, state: CommandState) -> None:
         """Show timing summary if requested."""
-        if state.get("show_times") or state.get("show_times_detailed"):
+        if state.show_times or state.show_times_detailed:
             from par_utils import show_timing_summary
 
-            show_timing_summary(detailed=state.get("show_times_detailed", False))
+            show_timing_summary(detailed=state.show_times_detailed)
 
-    def handle_exception(self, e: Exception, state: dict[str, Any]) -> None:
+    def handle_exception(self, e: Exception, state: CommandState) -> None:
         """Handle command exceptions consistently."""
         self.console.print("[bold red]Error:")
         self.console.print(f"{type(e).__name__}: {e}", markup=False)
 
-        if state.get("debug"):
+        if state.debug:
             import traceback
 
             self.console.print(traceback.format_exc())
@@ -154,7 +157,7 @@ class LLMCommandMixin:
         self,
         chat_model: Any,
         user_input: str,
-        state: dict[str, Any],
+        state: CommandState,
         system_prompt: str | None = None,
         no_system_prompt: bool = False,
         env_info: str | None = None,
@@ -173,8 +176,8 @@ class LLMCommandMixin:
                 no_system_prompt=no_system_prompt,
                 env_info=env_info,
                 image=image,
-                display_format=state["display_format"],
-                debug=state["debug"],
+                display_format=state.display_format,
+                debug=state.debug,
                 console=self.console,
                 chat_history=chat_history,
             )
@@ -188,7 +191,7 @@ class LoopableCommandMixin:
 
     def handle_interactive_loop(
         self,
-        state: dict[str, Any],
+        state: CommandState,
         callback_context: Any,
         chat_history: list[tuple[str, str | list[dict[str, Any]]]] | None = None,
         process_question_func: Callable | None = None,
@@ -217,16 +220,16 @@ class LoopableCommandMixin:
 
             if chat_history is not None:
                 chat_history.append(("assistant", content))
-                if state.get("history_file"):
+                if state.history_file:
                     json = lazy_import("orjson")
-                    state["history_file"].write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
+                    state.history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))
 
             question = ""
 
-            if state["loop_mode"] != LoopMode.INFINITE:
+            if state.loop_mode != LoopMode.INFINITE:
                 break
 
-            if state["loop_mode"] == LoopMode.INFINITE:
+            if state.loop_mode == LoopMode.INFINITE:
                 show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
                 from par_ai_core.pricing_lookup import PricingDisplay
 
@@ -238,10 +241,10 @@ class ChatHistoryMixin:
 
     console: Console  # Expected to be provided by the mixed-in class
 
-    def load_chat_history(self, state: dict[str, Any]) -> list[tuple[str, str | list[dict[str, Any]]]]:
+    def load_chat_history(self, state: CommandState) -> list[tuple[str, str | list[dict[str, Any]]]]:
         """Load chat history from file if available."""
         chat_history = []
-        history_file = state.get("history_file")
+        history_file = state.history_file
         if history_file and history_file.is_file():
             json = lazy_import("orjson")
             chat_history = json.loads(history_file.read_bytes() or "[]")
@@ -249,18 +252,18 @@ class ChatHistoryMixin:
 
             # Update system prompt if provided
             if chat_history and chat_history[0][0] == "system":
-                if state.get("system_prompt"):
-                    chat_history[0][1] = state["system_prompt"]
+                if state.system_prompt:
+                    chat_history[0][1] = state.system_prompt
 
         return chat_history
 
     def save_chat_history(
         self,
         chat_history: list[tuple[str, str | list[dict[str, Any]]]],
-        state: dict[str, Any],
+        state: CommandState,
     ) -> None:
         """Save chat history to file if configured."""
-        history_file = state.get("history_file")
+        history_file = state.history_file
         if history_file:
             json = lazy_import("orjson")
             history_file.write_bytes(json.dumps(chat_history, str, json.OPT_INDENT_2))

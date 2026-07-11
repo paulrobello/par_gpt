@@ -11,6 +11,7 @@ from typing import Annotated
 import typer
 
 from par_gpt import __env_var_prefix__
+from par_gpt.cli.command_state import CommandState
 from par_gpt.commands.base import BaseCommand
 from par_utils import PathSecurityError, lazy_import
 
@@ -29,7 +30,7 @@ class StardewCommand(BaseCommand):
         display: bool,
     ) -> None:
         """Execute the stardew command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
         DEFAULT_SRC: Path = Path(__file__).parent.parent / "img" / "stardew-image-base.jpeg"
 
         from openai import OpenAI
@@ -48,7 +49,7 @@ class StardewCommand(BaseCommand):
 
             # Build the AI prompt
             ai_prompt = system_prompt.format(user_prompt=prompt)
-            if state["debug"]:
+            if state.debug:
                 self.console.print(ai_prompt)
 
             image_file = src_path.open("rb")
@@ -66,7 +67,7 @@ class StardewCommand(BaseCommand):
             finally:
                 image_file.close()
 
-            if state["debug"]:
+            if state.debug:
                 Pretty = lazy_import("rich.pretty", "Pretty")
                 self.console.print(Pretty(response))
 
@@ -95,7 +96,7 @@ class StardewCommand(BaseCommand):
 
         except Exception as e:
             self.console.print(f"[bold red]Error:[/bold red] {e}")
-            if state["debug"]:
+            if state.debug:
                 import traceback
 
                 self.console.print(traceback.format_exc())

@@ -6,6 +6,7 @@ import re
 
 import typer
 
+from par_gpt.cli.command_state import CommandState
 from par_gpt.commands.base import BaseCommand
 from par_utils import lazy_import
 
@@ -15,14 +16,15 @@ class GitCommand(BaseCommand):
 
     def execute(self, ctx: typer.Context) -> None:
         """Execute the git command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
 
         # Get user prompt from args
-        if not state["user_prompt"] and len(ctx.args) > 0:
-            state["user_prompt"] = ctx.args.pop(0)
+        user_prompt = state.user_prompt
+        if not user_prompt and len(ctx.args) > 0:
+            user_prompt = ctx.args.pop(0)
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(state["user_prompt"], state["context"], state["context_is_image"])
+        question = self.combine_prompt_and_context(user_prompt, state.context, state.context_is_image)
 
         self.validate_question(question)
         question = question.strip()
@@ -31,7 +33,7 @@ class GitCommand(BaseCommand):
             # Get provider callback
             with self.get_provider_callback(state):
                 get_git_repo = lazy_import("par_gpt.repo.repo", "GitRepo")
-                repo = get_git_repo()(llm_config=state["llm_config"])
+                repo = get_git_repo()(llm_config=state.llm_config)
 
                 if not repo.is_dirty():
                     self.console.print("[bold yellow]No changes to commit. Exiting...")
@@ -39,10 +41,10 @@ class GitCommand(BaseCommand):
 
                 # Check if user wants to display or commit
                 if re.match(r"(display|show)\s?(git|gen|generate|create|do)? commit", question, flags=re.IGNORECASE):
-                    commit_msg = repo.get_commit_message(repo.get_diffs(ctx.args), context=state["context"])
+                    commit_msg = repo.get_commit_message(repo.get_diffs(ctx.args), context=state.context)
                     self.console.print(commit_msg)
                 else:
-                    repo.commit(ctx.args, context=state["context"])
+                    repo.commit(ctx.args, context=state.context)
 
         except Exception as e:
             self.handle_exception(e, state)

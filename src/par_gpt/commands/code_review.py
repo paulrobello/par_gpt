@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from par_gpt.cli.command_state import CommandState
 from par_gpt.commands.base import BaseCommand, LLMCommandMixin
 from par_utils import lazy_import
 
@@ -13,17 +14,18 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
 
     def execute(self, ctx: typer.Context) -> None:
         """Execute the code review command."""
-        state = ctx.obj
+        state: CommandState = ctx.obj
 
         # Get user prompt from args
-        if not state["user_prompt"] and len(ctx.args) > 0:
-            state["user_prompt"] = ctx.args.pop(0)
+        user_prompt = state.user_prompt
+        if not user_prompt and len(ctx.args) > 0:
+            user_prompt = ctx.args.pop(0)
 
         # Default question if none provided
-        question = state["user_prompt"] or state["context"] or "Please review code"
+        question = user_prompt or state.context or "Please review code"
 
         # Combine prompt and context
-        question = self.combine_prompt_and_context(question, state["context"], state["context_is_image"]).strip()
+        question = self.combine_prompt_and_context(question, state.context, state.context_is_image).strip()
 
         try:
             # Build chat model
@@ -37,10 +39,10 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
                 content, thinking, result = do_code_review_agent(
                     chat_model=chat_model,
                     user_input=question,
-                    system_prompt=state["system_prompt"],
+                    system_prompt=state.system_prompt,
                     env_info=env_info,
-                    display_format=state["display_format"],
-                    debug=state["debug"],
+                    display_format=state.display_format,
+                    debug=state.debug,
                     console=self.console,
                 )
 
@@ -49,7 +51,7 @@ class CodeReviewCommand(BaseCommand, LLMCommandMixin):
 
                 # Show cost information
                 show_llm_cost = lazy_import("par_ai_core.pricing_lookup", "show_llm_cost")
-                show_llm_cost(cb.usage_metadata, console=self.console, show_pricing=state["pricing"])
+                show_llm_cost(cb.usage_metadata, console=self.console, show_pricing=state.pricing)
 
         except Exception as e:
             self.handle_exception(e, state)

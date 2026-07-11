@@ -15,6 +15,7 @@ from par_ai_core.pricing_lookup import PricingDisplay
 from rich.console import Console
 
 from par_gpt import __application_title__, __env_var_prefix__, __version__
+from par_gpt.cli.command_state import CommandState
 from par_gpt.cli.config import (
     create_llm_config,
     get_base_url,
@@ -409,44 +410,42 @@ def main(
             console,
         )
 
-    # Create state object
-    state = {
-        "debug": debug,
-        "ai_provider": ai_provider,
-        "model": model,
-        "fallback_models": fallback_models,
-        "light_model": light_model,
-        "ai_base_url": ai_base_url,
-        "pricing": pricing,
-        "is_sixel_supported": False,  # query_terminal_support(),
-        "llm_config": llm_config,
-        "store_url": os.environ.get("VECTOR_STORE_URL", "memory://"),
-        "collection_name": "par_gpt",
-        "temperature": temperature,
-        "user_agent_appid": user_agent_appid,
-        "display_format": display_format,
-        "context_location": context_location,
-        "system_prompt": system_prompt,
-        "user_prompt": user_prompt,
-        "max_context_size": max_context_size,
-        "reasoning_effort": reasoning_effort,
-        "reasoning_budget": reasoning_budget,
-        "copy_to_clipboard": copy_to_clipboard,
-        "copy_from_clipboard": copy_from_clipboard,
-        "show_config": show_config,
-        "context": context,
-        "context_is_image": context_is_image,
-        "loop_mode": loop_mode,
-        "history_file": history_file,
-        "redis_host": redis_host,
-        "redis_port": redis_port,
-        "enable_redis": enable_redis,
-        "show_times": show_times,
-        "show_times_detailed": show_times_detailed,
-        "yes_to_all": yes_to_all,
-    }
-
-    ctx.obj = state
+    # Create typed state object consumed by every command via ctx.obj.
+    ctx.obj = CommandState(
+        debug=debug,
+        ai_provider=ai_provider,
+        model=model,
+        fallback_models=fallback_models,
+        light_model=light_model,
+        ai_base_url=ai_base_url,
+        pricing=pricing,
+        is_sixel_supported=False,  # query_terminal_support(),
+        llm_config=llm_config,
+        store_url=os.environ.get("VECTOR_STORE_URL", "memory://"),
+        collection_name="par_gpt",
+        temperature=temperature,
+        user_agent_appid=user_agent_appid,
+        display_format=display_format,
+        context_location=context_location,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_context_size=max_context_size,
+        reasoning_effort=reasoning_effort,
+        reasoning_budget=reasoning_budget,
+        copy_to_clipboard=copy_to_clipboard,
+        copy_from_clipboard=copy_from_clipboard,
+        show_config=show_config,
+        context=context,
+        context_is_image=context_is_image,
+        loop_mode=loop_mode,
+        history_file=history_file,
+        redis_host=redis_host,
+        redis_port=redis_port,
+        enable_redis=enable_redis,
+        show_times=show_times,
+        show_times_detailed=show_times_detailed,
+        yes_to_all=yes_to_all,
+    )
 
 
 def display_configuration(
