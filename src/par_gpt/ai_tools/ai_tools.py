@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import webbrowser
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -69,6 +70,95 @@ def _get_tool_llm_config() -> LlmConfig | None:
     ).set_env()
 
 
+# ---------------------------------------------------------------------------
+# Tool return-value / error-signaling convention (QA-004, QA-009)
+# ---------------------------------------------------------------------------
+# Every AI tool in this module follows one error convention so the agent loop
+# can distinguish a tool failure from a successful result without parsing
+# free-form prose:
+#
+#   * ``str`` returns: an error begins with the literal prefix ``"Error: "``;
+#     a success return never does.
+#   * ``list`` returns: an error is conveyed via an element whose text (or
+#     ``"error"`` dict value) begins with ``"Error: "``.
+#   * ``ExecuteCommandResult`` returns: the failure is carried in ``stderr``
+#     beginning with ``"Error: "``.
+#
+# The exception type is preserved in the message as
+# ``{type(e).__name__}: {e}`` so the agent can reason about the failure class.
+#
+# A future migration to LangChain's ``ToolException`` / ``handle_tool_error``
+# (raising on failure instead of returning a string) is a larger behavior change
+# and is intentionally out of scope here; it is recommended future work.
+# ---------------------------------------------------------------------------
+
+
+def _resolve_skip_confirmation() -> bool:
+    """Return whether security confirmation prompts should be skipped.
+
+    Honors the global yes-to-all flag from the thread-safe tool context. The
+    ``tool_context`` import is intra-package and normally always available; the
+    ``ImportError`` guard preserves the original defensive behavior at a single
+    site instead of being duplicated per capture tool (QA-002).
+    """
+    try:
+        from par_gpt.tool_context import is_yes_to_all_enabled
+
+        return is_yes_to_all_enabled()
+    except ImportError:
+        return False
+
+
+def _capture_and_describe(capture_fn: Callable[[], str], describe_image: bool, label: str) -> str:
+    """Run a capture callable and optionally describe the result with an LLM.
+
+    Shared tail logic of the screen/window capture tools: invoke ``capture_fn``
+    (which already binds the target identifier, ``output_format="BASE64"`` and
+    the resolved ``skip_confirmation`` flag), then either return the raw base64
+    image or an LLM description of it. Mirrors the original single-try boundary
+    so any capture/describe exception surfaces as a prefixed error string.
+    """
+    try:
+        img = capture_fn()
+        if not describe_image:
+            return img  # type: ignore
+        return _utils.describe_image_with_llm(img)  # type: ignore
+    except Exception as e:
+        return f"Error: could not capture {label}: {type(e).__name__}: {e}"
+
+
+def _list_and_select(
+    items: list[Any],
+    *,
+    singular_label: str,
+    list_header: str,
+    primary_marker: str,
+    heading_label: Callable[[Any], str],
+    list_label: Callable[[Any], str],
+    select_label: str,
+) -> Any:
+    """Print the available items, mark the first as selected, and return it.
+
+    Returns ``None`` when ``items`` is empty so the caller can emit its own
+    tool-specific empty-result message. Always selects ``items[0]`` (the
+    primary/active item after upstream sorting). Extracted from the verbatim
+    duplicated "list available items" block in the capture tools (QA-002).
+    """
+    if not items:
+        return None
+    console = get_console()
+    first = items[0]
+    if len(items) == 1:
+        console.print(f"\n[green]{singular_label}:[/green] {heading_label(first)}")
+    else:
+        console.print(f"\n[yellow]{list_header}:[/yellow]")
+        for i, item in enumerate(items[:5], 1):
+            prefix = primary_marker if i == 1 else "  "
+            console.print(f"{prefix} {i}. {list_label(item)}")
+        console.print(f"\n[green]{select_label}:[/green] {heading_label(first)}")
+    return first
+
+
 @tool(parse_docstring=True)
 def ai_image_search(query: str, max_results: int = 10) -> list[str]:
     """
@@ -113,7 +203,7 @@ def ai_fetch_url(
         try:
             safe_urls.append(validate_url(url))
         except Exception as e:
-            return [f"URL rejected for security reasons: {url} ({e})"]
+            return [f"Error: URL rejected for security reasons: {url} ({type(e).__name__}: {e})"]
     return fetch_url_and_convert_to_markdown(safe_urls, include_links=True, verbose=True)
 
 
@@ -168,8 +258,8 @@ def ai_copy_to_clipboard(text: str) -> str:
         clipboard.copy(text)
         return "Text copied to clipboard"
     except Exception as e:
-        get_console().print(f"Error copying to clipboard: {str(e)}")
-        return "Error accessing clipboard"
+        get_console().print(f"Error copying to clipboard: {type(e).__name__}: {e}")
+        return f"Error: could not copy to clipboard: {type(e).__name__}: {e}"
 
 
 @tool(parse_docstring=True)
@@ -188,8 +278,8 @@ def ai_copy_from_clipboard() -> str:
     try:
         return clipboard.paste() or ""
     except Exception as e:
-        get_console().print(f"Error accessing clipboard: {str(e)}")
-        return "Error accessing clipboard"
+        get_console().print(f"Error accessing clipboard: {type(e).__name__}: {e}")
+        return f"Error: could not access clipboard: {type(e).__name__}: {e}"
 
 
 @tool(parse_docstring=True)
@@ -211,7 +301,7 @@ def git_commit_tool(message_only: bool, files: list[str], context: str | None = 
     llm_config = _get_tool_llm_config()
     if llm_config is None:
         return (
-            "git_commit_tool is unavailable: no LLM configuration is present in the tool "
+            "Error: git_commit_tool is unavailable: no LLM configuration is present in the tool "
             "context. Run via `par_gpt agent ...` so your configured provider is used."
         )
     repo = GitRepo(llm_config=llm_config)
@@ -222,7 +312,7 @@ def git_commit_tool(message_only: bool, files: list[str], context: str | None = 
     else:
         ret = repo.commit(files, context=context)
         if not ret:
-            return "Failed to commit."
+            return "Error: failed to commit."
         return f"Commit Message: {ret[1]}\nCommit Hash: {ret[0]}"
 
 
@@ -240,7 +330,7 @@ def ai_open_url(url: str) -> str:
     try:
         validate_url(url)
     except Exception as e:
-        return f"URL rejected for security reasons: {url} ({e})"
+        return f"Error: URL rejected for security reasons: {url} ({type(e).__name__}: {e})"
     webbrowser.open(url)
     return f"URL Opened: {url}"
 
@@ -396,7 +486,7 @@ def ai_joke(subject: str | None = None) -> str:
     llm_config = _get_tool_llm_config()
     if llm_config is None:
         return (
-            "ai_joke is unavailable: no LLM configuration is present in the tool context. "
+            "Error: ai_joke is unavailable: no LLM configuration is present in the tool context. "
             "Run via `par_gpt agent ...` so your configured provider is used."
         )
     chat_model = llm_config.build_chat_model()
@@ -685,7 +775,7 @@ def execute_code(code: str) -> ExecuteCommandResult:
         )
         return result
     except Exception as e:
-        return ExecuteCommandResult(exit_code=1, stdout="", stderr=f"Error: {str(e)}")
+        return ExecuteCommandResult(exit_code=1, stdout="", stderr=f"Error: {type(e).__name__}: {e}")
 
 
 @tool(parse_docstring=True)
@@ -716,7 +806,7 @@ def ai_list_available_screens() -> list:
     try:
         return _utils.list_available_screens()
     except Exception as e:
-        return [{"error": f"Screen detection not available: {str(e)}"}]
+        return [{"error": f"Error: screen detection not available: {type(e).__name__}: {e}"}]
 
 
 @tool(parse_docstring=True)
@@ -738,51 +828,30 @@ def ai_capture_screen_image(screen_id: int | None = None, describe_image: bool =
     if screen_id is None:
         try:
             screens = _utils.list_available_screens()
-            if not screens:
-                return "No displays found to capture."
-
-            # Use the first screen (should be the primary display after sorting) or show options
-            console = get_console()
-
-            if len(screens) == 1:
-                # Only one screen, use it
-                selected_screen = screens[0]
-                console.print(f"\n[green]Found one display:[/green] {selected_screen.name}")
-            else:
-                # Multiple screens, show list and use first one (primary display)
-                console.print("\n[yellow]Available displays (primary display first):[/yellow]")
-                for i, screen in enumerate(screens[:5], 1):  # Show first 5 screens
-                    prefix = "🖥️" if i == 1 else "  "  # Mark the primary display
-                    console.print(f"{prefix} {i}. {screen.name} [screen_id: {screen.screen_id}]")
-
-                # Use the first screen (should be the primary display after sorting)
-                selected_screen = screens[0]
-                console.print(f"\n[green]Capturing primary display:[/green] {selected_screen.name}")
-
-            # Use the screen information directly from AvailableScreen object
-            screen_id = selected_screen.screen_id
-
+            selected_screen = _list_and_select(
+                screens,
+                singular_label="Found one display",
+                list_header="Available displays (primary display first)",
+                primary_marker="🖥️",
+                heading_label=lambda s: f"{s.name}",
+                list_label=lambda s: f"{s.name} [screen_id: {s.screen_id}]",
+                select_label="Capturing primary display",
+            )
         except Exception as e:
-            return f"Error getting screen list: {str(e)}. Please specify screen_id manually."
+            return f"Error: could not get screen list: {type(e).__name__}: {e}. Please specify screen_id manually."
+        if selected_screen is None:
+            return "Error: no displays found to capture."
+        screen_id = selected_screen.screen_id
 
-    try:
-        # Check if yes-to-all mode is enabled to skip security confirmations
-        try:
-            from par_gpt.tool_context import is_yes_to_all_enabled
-
-            skip_confirmation = is_yes_to_all_enabled()
-        except ImportError:
-            skip_confirmation = False
-
-        img = _utils.capture_screen_image(
-            screen_id=screen_id, output_format="BASE64", skip_confirmation=skip_confirmation
-        )
-        if not describe_image:
-            return img  # type: ignore
-
-        return _utils.describe_image_with_llm(img)  # type: ignore
-    except Exception as e:
-        return f"Error capturing screen image: {str(e)}"
+    return _capture_and_describe(
+        lambda: _utils.capture_screen_image(
+            screen_id=screen_id,
+            output_format="BASE64",
+            skip_confirmation=_resolve_skip_confirmation(),
+        ),
+        describe_image,
+        "screen image",
+    )
 
 
 @tool(parse_docstring=True)
@@ -806,61 +875,36 @@ def ai_capture_window_image(
     if app_name is None and app_title is None and window_id is None:
         try:
             windows = _utils.list_visible_windows_mac()
-            if not windows:
-                return "No visible application windows found to capture. You may need to specify an app_name manually."
-
-            # Use the first window (should be the frontmost/active after sorting) or show options
-            console = get_console()
-
-            if len(windows) == 1:
-                # Only one window, use it
-                selected_window = windows[0]
-                console.print(
-                    f"\n[green]Found one window:[/green] {selected_window.app_name} - {selected_window.app_title}"
-                )
-            else:
-                # Multiple windows, show list and use first one (should be the active window)
-                console.print("\n[yellow]Available application windows (active window first):[/yellow]")
-                for i, window in enumerate(windows[:5], 1):  # Show first 5 windows
-                    prefix = "🔴" if i == 1 else "  "  # Mark the active window
-                    console.print(f"{prefix} {i}. {window.app_name} - {window.app_title}")
-
-                # Use the first window (should be the active window after intelligent sorting)
-                selected_window = windows[0]
-                console.print(
-                    f"\n[green]Capturing active window:[/green] {selected_window.app_name} - {selected_window.app_title}"
-                )
-
-            # Use the window information directly from VisibleWindow object
-            app_name = selected_window.app_name
-            app_title = selected_window.app_title
-            window_id = selected_window.window_id
-
+            selected_window = _list_and_select(
+                windows,
+                singular_label="Found one window",
+                list_header="Available application windows (active window first)",
+                primary_marker="🔴",
+                heading_label=lambda w: f"{w.app_name} - {w.app_title}",
+                list_label=lambda w: f"{w.app_name} - {w.app_title}",
+                select_label="Capturing active window",
+            )
         except Exception as e:
-            return f"Error getting window list: {str(e)}. Please specify app_name, app_title, or window_id manually."
+            return f"Error: could not get window list: {type(e).__name__}: {e}. Please specify app_name, app_title, or window_id manually."
+        if selected_window is None:
+            return (
+                "Error: no visible application windows found to capture. You may need to specify an app_name manually."
+            )
+        app_name = selected_window.app_name
+        app_title = selected_window.app_title
+        window_id = selected_window.window_id
 
-    try:
-        # Check if yes-to-all mode is enabled to skip security confirmations
-        try:
-            from par_gpt.tool_context import is_yes_to_all_enabled
-
-            skip_confirmation = is_yes_to_all_enabled()
-        except ImportError:
-            skip_confirmation = False
-
-        img = _utils.capture_window_image(
+    return _capture_and_describe(
+        lambda: _utils.capture_window_image(
             app_name=app_name,
             app_title=app_title,
             window_id=window_id,
             output_format="BASE64",
-            skip_confirmation=skip_confirmation,
-        )
-        if not describe_image:
-            return img  # type: ignore
-
-        return _utils.describe_image_with_llm(img)  # type: ignore
-    except Exception as e:
-        return f"Error capturing window image: {str(e)}"
+            skip_confirmation=_resolve_skip_confirmation(),
+        ),
+        describe_image,
+        "window image",
+    )
 
 
 @tool(parse_docstring=True)
