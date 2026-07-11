@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 from par_ai_core.par_logging import console_err
 from rich.console import Console
@@ -11,6 +12,67 @@ from rich.console import Console
 from par_utils import PathSecurityError, validate_relative_path
 
 from ._singletons import cache_manager
+
+# Named scaling factors for ``show_image_in_terminal`` (QA-010).
+# Terminal cells map to different pixel counts depending on the renderer.
+SIXEL_CELL_MULTIPLIER: tuple[int, int] = (8, 16)  # (width, height) per cell for sixel
+PIXEL_CELL_MULTIPLIER: tuple[int, int] = (2, 2)  # (width, height) per cell for rich_pixels
+SIZE_FACTORS: dict[str, float] = {"small": 0.25, "medium": 0.5, "large": 0.75}
+
+
+def _parse_dimension(
+    dimension: str,
+    console_width: int,
+    console_height: int,
+    sixel_supported: bool,
+) -> tuple[int, int]:
+    """Resolve a dimension spec into a ``(width, height)`` pixel target.
+
+    Accepts the named presets ``auto``/``small``/``medium``/``large`` (scaled
+    from the console cell size) or an explicit ``WIDTHxHEIGHT`` / single integer.
+    Pure function: no I/O.
+    """
+    if dimension in ("auto", "small", "medium", "large"):
+        cell_w, cell_h = SIXEL_CELL_MULTIPLIER if sixel_supported else PIXEL_CELL_MULTIPLIER
+        width = console_width * cell_w
+        height = console_height * cell_h
+        if dimension != "auto":
+            factor = SIZE_FACTORS[dimension]
+            width = round(width * factor)
+            height = round(height * factor)
+        return width, height
+
+    if "x" in dimension:
+        width_str, height_str = dimension.split("x")
+        return int(width_str), int(height_str)
+    size = int(dimension)
+    return size, size
+
+
+def _render_sixel(
+    converter_module: Any,
+    image_path: Path,
+    new_width: int,
+    new_height: int,
+    transparent: bool,
+    console: Console,
+) -> str:
+    """Render ``image_path`` as sixel graphics and return the status string."""
+    converter = converter_module.SixelConverter(
+        str(image_path), w=new_width, h=new_height, chromakey=transparent, alpha_threshold=0, fast=True
+    )
+    if console.stderr:
+        converter.write(sys.__stderr__)
+    else:
+        converter.write(sys.__stdout__)
+    return "Image shown in terminal"
+
+
+def _render_pixels(pixels_cls: Any, image: Any, new_width: int, new_height: int, console: Console) -> str:
+    """Render ``image`` as terminal pixels (rich_pixels) and return the status string."""
+    pixels = pixels_cls.from_image(image, resize=(new_width, new_height - 2))
+    console.print(pixels)
+    return "Image shown in terminal"
 
 
 def show_image_in_terminal(
@@ -35,7 +97,10 @@ def show_image_in_terminal(
     Raises:
         ValueError: If image_path not specified or invalid.
     """
-    # Import heavy dependencies locally for better startup performance
+    # Import heavy dependencies locally for better startup performance. These
+    # imports double as an availability probe: if any of PIL / rich_pixels /
+    # textual_image is missing we fall back to a status string. The bound names
+    # are passed into the render helpers so the probe results are reused.
     try:
         from PIL import Image
         from rich_pixels import Pixels
@@ -81,27 +146,7 @@ def show_image_in_terminal(
         if not image_path.exists():
             return "Image not found"
 
-        if dimension in ["auto", "small", "medium", "large"]:
-            if sixel_supported:
-                width = console.width * 8
-                height = console.height * 16
-            else:
-                width = console.width * 2
-                height = console.height * 2
-            if dimension == "small":
-                width = round(width * 0.25)
-                height = round(height * 0.25)
-            elif dimension == "medium":
-                width = round(width * 0.5)
-                height = round(height * 0.5)
-            elif dimension == "large":
-                width = round(width * 0.75)
-                height = round(height * 0.75)
-        else:
-            if "x" in dimension:
-                width, height = (int(x) for x in dimension.split("x"))
-            else:
-                width = height = int(dimension)
+        width, height = _parse_dimension(dimension, console.width, console.height, sixel_supported)
         if not width or not height:
             return "Invalid dimension"
 
@@ -116,20 +161,10 @@ def show_image_in_terminal(
         # console.print(f"Image size {w} x {h} : Console {dimension}: {width} x {height} : {scale}")
 
         if sixel_supported and not no_sixel:
-            c = sixel_converter.SixelConverter(
-                image_path, w=new_image_width, h=new_image_height, chromakey=transparent, alpha_threshold=0, fast=True
-            )
-            if console.stderr:
-                c.write(sys.__stderr__)
-            else:
-                c.write(sys.__stdout__)
-
-            return "Image shown in terminal"
-        pixels = Pixels.from_image(image, resize=(new_image_width, new_image_height - 2))
-        console.print(pixels)
-        return "Image shown in terminal"
+            return _render_sixel(sixel_converter, image_path, new_image_width, new_image_height, transparent, console)
+        return _render_pixels(Pixels, image, new_image_width, new_image_height, console)
     except Exception as e:
         console.print(e)
         console.print_exception()
 
-        return f"Error: {str(e)}"
+        return f"Error: {type(e).__name__}: {e}"

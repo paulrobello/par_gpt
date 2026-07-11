@@ -5,11 +5,152 @@ from __future__ import annotations
 import io
 import os
 import tempfile
+from typing import Any
 
 from par_ai_core.llm_image_utils import image_to_base64
 from par_ai_core.par_logging import console_err
 from pydantic import BaseModel, Field
 from strenum import StrEnum
+
+from ._macos_bindings import (
+    copy_window_list_info,
+    get_active_display_list,
+    get_display_bounds,
+    get_frontmost_app,
+    get_main_display_id,
+)
+
+# Window-filtering constants for ``list_visible_windows_mac`` (QA-006).
+_MENU_BAR_APPS: frozenset[str] = frozenset(
+    {
+        "MonitorControl",
+        "Bartender 5",
+        "JetBrains Toolbox",
+        "Control Room",
+        "1Blocker- Ad Blocker & Privacy",
+        "CleanMyMac X Business",
+        "CleanMyMac X",
+        "iPhone Backup Extractor",
+        "Wireless Diagnostics",
+        "System Preferences",
+        "Activity Monitor",
+        "Console",
+        "Keychain Access",
+        "Digital Color Meter",
+        "AirPort Utility",
+        "Migration Assistant",
+        "Boot Camp Assistant",
+        "Stats",
+        "TextSoap",
+        "Paw",
+        "Pockity",
+        "Codeshot",
+        "PDF Search- AI-Powered App",
+    }
+)
+_IGNORE_WINDOW_TITLES: frozenset[str] = frozenset(
+    {
+        "MenuBarRoundedCover",
+        "MenuBarCover",
+        "Item-0",
+        "Menubar",
+        "StatusBarApp",
+        "Monitor Control Gamma Activity Enforcer",
+    }
+)
+_MIN_WINDOW_DIMENSION = 100
+_MENU_BAR_LAYER_THRESHOLD = 25
+_MIN_WINDOW_ALPHA = 0.1
+
+# Activity-scoring constants for ``_score_window`` (QA-006).
+# Higher score = more likely to be the active window.
+_FRONTMOST_APP_SCORE_BOOST = 10000
+_LAYER_ZERO_SCORE_BOOST = 1000
+_LAYER_PENALTY_MULTIPLIER = 10
+_OPAQUE_WINDOW_SCORE_BOOST = 100
+_SIZE_BONUS_DIVISOR = 100000
+_MAX_SIZE_BONUS = 50
+
+
+def _filter_eligible_windows(
+    window_list: list[dict[str, Any]],
+) -> list[tuple[int, dict[str, Any]]]:
+    """Filter raw CGWindowList entries down to eligible application windows.
+
+    Each raw entry is a dict-like Core Graphics window record. Returns
+    ``(original_enumeration_index, window)`` pairs for windows that pass every
+    filter: has an owner name; not a known menu-bar/system app; title not in the
+    ignore list; at least ``_MIN_WINDOW_DIMENSION`` px on each side; below the
+    menu-bar layer; sufficiently opaque; and not an empty-title Finder /
+    System Preferences window.
+
+    The original enumeration index is preserved because position in the window
+    list (earlier = more recently active) feeds the activity score.
+    """
+    eligible: list[tuple[int, dict[str, Any]]] = []
+    for idx, window in enumerate(window_list):
+        app_name = window.get("kCGWindowOwnerName", "")
+        app_title = window.get("kCGWindowName", "")
+        window_layer = window.get("kCGWindowLayer", 0)
+        window_bounds = window.get("kCGWindowBounds", {})
+        window_alpha = window.get("kCGWindowAlpha", 0)
+
+        if not app_name:
+            continue
+        if app_name in _MENU_BAR_APPS:
+            continue
+        if app_title in _IGNORE_WINDOW_TITLES:
+            continue
+        width = window_bounds.get("Width", 0)
+        height = window_bounds.get("Height", 0)
+        if width < _MIN_WINDOW_DIMENSION or height < _MIN_WINDOW_DIMENSION:
+            continue
+        if window_layer >= _MENU_BAR_LAYER_THRESHOLD:
+            continue
+        if window_alpha < _MIN_WINDOW_ALPHA:
+            continue
+        if not app_title and app_name in {"Finder", "System Preferences"}:
+            continue
+
+        eligible.append((idx, window))
+    return eligible
+
+
+def _score_window(
+    idx: int,
+    app_name: str,
+    window_pid: int,
+    frontmost_app_name: str | None,
+    frontmost_pid: int | None,
+    window_layer: int,
+    window_alpha: float,
+    window_size: int,
+) -> float:
+    """Score how likely a window is the active one (higher = more likely).
+
+    Pure function: same inputs always yield the same score, so the sort order
+    produced by ``list_visible_windows_mac`` is stable and deterministic.
+    """
+    score: float = 0
+    # A window owned by the frontmost app gets a large boost.
+    if frontmost_app_name and app_name == frontmost_app_name:
+        score += _FRONTMOST_APP_SCORE_BOOST
+    elif frontmost_pid and window_pid == frontmost_pid:
+        score += _FRONTMOST_APP_SCORE_BOOST
+    # Layer 0 is typical for ordinary app windows; higher layers are pushed back.
+    if window_layer == 0:
+        score += _LAYER_ZERO_SCORE_BOOST
+    else:
+        score -= window_layer * _LAYER_PENALTY_MULTIPLIER
+    # Fully opaque windows are more likely to be active.
+    if window_alpha >= 1.0:
+        score += _OPAQUE_WINDOW_SCORE_BOOST
+    # Position in window list: earlier = more recently active.
+    score -= idx
+    # Larger windows get a small, capped boost.
+    if window_size > 0:
+        score += min(window_size / _SIZE_BONUS_DIVISOR, _MAX_SIZE_BONUS)
+    return score
 
 
 class VisibleWindow(BaseModel):
@@ -52,153 +193,42 @@ def list_visible_windows_mac() -> list[VisibleWindow]:
     Returns:
         list[VisibleWindow]: A list of VisibleWindows objects, sorted with active window first.
     """
-    import Quartz
+    # I/O: identify the frontmost app and snapshot the on-screen windows via the
+    # typed macOS bindings (the Quartz/AppKit ``type: ignore`` lives there).
+    frontmost_app_name, frontmost_pid = get_frontmost_app()
+    window_list = copy_window_list_info()
 
-    # Get the frontmost application to identify active window
-    frontmost_app_name = None
-    frontmost_pid = None
-
-    try:
-        import AppKit
-
-        workspace = AppKit.NSWorkspace.sharedWorkspace()  # type: ignore
-        frontmost_app = workspace.frontmostApplication()  # type: ignore
-        if frontmost_app:
-            frontmost_app_name = frontmost_app.localizedName()  # type: ignore
-            frontmost_pid = frontmost_app.processIdentifier()  # type: ignore
-    except (ImportError, AttributeError):
-        # Fallback if AppKit is not available or has issues
-        pass
-
-    windowList = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
-        Quartz.kCGWindowListExcludeDesktopElements | Quartz.kCGWindowListOptionOnScreenOnly,  # type: ignore
-        Quartz.kCGNullWindowID,  # type: ignore
-    )  # type: ignore
-
-    # Build window info with metadata for intelligent sorting
-    window_data = []
-
-    # Menu bar apps and system utilities to filter out
-    menu_bar_apps = {
-        "MonitorControl",
-        "Bartender 5",
-        "JetBrains Toolbox",
-        "Control Room",
-        "1Blocker- Ad Blocker & Privacy",
-        "CleanMyMac X Business",
-        "CleanMyMac X",
-        "iPhone Backup Extractor",
-        "Wireless Diagnostics",
-        "System Preferences",
-        "Activity Monitor",
-        "Console",
-        "Keychain Access",
-        "Digital Color Meter",
-        "AirPort Utility",
-        "Migration Assistant",
-        "Boot Camp Assistant",
-        "Stats",
-        "TextSoap",
-        "Paw",
-        "Pockity",
-        "Codeshot",
-        "PDF Search- AI-Powered App",
-    }
-
-    # Window titles to ignore (often menu bar covers or system windows)
-    ignore_titles = {
-        "MenuBarRoundedCover",
-        "MenuBarCover",
-        "Item-0",
-        "Menubar",
-        "StatusBarApp",
-        "Monitor Control Gamma Activity Enforcer",
-    }
-
-    for idx, window in enumerate(windowList):
+    # Pure filter + score, separated from I/O (QA-006).
+    scored: list[tuple[float, VisibleWindow]] = []
+    for idx, window in _filter_eligible_windows(window_list):
         app_name = window.get("kCGWindowOwnerName", "")
         app_title = window.get("kCGWindowName", "")
         window_layer = window.get("kCGWindowLayer", 0)
-        window_bounds = window.get("kCGWindowBounds", {})
         window_alpha = window.get("kCGWindowAlpha", 0)
         window_pid = window.get("kCGWindowOwnerPID", 0)
-
-        # Skip windows without names
-        if not app_name:
-            continue
-
-        # Skip menu bar apps and system utilities
-        if app_name in menu_bar_apps:
-            continue
-
-        # Skip windows with ignored titles
-        if app_title in ignore_titles:
-            continue
-
-        # Skip windows that are too small (likely menu bar items or system elements)
-        width = window_bounds.get("Width", 0)
-        height = window_bounds.get("Height", 0)
-        if width < 100 or height < 100:
-            continue
-
-        # Skip windows at menu bar layer (layer 25 is typically menu bar)
-        if window_layer >= 25:
-            continue
-
-        # Skip transparent windows (alpha < 0.1)
-        if window_alpha < 0.1:
-            continue
-
-        # Skip windows with empty titles that are likely system windows
-        if not app_title and app_name in {"Finder", "System Preferences"}:
-            continue
-
+        bounds = window.get("kCGWindowBounds", {})
+        width = bounds.get("Width", 0)
+        height = bounds.get("Height", 0)
+        window_size = width * height
         window_id = window["kCGWindowNumber"]
 
-        # Calculate priority score - higher score = more likely to be the active window
-        score = 0
-
-        # Is this window from the frontmost app? Huge boost
-        if frontmost_app_name and app_name == frontmost_app_name:
-            score += 10000
-        elif frontmost_pid and window_pid == frontmost_pid:
-            score += 10000
-
-        # Lower layer = more likely to be active (layer 0 is typical for active windows)
-        if window_layer == 0:
-            score += 1000
-        else:
-            score -= window_layer * 10
-
-        # Fully opaque windows are more likely to be active
-        if window_alpha >= 1.0:
-            score += 100
-
-        # Position in window list (earlier = more recently active)
-        score -= idx
-
-        # Larger windows get a small boost
-        window_size = width * height
-        if window_size > 0:
-            score += min(window_size / 100000, 50)  # Cap the size bonus
-
-        window_data.append(
-            {
-                "window": VisibleWindow(app_name=app_name, app_title=app_title, window_id=window_id),
-                "score": score,
-                "is_frontmost_app": app_name == frontmost_app_name or window_pid == frontmost_pid,
-                "layer": window_layer,
-                "size": window_size,
-            }
+        score = _score_window(
+            idx,
+            app_name,
+            window_pid,
+            frontmost_app_name,
+            frontmost_pid,
+            window_layer,
+            window_alpha,
+            window_size,
         )
+        scored.append((score, VisibleWindow(app_name=app_name, app_title=app_title, window_id=window_id)))
 
-    # Sort by score (highest first) - this puts the active window first
-    window_data.sort(key=lambda x: x["score"], reverse=True)
+    # Sort by score (highest first); Python's sort is stable, so equal-score
+    # windows keep their original list order.
+    scored.sort(key=lambda item: item[0], reverse=True)
 
-    # Extract just the VisibleWindow objects
-    result = [item["window"] for item in window_data]
-
-    return result
+    return [window for _, window in scored]
 
 
 def list_visible_windows() -> list[VisibleWindow]:
@@ -225,23 +255,17 @@ def list_available_screens_mac() -> list[AvailableScreen]:
     Returns:
         list[AvailableScreen]: A list of AvailableScreen objects with primary display first.
     """
-    import Quartz
-
     try:
         # Get all active displays
         max_displays = 32  # Reasonable upper limit for displays
-        active_displays = Quartz.CGGetActiveDisplayList(max_displays, None, None)[1]  # type: ignore
+        active_displays = get_active_display_list(max_displays)
 
         screens = []
-        main_display_id = Quartz.CGMainDisplayID()  # type: ignore
+        main_display_id = get_main_display_id()
 
         for display_id in active_displays:
             # Get display bounds
-            bounds = Quartz.CGDisplayBounds(display_id)  # type: ignore
-            width = int(bounds.size.width)
-            height = int(bounds.size.height)
-            origin_x = int(bounds.origin.x)
-            origin_y = int(bounds.origin.y)
+            width, height, origin_x, origin_y = get_display_bounds(display_id)
 
             # Check if this is the main display
             is_primary = display_id == main_display_id
@@ -274,7 +298,7 @@ def list_available_screens_mac() -> list[AvailableScreen]:
         return screens
 
     except Exception as e:
-        console_err.print(f"[red]Error detecting displays: {e}[/red]")
+        console_err.print(f"[red]Error detecting displays: {type(e).__name__}: {e}[/red]")
         # Fallback to single screen
         return [
             AvailableScreen(
@@ -328,20 +352,15 @@ def capture_window_image_mac(
     Raises:
         ValueError: If required parameters are missing or if user denies confirmation.
     """
-    import Quartz
-
     app_name = (app_name or "").strip().lower()
     app_title = (app_title or "").strip().lower()
     if not app_name and not app_title and not window_id:
         raise ValueError("Either app_name, app_title, or window_id must be specified")
 
     if not window_id:
-        windowList = Quartz.CGWindowListCopyWindowInfo(  # type: ignore
-            Quartz.kCGWindowListExcludeDesktopElements | Quartz.kCGWindowListOptionOnScreenOnly,  # type: ignore
-            Quartz.kCGNullWindowID,  # type: ignore
-        )  # type: ignore
+        window_list = copy_window_list_info()
 
-        for window in windowList:
+        for window in window_list:
             app = window.get("kCGWindowOwnerName", "").lower()
             title = window.get("kCGWindowName", "").lower()
 

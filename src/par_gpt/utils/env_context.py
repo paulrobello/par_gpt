@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import orjson as json
+import orjson
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
@@ -56,7 +56,7 @@ def mk_env_context(extra_context: dict[str, Any] | str | Path | None = None, con
         if not extra_context.is_file():
             raise ValueError(f"Extra context file not found or is not a file: {extra_context}")
         try:
-            extra_context = json.loads(extra_context.read_text(encoding="utf-8"))
+            extra_context = orjson.loads(extra_context.read_text(encoding="utf-8"))
         except Exception as _:
             extra_context = extra_context.read_text(encoding="utf-8").strip()
 

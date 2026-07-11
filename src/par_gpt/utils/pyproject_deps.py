@@ -7,7 +7,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-import orjson as json
+import orjson
 import tomli_w
 from packaging.requirements import Requirement
 from par_ai_core.par_logging import console_err
@@ -83,8 +83,8 @@ def update_pyproject_deps(
     console.print("[cyan]Getting installed package versions from UV...")
     try:
         result = subprocess.run(["uv", "pip", "list", "--format", "json"], capture_output=True, text=True, check=True)
-        installed_packages = json.loads(result.stdout)
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        installed_packages = orjson.loads(result.stdout)
+    except (subprocess.CalledProcessError, orjson.JSONDecodeError) as e:
         console.print(f"[red]Error getting installed packages: {e}")
         return
 
