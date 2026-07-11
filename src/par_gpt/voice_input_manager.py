@@ -17,16 +17,10 @@ from par_ai_core.utils import timer_block
 from rich.console import Console
 
 from par_gpt.utils.llm_invoker import LLMInvoker
-from par_utils import ConsoleManager, LazyImportManager
+from par_utils import ConsoleManager, lazy_import
 
 # Create instances for backward compatibility
-_lazy_import_manager = LazyImportManager()
 _console_manager = ConsoleManager()
-
-
-def lazy_import(module_path: str, item_name: str | None = None):
-    """Backward compatibility function for lazy imports."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
 
 
 def get_console(console=None):

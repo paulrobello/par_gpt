@@ -8,16 +8,24 @@ and utilities for command-specific import loading.
 from __future__ import annotations
 
 import importlib
+import threading
 from collections.abc import Callable
 from typing import Any
 
 
 class LazyImportManager:
-    """Manages lazy imports for different command categories."""
+    """Manages lazy imports for different command categories.
+
+    Thread-safe: the import cache is guarded by a reentrant lock so concurrent
+    callers never race on ``importlib.import_module`` or the cache dict.
+    """
 
     def __init__(self) -> None:
         """Initialize the lazy import manager."""
         self._import_cache: dict[str, Any] = {}
+        # RLock allows reentrant entry: an import may itself trigger another
+        # get_cached_import on the same thread without self-deadlock.
+        self._lock = threading.RLock()
 
     def get_cached_import(self, module_path: str, item_name: str | None = None) -> Any:
         """Get a cached import or import and cache it.
@@ -38,21 +46,22 @@ class LazyImportManager:
         """
         cache_key = f"{module_path}.{item_name}" if item_name else module_path
 
-        if cache_key in self._import_cache:
-            return self._import_cache[cache_key]
+        with self._lock:
+            if cache_key in self._import_cache:
+                return self._import_cache[cache_key]
 
-        # Import the module
-        module = importlib.import_module(module_path)
+            # Import the module
+            module = importlib.import_module(module_path)
 
-        if item_name:
-            # Get specific item from module
-            item = getattr(module, item_name)
-            self._import_cache[cache_key] = item
-            return item
-        else:
-            # Cache entire module
-            self._import_cache[cache_key] = module
-            return module
+            if item_name:
+                # Get specific item from module
+                item = getattr(module, item_name)
+                self._import_cache[cache_key] = item
+                return item
+            else:
+                # Cache entire module
+                self._import_cache[cache_key] = module
+                return module
 
     def clear_cache(self) -> None:
         """Clear the import cache."""
@@ -116,6 +125,9 @@ class LazyUtilsLoader:
 def lazy_import(module_path: str, item_name: str | None = None) -> Any:
     """Convenience function for lazy importing.
 
+    Uses the process-wide :func:`get_lazy_import_manager` singleton so the cache
+    is shared across every caller and actually hits on repeat lookups.
+
     Args:
         module_path: Python module path
         item_name: Optional specific item to import
@@ -130,8 +142,7 @@ def lazy_import(module_path: str, item_name: str | None = None) -> Any:
         # Import specific function
         join_func = lazy_import("os.path", "join")
     """
-    manager = LazyImportManager()
-    return manager.get_cached_import(module_path, item_name)
+    return get_lazy_import_manager().get_cached_import(module_path, item_name)
 
 
 def create_lazy_loader(utils_package: str) -> LazyUtilsLoader:
@@ -153,6 +164,8 @@ def create_lazy_loader(utils_package: str) -> LazyUtilsLoader:
 def lazy_import_with_fallback(primary_module: str, fallback_module: str, item_name: str | None = None) -> Any:
     """Lazy import with fallback option.
 
+    Uses the process-wide singleton so the cache is shared.
+
     Args:
         primary_module: Primary module to try importing
         fallback_module: Fallback module if primary fails
@@ -168,7 +181,7 @@ def lazy_import_with_fallback(primary_module: str, fallback_module: str, item_na
         # Try orjson first, fallback to json
         json_module = lazy_import_with_fallback("orjson", "json")
     """
-    manager = LazyImportManager()
+    manager = get_lazy_import_manager()
 
     try:
         return manager.get_cached_import(primary_module, item_name)
@@ -177,6 +190,25 @@ def lazy_import_with_fallback(primary_module: str, fallback_module: str, item_na
             return manager.get_cached_import(fallback_module, item_name)
         except ImportError as e:
             raise ImportError(f"Failed to import from both {primary_module} and {fallback_module}") from e
+
+
+# Process-wide singleton. Constructed once; all callers share one cache so repeat
+# lookups hit instead of re-importing. Created on first call, which in practice
+# happens at module-import time (before worker threads are spawned).
+_lazy_import_manager_singleton: LazyImportManager | None = None
+
+
+def get_lazy_import_manager() -> LazyImportManager:
+    """Return the process-wide shared :class:`LazyImportManager` singleton.
+
+    All callers receive the same instance, so the import cache is shared across
+    the whole codebase and actually hits on repeat lookups (the previous per-call
+    ``LazyImportManager()`` construction left the cache permanently empty).
+    """
+    global _lazy_import_manager_singleton
+    if _lazy_import_manager_singleton is None:
+        _lazy_import_manager_singleton = LazyImportManager()
+    return _lazy_import_manager_singleton
 
 
 class LazyAttribute:

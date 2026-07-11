@@ -165,8 +165,18 @@ class PARGPTLazyImportManager(_LazyImportManager):
         return imports
 
 
-# Global PAR GPT lazy import manager instance
+# Process-wide PAR GPT lazy import manager singleton. Constructed exactly once;
+# all callers share one instance and one import cache.
 _lazy_import_manager = PARGPTLazyImportManager()
+
+
+def get_pargpt_lazy_import_manager() -> PARGPTLazyImportManager:
+    """Return the process-wide shared :class:`PARGPTLazyImportManager` singleton.
+
+    All callers receive the same instance so the import cache is shared across
+    the whole codebase.
+    """
+    return _lazy_import_manager
 
 
 def get_command_imports(command: str, **kwargs) -> dict[str, Any]:

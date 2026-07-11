@@ -31,20 +31,9 @@ from par_gpt.utils import get_console
 
 # Clean import resolution using facade pattern
 from par_gpt.utils.utils_facade import get_utils_facade
-
-# Lazy import manager for heavy dependencies
-from par_utils import LazyImportManager
+from par_utils import lazy_import
 from par_utils.security import validate_url
 from sandbox import ExecuteCommandResult
-
-# Create a global lazy import manager instance
-_lazy_import_manager = LazyImportManager()
-
-
-def lazy_import(module_path: str, item_name: str | None = None):
-    """Backward compatibility function for lazy imports."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
-
 
 # Get the utils facade instance for clean function access
 _utils = get_utils_facade()

@@ -11,15 +11,7 @@ import typer
 from par_ai_core.par_logging import console_err
 from rich.console import Console
 
-from par_utils import LazyImportManager
-
-# Create a global lazy import manager instance
-_lazy_import_manager = LazyImportManager()
-
-
-def lazy_import(module_path: str, item_name: str | None = None):
-    """Backward compatibility function for lazy imports."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
+from par_utils import lazy_import
 
 
 class BaseCommand(ABC):

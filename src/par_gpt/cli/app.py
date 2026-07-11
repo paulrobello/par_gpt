@@ -28,15 +28,7 @@ from par_gpt.cli.config import (
 from par_gpt.cli.context import ContextProcessor
 from par_gpt.cli.options import GLOBAL_OPTION_DEFAULTS, LoopMode
 from par_gpt.cli.security import check_mutual_exclusivity
-from par_utils import LazyImportManager
-
-# Create a global lazy import manager instance
-_lazy_import_manager = LazyImportManager()
-
-
-def lazy_import(module_path: str, item_name: str | None = None):
-    """Backward compatibility function for lazy imports."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
+from par_utils import lazy_import
 
 
 def version_callback(value: bool) -> None:

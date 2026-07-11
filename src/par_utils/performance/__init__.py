@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from par_utils.performance.lazy_loading import LazyImportManager, LazyUtilsLoader
+from par_utils.performance.lazy_loading import (
+    LazyImportManager,
+    LazyUtilsLoader,
+    get_lazy_import_manager,
+    lazy_import,
+    lazy_import_with_fallback,
+)
 from par_utils.performance.timing import (
     TimingRegistry,
     disable_timing,
@@ -25,4 +31,7 @@ __all__ = [
     "timer",
     "LazyImportManager",
     "LazyUtilsLoader",
+    "get_lazy_import_manager",
+    "lazy_import",
+    "lazy_import_with_fallback",
 ]

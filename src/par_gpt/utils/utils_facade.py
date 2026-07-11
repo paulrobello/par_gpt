@@ -30,11 +30,10 @@ class UtilsFacade:
             return self._utils_cache[function_name]
 
         try:
-            # Import from the utils package using lazy import manager
-            from par_utils import LazyImportManager
+            # Resolve through the shared singleton so the import cache is reused.
+            from par_utils import get_lazy_import_manager
 
-            _lazy_import_manager = LazyImportManager()
-            lazy_import = _lazy_import_manager.get_cached_import
+            lazy_import = get_lazy_import_manager().get_cached_import
 
             # Try to get function from utils module
             utils_func = lazy_import("par_gpt.utils", function_name)

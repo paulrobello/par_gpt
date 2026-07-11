@@ -12,15 +12,7 @@ import typer
 
 from par_gpt import __env_var_prefix__
 from par_gpt.commands.base import BaseCommand
-from par_utils import LazyImportManager, PathSecurityError
-
-# Create a global lazy import manager instance
-_lazy_import_manager = LazyImportManager()
-
-
-def lazy_import(module_path: str, item_name: str | None = None):
-    """Backward compatibility function for lazy imports."""
-    return _lazy_import_manager.get_cached_import(module_path, item_name)
+from par_utils import PathSecurityError, lazy_import
 
 
 class StardewCommand(BaseCommand):

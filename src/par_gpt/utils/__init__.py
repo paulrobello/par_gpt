@@ -20,7 +20,6 @@ from par_utils import (
     ErrorCategory,
     ErrorHandler,
     ErrorSeverity,
-    LazyImportManager,
     PathSecurityError,
     SecurePathValidator,
     TimingRegistry,
@@ -77,7 +76,6 @@ from .weather import get_weather_current, get_weather_forecast
 
 # Create shared instances for backward compatibility.
 _console_manager = ConsoleManager()
-_lazy_import_manager = LazyImportManager()
 
 
 def get_console(console=None):

@@ -30,7 +30,9 @@ from par_utils.errors.registry import ErrorCategory, ErrorRegistry, ErrorSeverit
 from par_utils.performance.lazy_loading import (
     LazyImportManager,
     LazyUtilsLoader,
+    get_lazy_import_manager,
     lazy_import,
+    lazy_import_with_fallback,
 )
 from par_utils.performance.timing import (
     TimingRegistry,
@@ -67,7 +69,9 @@ __all__ = [
     "user_timer",
     "LazyImportManager",
     "LazyUtilsLoader",
+    "get_lazy_import_manager",
     "lazy_import",
+    "lazy_import_with_fallback",
     # Security
     "PathSecurityError",
     "SecurePathValidator",
