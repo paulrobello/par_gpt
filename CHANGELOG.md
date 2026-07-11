@@ -21,11 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLAUDE.md stale version-specific changelog replaced with a pointer to this file.
 
 ### Fixed
-- Phase 1 critical security issues (SEC-001 through SEC-005): path validation, credential handling, and injection defenses.
 - `code_review` command name corrected to `code-review` (hyphen) throughout README.
 - Dead `PATH_SECURITY_SUMMARY.md` link replaced with inline security note.
 - Missing `extraction_prompt.md` removed from the sdist include list (was breaking `uv build --sdist`).
+- Descriptive error messages on `FileNotFoundError` in the repo tool; consistent `"Error: {type}: {detail}"` convention across AI tools so the agent can distinguish success from failure.
 - Multiple code-quality improvements across AI tools, utils submodules, managers, and the error subsystem (QA-001 through QA-015).
+- Pre-existing invalid `.pre-commit-config.yaml` (gitleaks block indentation) — `pre-commit validate-config` now passes.
+
+### Security
+- **Host code execution no longer auto-confirms**: the `--repl` host REPL confirmation prompt now defaults to "no" and `--yes-to-all` no longer bypasses it. Use `--code-sandbox` for unsupervised runs (SEC-001).
+- **Sandbox no longer fails open**: the AST `safety_check` now rejects `from <module> import <name>` of unsafe symbols (e.g. `from subprocess import call`) and restores `os` to the unsafe-module list (SEC-002).
+- **Git commits run hooks by default**: `git_commit_tool` no longer passes `--no-verify`; pre-commit secret-scanning (e.g. `gitleaks`) runs unless explicitly bypassed (SEC-003).
+- **SSRF guard on URL tools**: `ai_fetch_url`/`ai_open_url` now validate schemes (`http`/`https`) and reject hostnames that resolve to loopback/private/link-local/metadata addresses via a new `validate_url` helper (SEC-004).
+- **Hardened host-REPL namespace**: `os`/`sys` are no longer pre-loaded into the host REPL exec namespace (SEC-005).
+
+> This release is the result of a full project audit and its remediation. 68 of 71 issues were resolved; ARC-004 (typed command state), ARC-006 (tool-selection design), and ARC-007 (package splitting) are intentionally deferred as larger, separately-scheduled efforts. See `git log` for the per-phase commits.
 
 ## [0.15.0] - 2025-11-24
 
