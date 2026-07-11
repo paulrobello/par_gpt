@@ -33,7 +33,7 @@ class GitCommand(BaseCommand):
             # Get provider callback
             with self.get_provider_callback(state):
                 get_git_repo = lazy_import("par_gpt.repo.repo", "GitRepo")
-                repo = get_git_repo()(llm_config=state.llm_config)
+                repo = get_git_repo(llm_config=state.llm_config)
 
                 if not repo.is_dirty():
                     self.console.print("[bold yellow]No changes to commit. Exiting...")
